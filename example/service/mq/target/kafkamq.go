@@ -2,10 +2,11 @@ package target
 
 import (
 	"context"
-	"khan/kmq/example/bean/config"
-	"khan/kmq/example/service/idl"
-	"khan/kmq/internal/utils/mq/kafka"
 	"time"
+
+	"github.com/khan-lau/kmq/example/bean/config"
+	"github.com/khan-lau/kmq/example/service/idl"
+	"github.com/khan-lau/kmq/internal/utils/mq/kafka"
 
 	"github.com/khan-lau/kutils/container/kstrings"
 	"github.com/khan-lau/kutils/logger"

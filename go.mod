@@ -1,4 +1,4 @@
-module khan/kmq
+module github.com/khan-lau/kmq
 
 go 1.22.6
 

@@ -2,10 +2,11 @@ package source
 
 import (
 	"context"
-	conf "khan/kmq/example/bean/config"
-	"khan/kmq/example/service/idl"
-	"khan/kmq/internal/utils/mq/rabbitmq"
 	"time"
+
+	conf "github.com/khan-lau/kmq/example/bean/config"
+	"github.com/khan-lau/kmq/example/service/idl"
+	"github.com/khan-lau/kmq/internal/utils/mq/rabbitmq"
 
 	grabbitmq "github.com/wagslane/go-rabbitmq"
 

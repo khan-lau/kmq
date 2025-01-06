@@ -2,10 +2,11 @@ package source
 
 import (
 	"context"
-	"khan/kmq/example/bean/config"
-	"khan/kmq/example/service/idl"
-	"khan/kmq/internal/utils/mq/redismq"
 	"time"
+
+	"github.com/khan-lau/kmq/example/bean/config"
+	"github.com/khan-lau/kmq/example/service/idl"
+	"github.com/khan-lau/kmq/internal/utils/mq/redismq"
 
 	"github.com/khan-lau/kutils/container/kstrings"
 	"github.com/khan-lau/kutils/db/kredis"
