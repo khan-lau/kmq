@@ -9,3 +9,5 @@ mq 客户端封装, 支持4种MQ
 使用方法见 `example`目录
 1. `source` - comsumer 范例
 2. `target` - producer 范例
+
+> rabbitMQ 暂时只支持topic模式
