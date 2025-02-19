@@ -1,6 +1,6 @@
 module github.com/khan-lau/kmq
 
-go 1.20
+go 1.22.6
 
 require (
 	github.com/BurntSushi/toml v1.1.0
@@ -9,7 +9,7 @@ require (
 	github.com/khan-lau/kutils v0.3.11
 	github.com/khan-lau/mapstructure v1.5.4
 	github.com/titanous/json5 v1.0.0
-	github.com/wagslane/go-rabbitmq v0.15.0
+	github.com/wagslane/go-rabbitmq v0.15.0 // 最低依赖go 1.22.6
 	gopkg.in/yaml.v3 v3.0.1
 )
 
