@@ -1,8 +1,6 @@
 module github.com/khan-lau/kmq
 
-go 1.22.6
-
-toolchain go1.22.10
+go 1.20
 
 require (
 	github.com/BurntSushi/toml v1.1.0
