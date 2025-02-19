@@ -6,7 +6,7 @@ import (
 
 	"github.com/khan-lau/kmq/example/bean/config"
 	"github.com/khan-lau/kmq/example/service/idl"
-	"github.com/khan-lau/kmq/internal/utils/mq/rocketmq"
+	"github.com/khan-lau/kmq/rocketmq"
 
 	"github.com/apache/rocketmq-client-go/v2/consumer"
 	"github.com/apache/rocketmq-client-go/v2/primitive"

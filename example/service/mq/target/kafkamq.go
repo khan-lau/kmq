@@ -6,7 +6,7 @@ import (
 
 	"github.com/khan-lau/kmq/example/bean/config"
 	"github.com/khan-lau/kmq/example/service/idl"
-	"github.com/khan-lau/kmq/internal/utils/mq/kafka"
+	"github.com/khan-lau/kmq/kafka"
 
 	"github.com/khan-lau/kutils/container/kstrings"
 	"github.com/khan-lau/kutils/logger"
@@ -83,7 +83,7 @@ func (that *KafkaMQ) Start() error {
 		SetRetry(that.conf.Producer.RetryMax).
 		SetTimeout(time.Duration(that.conf.Producer.Timeout))
 
-	// TODO 载入上次消费的offset
+	// 设置topic
 	topics := make([]*kafka.Topic, 0, len(that.conf.Producer.Topics))
 	for _, topic := range that.conf.Producer.Topics {
 		topics = append(topics, kafka.NewTopic(topic.Name).SetOffset(int32(topic.Partition), topic.Offset))

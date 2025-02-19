@@ -8,7 +8,7 @@ require (
 	github.com/BurntSushi/toml v1.1.0
 	github.com/IBM/sarama v1.44.0
 	github.com/apache/rocketmq-client-go/v2 v2.1.2
-	github.com/khan-lau/kutils v0.3.10
+	github.com/khan-lau/kutils v0.3.11
 	github.com/khan-lau/mapstructure v1.5.4
 	github.com/titanous/json5 v1.0.0
 	github.com/wagslane/go-rabbitmq v0.15.0

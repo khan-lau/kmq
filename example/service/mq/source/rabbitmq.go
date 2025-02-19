@@ -6,7 +6,7 @@ import (
 
 	conf "github.com/khan-lau/kmq/example/bean/config"
 	"github.com/khan-lau/kmq/example/service/idl"
-	"github.com/khan-lau/kmq/internal/utils/mq/rabbitmq"
+	"github.com/khan-lau/kmq/rabbitmq"
 
 	grabbitmq "github.com/wagslane/go-rabbitmq"
 
