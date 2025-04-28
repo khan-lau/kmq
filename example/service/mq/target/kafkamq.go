@@ -66,8 +66,6 @@ func (that *KafkaMQ) Start() error {
 		return kstrings.Errorf("service {} is not stopped, status={}", that.name, that.status)
 	}
 
-	subCtx := context.WithoutCancel(that.ctx)
-
 	netConfig := kafka.NewNetConfig().
 		SetDialTimeout(time.Duration(that.conf.Net.DialTimeout)).
 		SetMaxOpenRequests(that.conf.Net.MaxOpenRequests).
@@ -99,7 +97,7 @@ func (that *KafkaMQ) Start() error {
 		SetNet(netConfig).
 		SetProducer(kafkaProducerConfig)
 
-	publisher, err := kafka.NewAsyncProducer(subCtx, kafkaConfig, that.logf)
+	publisher, err := kafka.NewAsyncProducer(that.ctx, kafkaConfig, that.logf)
 	if err != nil {
 		return err
 	}

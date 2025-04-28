@@ -66,7 +66,6 @@ func (that *RabbitMQ) Start() error {
 		return kstrings.Errorf("service {} is not stopped, status={}", that.name, that.status)
 	}
 
-	subCtx := context.WithoutCancel(that.ctx)
 	// rabbitConsumerConfig := rabbitmq.NewConsumerConfig().
 	// 	SetExchange(that.conf.Consumer.Exchange).
 	// 	SetQueueName(that.conf.Consumer.QueueName).
@@ -85,7 +84,7 @@ func (that *RabbitMQ) Start() error {
 		SetVHost(that.conf.VHost).
 		SetProducer(rabbitProducerConfig)
 
-	publisher, err := rabbitmq.NewProducer(subCtx, rabbitConfig, that.logf)
+	publisher, err := rabbitmq.NewProducer(that.ctx, rabbitConfig, that.logf)
 	if err != nil {
 		return err
 	}

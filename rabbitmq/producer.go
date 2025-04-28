@@ -81,9 +81,8 @@ END_LOOP:
 		case <-that.ctx.Done():
 			break END_LOOP
 		case msg := <-that.queue:
-			subCtx := context.WithoutCancel(that.ctx)
 			err := that.publisher.PublishWithContext( //nolint
-				subCtx,
+				that.ctx,
 				msg.Body,
 				msg.Router,
 				rabbitmq.WithPublishOptionsExchange(msg.Exchange),

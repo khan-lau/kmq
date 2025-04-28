@@ -72,7 +72,6 @@ func (that *RedisMQ) Start() error {
 		return kstrings.Errorf("service {} is not stopped, status={}", that.name, that.status)
 	}
 
-	subCtx := context.WithoutCancel(that.ctx)
 	redisConf := redismq.NewRedisConfig().
 		SetHost(that.conf.Host).
 		SetPort(that.conf.Port).
@@ -80,7 +79,7 @@ func (that *RedisMQ) Start() error {
 		SetDB(int(that.conf.DbNum)).
 		SetRetry(int(that.conf.Retry)).
 		SetTopics(that.conf.Topics...)
-	that.subscriber = redismq.NewRedisPubSub(subCtx, redisConf, that.logf)
+	that.subscriber = redismq.NewRedisPubSub(that.ctx, redisConf, that.logf)
 	redisConf.SetExitCallback(func(event interface{}) {
 		that.onExit(event)
 	})

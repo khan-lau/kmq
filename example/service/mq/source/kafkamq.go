@@ -71,8 +71,6 @@ func (that *KafkaMQ) Start() error {
 		return kstrings.Errorf("service {} is not stopped, status={}", that.name, that.status)
 	}
 
-	subCtx := context.WithoutCancel(that.ctx)
-
 	netConfig := kafka.NewNetConfig().
 		SetDialTimeout(time.Duration(that.conf.Net.DialTimeout)).
 		SetMaxOpenRequests(that.conf.Net.MaxOpenRequests).
@@ -104,7 +102,7 @@ func (that *KafkaMQ) Start() error {
 		SetNet(netConfig).
 		SetConsumer(kafkaConsumerConfig)
 
-	subscriber, err := kafka.NewConsumer(subCtx, kafkaConfig, that.logf)
+	subscriber, err := kafka.NewConsumer(that.ctx, kafkaConfig, that.logf)
 	if err != nil {
 		return err
 	}

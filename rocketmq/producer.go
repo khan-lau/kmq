@@ -90,8 +90,6 @@ func NewProducer(ctx context.Context, conf *RocketConfig, logf logger.AppLogFunc
 }
 
 func (that *Producer) Start() {
-	subCtx := context.WithoutCancel(that.ctx)
-
 	go func(mqProducer rocketmq.Producer) {
 		err := mqProducer.Start()
 		if err != nil && that.logf != nil {
@@ -112,7 +110,7 @@ END_LOOP:
 				mqMessage.WithProperties(msg.Properties)
 			}
 			if that.conf.Producer.AsyncSend {
-				_ = that.mqProducer.SendAsync(subCtx, func(ctx context.Context, result *primitive.SendResult, err error) {
+				_ = that.mqProducer.SendAsync(that.ctx, func(ctx context.Context, result *primitive.SendResult, err error) {
 					if err != nil {
 						if that.logf != nil {
 							that.logf(logger.ErrorLevel, rocket_tag, "Send message error: {}", err.Error())
@@ -124,7 +122,7 @@ END_LOOP:
 					}
 				}, mqMessage)
 			} else {
-				_, err := that.mqProducer.SendSync(subCtx, mqMessage)
+				_, err := that.mqProducer.SendSync(that.ctx, mqMessage)
 				if err != nil {
 					if that.logf != nil {
 						that.logf(logger.ErrorLevel, rocket_tag, "Send message error: {}", err.Error())

@@ -73,8 +73,6 @@ func (that *RocketMQ) Start() error {
 		return kstrings.Errorf("service {} is not stopped, status={}", that.name, that.status)
 	}
 
-	subCtx := context.WithoutCancel(that.ctx)
-
 	rocketConsumerConfig := rocketmq.NewRocketConsumerConfig().
 		SetTopics(that.conf.Consumer.Topics...).
 		SetOrder(that.conf.Consumer.Order).
@@ -116,7 +114,7 @@ func (that *RocketMQ) Start() error {
 		SetNsResolver(that.conf.NsResolver).
 		SetConsumer(rocketConsumerConfig)
 
-	subscriber, err := rocketmq.NewConsumer(subCtx, rocketConfig, that.logf)
+	subscriber, err := rocketmq.NewConsumer(that.ctx, rocketConfig, that.logf)
 	if err != nil {
 		return err
 	}

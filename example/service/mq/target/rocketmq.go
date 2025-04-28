@@ -68,8 +68,6 @@ func (that *RocketMQ) Start() error {
 		return kstrings.Errorf("service {} is not stopped, status={}", that.name, that.status)
 	}
 
-	subCtx := context.WithoutCancel(that.ctx)
-
 	rabbitProducerConfig := rocketmq.NewRocketProducerConfig().
 		SetTopics(that.conf.Producer.Topics...).
 		SetTimeout(that.conf.Producer.Timeout).
@@ -95,7 +93,7 @@ func (that *RocketMQ) Start() error {
 		SetNsResolver(that.conf.NsResolver).
 		SetProducer(rabbitProducerConfig)
 
-	publisher, err := rocketmq.NewProducer(subCtx, rocketConfig, that.logf)
+	publisher, err := rocketmq.NewProducer(that.ctx, rocketConfig, that.logf)
 	if err != nil {
 		return err
 	}
