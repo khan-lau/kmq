@@ -5,7 +5,7 @@ import (
 
 	"github.com/IBM/sarama"
 	"github.com/khan-lau/kutils/container/klists"
-	"github.com/khan-lau/kutils/logger"
+	klog "github.com/khan-lau/kutils/klogger"
 )
 
 type KafkaMessage struct {
@@ -24,7 +24,7 @@ type SyncProducer struct {
 	conf       *Config
 	Producer   sarama.SyncProducer
 	msgChan    chan *KafkaMessage
-	logf       logger.AppLogFuncWithTag
+	logf       klog.AppLogFuncWithTag
 }
 
 // NewSyncProducer 初始化一个新的同步Kafka生产者。
@@ -33,12 +33,12 @@ type SyncProducer struct {
 //
 //	ctx context.Context - 用于生产者的上下文。
 //	conf *Config - 配置信息。
-//	logf logger.AppLogFunc - 用于错误处理的日志记录函数。
+//	logf klog.AppLogFunc - 用于错误处理的日志记录函数。
 //
 // 返回:
 //
 //	*SyncProducer - 指向初始化的SyncProducer的指针。
-func NewSyncProducer(ctx context.Context, conf *Config, logf logger.AppLogFuncWithTag) (*SyncProducer, error) {
+func NewSyncProducer(ctx context.Context, conf *Config, logf klog.AppLogFuncWithTag) (*SyncProducer, error) {
 	config := sarama.NewConfig()
 	// 设置config
 	config.Version = conf.Version                     // 设置协议版本
@@ -72,7 +72,7 @@ func NewSyncProducer(ctx context.Context, conf *Config, logf logger.AppLogFuncWi
 	producer, err := sarama.NewSyncProducer(brokerList, config)
 	if err != nil {
 		if logf != nil {
-			logf(logger.ErrorLevel, kafka_tag, "kafka.NewSyncProducer error: {}", err.Error())
+			logf(klog.ErrorLevel, kafka_tag, "kafka.NewSyncProducer error: {}", err.Error())
 		}
 		return nil, err
 	}
@@ -100,10 +100,10 @@ END_LOOP:
 	for {
 		select {
 		case <-that.ctx.Done():
-			// that.log(logger.InfoLevel, "kafka.SyncProducer cancel")
+			// that.log(klog.InfoLevel, "kafka.SyncProducer cancel")
 			break END_LOOP
 		case msg := <-that.msgChan:
-			// that.log(logger.DebugLevel, "ready to topic: {} send {}", msg.Topic, string(msg.Value))
+			// that.log(klog.DebugLevel, "ready to topic: {} send {}", msg.Topic, string(msg.Value))
 			rawMsg := &sarama.ProducerMessage{
 				Topic: msg.Topic,
 				Value: sarama.ByteEncoder(msg.Value),
@@ -113,12 +113,12 @@ END_LOOP:
 			partition, offset, err := that.Producer.SendMessage(rawMsg)
 			if err != nil {
 				if that.logf != nil {
-					that.logf(logger.ErrorLevel, kafka_tag, "kafka.SendMessage error: {}", err.Error())
+					that.logf(klog.ErrorLevel, kafka_tag, "kafka.SendMessage error: {}", err.Error())
 				}
 				return
 			} else {
 				if that.logf != nil {
-					that.logf(logger.DebugLevel, kafka_tag, "send to topic: {} message {} partition: {} offset: {}", msg.Topic, string(msg.Value), partition, offset)
+					that.logf(klog.DebugLevel, kafka_tag, "send to topic: {} message {} partition: {} offset: {}", msg.Topic, string(msg.Value), partition, offset)
 				}
 			}
 		}
@@ -127,7 +127,7 @@ END_LOOP:
 	<-that.ctx.Done()
 
 	if that.logf != nil {
-		that.logf(logger.InfoLevel, kafka_tag, "kafka.SyncProducer close")
+		that.logf(klog.InfoLevel, kafka_tag, "kafka.SyncProducer close")
 	}
 
 	if that.conf.OnExit != nil {
@@ -175,7 +175,7 @@ type AsyncProducer struct {
 	conf       *Config
 	Producer   sarama.AsyncProducer
 	msgChan    chan *KafkaMessage
-	logf       logger.AppLogFuncWithTag
+	logf       klog.AppLogFuncWithTag
 }
 
 // NewAsyncProducer 创建一个新的异步 Kafka 生产者。
@@ -189,7 +189,7 @@ type AsyncProducer struct {
 // 返回:
 //
 //	*AsyncProducer：创建的异步生产者的指针。
-func NewAsyncProducer(ctx context.Context, conf *Config, logf logger.AppLogFuncWithTag) (*AsyncProducer, error) {
+func NewAsyncProducer(ctx context.Context, conf *Config, logf klog.AppLogFuncWithTag) (*AsyncProducer, error) {
 	config := sarama.NewConfig()
 	// 设置config
 	config.Version = conf.Version                     // 设置协议版本
@@ -223,7 +223,7 @@ func NewAsyncProducer(ctx context.Context, conf *Config, logf logger.AppLogFuncW
 	producer, err := sarama.NewAsyncProducer(brokerList, config)
 	if err != nil {
 		if logf != nil {
-			logf(logger.ErrorLevel, kafka_tag, "kafka.NewAsyncProducer error: {}", err.Error())
+			logf(klog.ErrorLevel, kafka_tag, "kafka.NewAsyncProducer error: {}", err.Error())
 		}
 		return nil, err
 	}
@@ -254,11 +254,11 @@ func (that *AsyncProducer) Start() {
 			case success := <-that.Producer.Successes():
 				byteArr, _ := success.Value.Encode()
 				if that.logf != nil {
-					that.logf(logger.DebugLevel, kafka_tag, "Message sent to Kafka topic {}, partition {}, offset {} msg: {}", success.Topic, success.Partition, success.Offset, string(byteArr))
+					that.logf(klog.DebugLevel, kafka_tag, "Message sent to Kafka topic {}, partition {}, offset {} msg: {}", success.Topic, success.Partition, success.Offset, string(byteArr))
 				}
 			case err := <-that.Producer.Errors():
 				if that.logf != nil {
-					that.logf(logger.ErrorLevel, kafka_tag, "Failed to send message to Kafka topic {}, partition {}: {}", err.Msg.Topic, err.Msg.Partition, err.Err.Error())
+					that.logf(klog.ErrorLevel, kafka_tag, "Failed to send message to Kafka topic {}, partition {}: {}", err.Msg.Topic, err.Msg.Partition, err.Err.Error())
 				}
 				if that.conf.OnError != nil {
 					that.conf.OnError(err)

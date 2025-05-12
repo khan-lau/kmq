@@ -6,7 +6,7 @@ import (
 
 	"github.com/khan-lau/kutils/container/kstrings"
 	"github.com/khan-lau/kutils/db/kredis"
-	"github.com/khan-lau/kutils/logger"
+	klog "github.com/khan-lau/kutils/klogger"
 )
 
 type SubscribeCallback func(voidObj interface{}, msg *kredis.RedisMessage)
@@ -18,10 +18,10 @@ type RedisPubSub struct {
 	connected    bool
 	queue        chan *kredis.RedisMessage // 消息队列
 	conf         *RedisConfig
-	logf         logger.AppLogFuncWithTag
+	logf         klog.AppLogFuncWithTag
 }
 
-func NewRedisPubSub(ctx context.Context, conf *RedisConfig, logf logger.AppLogFuncWithTag) *RedisPubSub {
+func NewRedisPubSub(ctx context.Context, conf *RedisConfig, logf klog.AppLogFuncWithTag) *RedisPubSub {
 	ctx, cancel := context.WithCancel(ctx)
 	redisHD := kredis.NewKRedis(ctx, conf.Host, int(conf.Port), "", conf.Password, conf.DB)
 	redisPs := &RedisPubSub{
@@ -43,7 +43,7 @@ func (that *RedisPubSub) Subscribe(voidObj interface{}, callback SubscribeCallba
 func (that *RedisPubSub) SyncSubscribe(voidObj interface{}, callback SubscribeCallback) {
 	if that.connected { // 已连接, 不再重连
 		if that.logf != nil {
-			that.logf(logger.InfoLevel, redis_tag, "Client is connected, do nothing")
+			that.logf(klog.InfoLevel, redis_tag, "Client is connected, do nothing")
 		}
 		return
 	}
@@ -52,7 +52,7 @@ func (that *RedisPubSub) SyncSubscribe(voidObj interface{}, callback SubscribeCa
 	err := that.connectUtil(subCtx)
 	if err != nil {
 		if that.logf != nil {
-			that.logf(logger.WarnLevel, redis_tag, "Connect error: {}", err)
+			that.logf(klog.WarnLevel, redis_tag, "Connect error: {}", err)
 		}
 		if that.conf.OnError != nil {
 			that.conf.OnError(err)
@@ -67,7 +67,7 @@ func (that *RedisPubSub) SyncSubscribe(voidObj interface{}, callback SubscribeCa
 			if err != nil {
 				if that.logf != nil {
 					// TODO 某些指定错误需要重连
-					that.logf(logger.WarnLevel, redis_tag, "Subscribe error: {}", err)
+					that.logf(klog.WarnLevel, redis_tag, "Subscribe error: {}", err)
 				}
 				if that.conf.OnError != nil {
 					that.conf.OnError(err)
@@ -76,7 +76,7 @@ func (that *RedisPubSub) SyncSubscribe(voidObj interface{}, callback SubscribeCa
 			} else {
 				msg, err := that.receivedMessage(topic, payload)
 				if nil != err && that.logf != nil {
-					that.logf(logger.WarnLevel, redis_tag, "Subscribe reids topic error: {}", err)
+					that.logf(klog.WarnLevel, redis_tag, "Subscribe reids topic error: {}", err)
 				}
 				if callback != nil {
 					callback(voidObj, msg)
@@ -91,7 +91,7 @@ func (that *RedisPubSub) SyncSubscribe(voidObj interface{}, callback SubscribeCa
 	subCancel()
 	that.stop()
 	if that.logf != nil {
-		that.logf(logger.InfoLevel, redis_tag, "Client is done")
+		that.logf(klog.InfoLevel, redis_tag, "Client is done")
 	}
 	if that.conf.OnExit != nil {
 		that.conf.OnExit(nil)
@@ -101,7 +101,7 @@ func (that *RedisPubSub) SyncSubscribe(voidObj interface{}, callback SubscribeCa
 func (that *RedisPubSub) Start() {
 	if that.connected { // 已连接, 不再重连
 		if that.logf != nil {
-			that.logf(logger.InfoLevel, redis_tag, "Client is connected, do nothing")
+			that.logf(klog.InfoLevel, redis_tag, "Client is connected, do nothing")
 		}
 		return
 	}
@@ -110,7 +110,7 @@ func (that *RedisPubSub) Start() {
 	err := that.connectUtil(subCtx)
 	if err != nil {
 		if that.logf != nil {
-			that.logf(logger.WarnLevel, redis_tag, "Connect error: {}", err)
+			that.logf(klog.WarnLevel, redis_tag, "Connect error: {}", err)
 		}
 		if that.conf.OnError != nil {
 			that.conf.OnError(err)
@@ -130,7 +130,7 @@ END_LOOP:
 			{
 				err := that.redisHandler.Publish(msg.Topic, msg.Message)
 				if err != nil && that.logf != nil {
-					that.logf(logger.WarnLevel, redis_tag, "Publish error: {}", err)
+					that.logf(klog.WarnLevel, redis_tag, "Publish error: {}", err)
 				}
 			}
 		}
@@ -139,7 +139,7 @@ END_LOOP:
 	subCancel()
 	that.stop()
 	if that.logf != nil {
-		that.logf(logger.InfoLevel, redis_tag, "Client is done")
+		that.logf(klog.InfoLevel, redis_tag, "Client is done")
 	}
 
 	if that.conf.OnExit != nil {
@@ -176,7 +176,7 @@ func (that *RedisPubSub) PublishData(topic string, message string) {
 	err := that.redisHandler.Publish(msg.Topic, msg.Message)
 	if err != nil {
 		if that.logf != nil {
-			that.logf(logger.WarnLevel, redis_tag, "Publish error: {}", err)
+			that.logf(klog.WarnLevel, redis_tag, "Publish error: {}", err)
 		}
 
 		if that.conf.OnError != nil {
@@ -206,7 +206,7 @@ func (that *RedisPubSub) connectUtil(ctx context.Context) error {
 
 		if !that.dbConnect() {
 			if that.logf != nil {
-				that.logf(logger.WarnLevel, redis_tag, "connect to redis {}:{} - {} faulted, retry: {}", that.conf.Host, int(that.conf.Port), that.conf.DB, i)
+				that.logf(klog.WarnLevel, redis_tag, "connect to redis {}:{} - {} faulted, retry: {}", that.conf.Host, int(that.conf.Port), that.conf.DB, i)
 			}
 			time.Sleep(500 * time.Millisecond)
 		} else {
@@ -242,7 +242,7 @@ func (that *RedisPubSub) stop() {
 		that.connected = false
 		close(that.queue)
 		if that.logf != nil {
-			that.logf(logger.InfoLevel, redis_tag, "Client stopped")
+			that.logf(klog.InfoLevel, redis_tag, "Client stopped")
 		}
 	}
 }

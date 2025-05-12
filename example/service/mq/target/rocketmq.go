@@ -11,7 +11,7 @@ import (
 	"github.com/apache/rocketmq-client-go/v2/producer"
 
 	"github.com/khan-lau/kutils/container/kstrings"
-	"github.com/khan-lau/kutils/logger"
+	klog "github.com/khan-lau/kutils/klogger"
 )
 
 type RocketMQ struct {
@@ -22,14 +22,14 @@ type RocketMQ struct {
 	status    idl.ServiceStatus
 	publisher *rocketmq.Producer
 
-	logf logger.AppLogFuncWithTag
+	logf klog.AppLogFuncWithTag
 }
 
 const (
 	rocketmq_tag = "rocketmq_target"
 )
 
-func NewRocketMQ(ctx context.Context, name string, conf *config.RocketConfig, logf logger.AppLogFuncWithTag) (*RocketMQ, error) {
+func NewRocketMQ(ctx context.Context, name string, conf *config.RocketConfig, logf klog.AppLogFuncWithTag) (*RocketMQ, error) {
 	subCtx, subCancel := context.WithCancel(ctx)
 
 	rabbitMQ := &RocketMQ{
@@ -56,7 +56,7 @@ func (that *RocketMQ) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(logger.ErrorLevel, rocketmq_tag, "start service {} error: {}", that.name, err)
+				that.logf(klog.ErrorLevel, rocketmq_tag, "start service {} error: {}", that.name, err)
 			}
 			that.onError(that.name, err)
 		}
@@ -142,7 +142,7 @@ func (that *RocketMQ) Broadcast(message []byte, properties map[string]string) bo
 	for _, topic := range that.conf.Producer.Topics {
 		if !that.Publish(topic, message, properties) {
 			if that.logf != nil {
-				that.logf(logger.ErrorLevel, redismq_tag, "publish topic {} message {} fault", topic, string(message))
+				that.logf(klog.ErrorLevel, redismq_tag, "publish topic {} message {} fault", topic, string(message))
 			}
 		}
 	}

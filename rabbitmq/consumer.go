@@ -2,7 +2,7 @@ package rabbitmq
 
 import (
 	"github.com/khan-lau/kutils/container/kstrings"
-	"github.com/khan-lau/kutils/logger"
+	klog "github.com/khan-lau/kutils/klogger"
 	"github.com/wagslane/go-rabbitmq"
 )
 
@@ -13,10 +13,10 @@ type Consumer struct {
 	consumer *rabbitmq.Consumer
 	// queue    chan<- []byte // 只读消息队列
 	conf *RabbitConfig
-	logf logger.AppLogFuncWithTag
+	logf klog.AppLogFuncWithTag
 }
 
-func NewConsumer(conf *RabbitConfig, logf logger.AppLogFuncWithTag) (*Consumer, error) {
+func NewConsumer(conf *RabbitConfig, logf klog.AppLogFuncWithTag) (*Consumer, error) {
 	logger := &GoRabbitLogger{logf: logf}
 
 	conn, err := rabbitmq.NewConn(
@@ -68,7 +68,7 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 	// block main thread - wait for shutdown signal
 	err := that.consumer.Run(func(d rabbitmq.Delivery) rabbitmq.Action {
 		// if that.logf != nil {
-		// 	that.logf(logger.InfoLevel, "received: %s", string(d.Body))
+		// 	that.logf(klog.InfoLevel, "received: %s", string(d.Body))
 		// }
 
 		// that.queue <- d.Body
@@ -82,7 +82,7 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 
 	if err != nil {
 		if that.logf != nil {
-			that.logf(logger.ErrorLevel, rabbit_tag, "consumer error: {}", err)
+			that.logf(klog.ErrorLevel, rabbit_tag, "consumer error: {}", err)
 		}
 	}
 	if that.conf.OnExit != nil {

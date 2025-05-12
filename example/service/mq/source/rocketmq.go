@@ -11,7 +11,7 @@ import (
 	"github.com/apache/rocketmq-client-go/v2/consumer"
 	"github.com/apache/rocketmq-client-go/v2/primitive"
 	"github.com/khan-lau/kutils/container/kstrings"
-	"github.com/khan-lau/kutils/logger"
+	klog "github.com/khan-lau/kutils/klogger"
 )
 
 type RocketMQ struct {
@@ -22,7 +22,7 @@ type RocketMQ struct {
 	status     idl.ServiceStatus
 	subscriber *rocketmq.Consumer
 
-	logf              logger.AppLogFuncWithTag
+	logf              klog.AppLogFuncWithTag
 	OnRecivedCallback idl.OnRecived // 消息接收回调函数
 }
 
@@ -30,7 +30,7 @@ const (
 	rocketmq_tag = "rocketmq_source"
 )
 
-func NewRocketMQ(ctx context.Context, name string, conf *config.RocketConfig, logf logger.AppLogFuncWithTag) (*RocketMQ, error) {
+func NewRocketMQ(ctx context.Context, name string, conf *config.RocketConfig, logf klog.AppLogFuncWithTag) (*RocketMQ, error) {
 	subCtx, subCancel := context.WithCancel(ctx)
 
 	rocketMQ := &RocketMQ{
@@ -61,7 +61,7 @@ func (that *RocketMQ) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(logger.ErrorLevel, rocketmq_tag, "start service {} error: {}", that.name, err)
+				that.logf(klog.ErrorLevel, rocketmq_tag, "start service {} error: {}", that.name, err)
 			}
 			that.onError(that.name, err)
 		}

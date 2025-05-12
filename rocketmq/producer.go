@@ -7,7 +7,7 @@ import (
 	"github.com/apache/rocketmq-client-go/v2"
 	"github.com/apache/rocketmq-client-go/v2/primitive"
 	"github.com/apache/rocketmq-client-go/v2/producer"
-	"github.com/khan-lau/kutils/logger"
+	klog "github.com/khan-lau/kutils/klogger"
 )
 
 type RocketMessage struct {
@@ -22,10 +22,10 @@ type Producer struct {
 	mqProducer rocketmq.Producer
 	queue      chan *RocketMessage // 消息队列
 	conf       *RocketConfig
-	logf       logger.AppLogFuncWithTag
+	logf       klog.AppLogFuncWithTag
 }
 
-func NewProducer(ctx context.Context, conf *RocketConfig, logf logger.AppLogFuncWithTag) (*Producer, error) {
+func NewProducer(ctx context.Context, conf *RocketConfig, logf klog.AppLogFuncWithTag) (*Producer, error) {
 	opts := make([]producer.Option, 0, 40)
 	if conf.GroupName != "" {
 		groupOption := producer.WithGroupName(conf.GroupName)
@@ -93,9 +93,9 @@ func (that *Producer) Start() {
 	go func(mqProducer rocketmq.Producer) {
 		err := mqProducer.Start()
 		if err != nil && that.logf != nil {
-			that.logf(logger.ErrorLevel, rocket_tag, "Start producer error: {}", err.Error())
+			that.logf(klog.ErrorLevel, rocket_tag, "Start producer error: {}", err.Error())
 		} else if that.logf != nil {
-			that.logf(logger.InfoLevel, rocket_tag, "Start producer successfully")
+			that.logf(klog.InfoLevel, rocket_tag, "Start producer successfully")
 		}
 	}(that.mqProducer)
 
@@ -113,7 +113,7 @@ END_LOOP:
 				_ = that.mqProducer.SendAsync(that.ctx, func(ctx context.Context, result *primitive.SendResult, err error) {
 					if err != nil {
 						if that.logf != nil {
-							that.logf(logger.ErrorLevel, rocket_tag, "Send message error: {}", err.Error())
+							that.logf(klog.ErrorLevel, rocket_tag, "Send message error: {}", err.Error())
 						}
 
 						if that.conf.OnError != nil {
@@ -125,7 +125,7 @@ END_LOOP:
 				_, err := that.mqProducer.SendSync(that.ctx, mqMessage)
 				if err != nil {
 					if that.logf != nil {
-						that.logf(logger.ErrorLevel, rocket_tag, "Send message error: {}", err.Error())
+						that.logf(klog.ErrorLevel, rocket_tag, "Send message error: {}", err.Error())
 					}
 					if that.conf.OnError != nil {
 						that.conf.OnError(err)
@@ -165,6 +165,6 @@ func (that *Producer) Close() {
 	that.cancel()
 	err := that.mqProducer.Shutdown()
 	if err != nil && that.logf != nil {
-		that.logf(logger.ErrorLevel, rocket_tag, "Shutdown producer error: {}", err.Error())
+		that.logf(klog.ErrorLevel, rocket_tag, "Shutdown producer error: {}", err.Error())
 	}
 }

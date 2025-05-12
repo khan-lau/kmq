@@ -10,7 +10,7 @@ import (
 
 	"github.com/khan-lau/kutils/container/kstrings"
 	"github.com/khan-lau/kutils/db/kredis"
-	"github.com/khan-lau/kutils/logger"
+	klog "github.com/khan-lau/kutils/klogger"
 )
 
 type RedisMQ struct {
@@ -21,7 +21,7 @@ type RedisMQ struct {
 	status     idl.ServiceStatus
 	subscriber *redismq.RedisPubSub
 
-	logf              logger.AppLogFuncWithTag
+	logf              klog.AppLogFuncWithTag
 	OnRecivedCallback idl.OnRecived // 消息接收回调函数
 }
 
@@ -29,7 +29,7 @@ const (
 	redismq_tag = "redismq_source"
 )
 
-func NewRedisMQ(ctx context.Context, name string, conf *config.RedisConfig, logf logger.AppLogFuncWithTag) (*RedisMQ, error) {
+func NewRedisMQ(ctx context.Context, name string, conf *config.RedisConfig, logf klog.AppLogFuncWithTag) (*RedisMQ, error) {
 	subCtx, subCancel := context.WithCancel(ctx)
 
 	redisMQ := &RedisMQ{
@@ -60,7 +60,7 @@ func (that *RedisMQ) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(logger.ErrorLevel, redismq_tag, "start service {} error: {}", that.name, err)
+				that.logf(klog.ErrorLevel, redismq_tag, "start service {} error: {}", that.name, err)
 			}
 			that.onError(that.name, err)
 		}

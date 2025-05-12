@@ -1,7 +1,7 @@
 package rabbitmq
 
 import (
-	"github.com/khan-lau/kutils/logger"
+	klog "github.com/khan-lau/kutils/klogger"
 )
 
 type RabbitWorkType uint8
@@ -28,41 +28,41 @@ type EventCallbackFunc func(event interface{})
 /////////////////////////////////////////////////////////////
 
 type GoRabbitLogger struct {
-	logf logger.AppLogFuncWithTag
+	logf klog.AppLogFuncWithTag
 }
 
 // Fatalf -
 func (that GoRabbitLogger) Fatalf(format string, v ...interface{}) {
 	if that.logf != nil {
-		that.logf(logger.FatalLevel, loggingPrefix, format, v...)
+		that.logf(klog.FatalLevel, loggingPrefix, format, v...)
 	}
 }
 
 // Errorf -
 func (that GoRabbitLogger) Errorf(format string, v ...interface{}) {
 	if that.logf != nil {
-		that.logf(logger.ErrorLevel, loggingPrefix, format, v...)
+		that.logf(klog.ErrorLevel, loggingPrefix, format, v...)
 	}
 }
 
 // Warnf -
 func (that GoRabbitLogger) Warnf(format string, v ...interface{}) {
 	if that.logf != nil {
-		that.logf(logger.WarnLevel, loggingPrefix, format, v...)
+		that.logf(klog.WarnLevel, loggingPrefix, format, v...)
 	}
 }
 
 // Infof -
 func (that GoRabbitLogger) Infof(format string, v ...interface{}) {
 	if that.logf != nil {
-		that.logf(logger.InfoLevel, loggingPrefix, format, v...)
+		that.logf(klog.InfoLevel, loggingPrefix, format, v...)
 	}
 }
 
 // Debugf -
 func (that GoRabbitLogger) Debugf(format string, v ...interface{}) {
 	if that.logf != nil {
-		that.logf(logger.DebugLevel, loggingPrefix, format, v...)
+		that.logf(klog.DebugLevel, loggingPrefix, format, v...)
 	}
 }
 

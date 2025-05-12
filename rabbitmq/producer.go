@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/khan-lau/kutils/container/kstrings"
-	"github.com/khan-lau/kutils/logger"
+	klog "github.com/khan-lau/kutils/klogger"
 	"github.com/wagslane/go-rabbitmq"
 )
 
@@ -31,15 +31,15 @@ type Producer struct {
 	// queue <-chan *mean.MeanMSG // 只读消息队列
 	queue chan *RabbitMessage // 消息队列
 	conf  *RabbitConfig
-	logf  logger.AppLogFuncWithTag
+	logf  klog.AppLogFuncWithTag
 }
 
-func NewProducer(ctx context.Context, conf *RabbitConfig, logf logger.AppLogFuncWithTag) (*Producer, error) {
+func NewProducer(ctx context.Context, conf *RabbitConfig, logf klog.AppLogFuncWithTag) (*Producer, error) {
 	queue := make(chan *RabbitMessage, 1000)
-	klog := &GoRabbitLogger{logf: logf}
+	rlog := &GoRabbitLogger{logf: logf}
 	conn, err := rabbitmq.NewConn(
 		kstrings.FormatString("amqp://{}:{}@{}:{}{}", conf.User, conf.Password, conf.Host, int(conf.Port), conf.VHost),
-		rabbitmq.WithConnectionOptionsLogger(klog),
+		rabbitmq.WithConnectionOptionsLogger(rlog),
 	)
 	if err != nil {
 		return nil, err
@@ -47,7 +47,7 @@ func NewProducer(ctx context.Context, conf *RabbitConfig, logf logger.AppLogFunc
 
 	publisher, err := rabbitmq.NewPublisher(
 		conn,
-		rabbitmq.WithPublisherOptionsLogger(klog),
+		rabbitmq.WithPublisherOptionsLogger(rlog),
 		rabbitmq.WithPublisherOptionsExchangeName(conf.Producer.Exchange),
 		rabbitmq.WithPublisherOptionsExchangeKind(conf.Producer.WorkType),
 		rabbitmq.WithPublisherOptionsExchangeDurable,
@@ -60,13 +60,13 @@ func NewProducer(ctx context.Context, conf *RabbitConfig, logf logger.AppLogFunc
 
 	publisher.NotifyReturn(func(r rabbitmq.Return) {
 		if logf != nil {
-			logf(logger.DebugLevel, rabbit_tag, "message returned from server: {}", string(r.Body))
+			logf(klog.DebugLevel, rabbit_tag, "message returned from server: {}", string(r.Body))
 		}
 	})
 
 	publisher.NotifyPublish(func(c rabbitmq.Confirmation) {
 		if logf != nil {
-			logf(logger.DebugLevel, rabbit_tag, "message confirmed from server. tag: {}, ack: {}", c.DeliveryTag, c.Ack)
+			logf(klog.DebugLevel, rabbit_tag, "message confirmed from server. tag: {}, ack: {}", c.DeliveryTag, c.Ack)
 		}
 	})
 
@@ -89,7 +89,7 @@ END_LOOP:
 			)
 			if err != nil {
 				if that.logf != nil {
-					that.logf(logger.ErrorLevel, rabbit_tag, "publish message error: {}", err)
+					that.logf(klog.ErrorLevel, rabbit_tag, "publish message error: {}", err)
 				}
 
 				if that.conf.OnError != nil {
@@ -121,7 +121,7 @@ func (that *Producer) PublishMessage(exchange string, router string, message str
 
 func (that *Producer) Close() {
 	// if that.logf != nil {
-	// 	that.logf(logger.InfoLevel, "close producer, %v", string(debug.Stack()))
+	// 	that.logf(klog.InfoLevel, "close producer, %v", string(debug.Stack()))
 	// }
 	that.cancelFunc()
 

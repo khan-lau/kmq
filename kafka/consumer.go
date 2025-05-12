@@ -5,7 +5,7 @@ import (
 
 	"github.com/IBM/sarama"
 	"github.com/khan-lau/kutils/container/klists"
-	"github.com/khan-lau/kutils/logger"
+	klog "github.com/khan-lau/kutils/klogger"
 )
 
 type SubscribeCallback func(voidObj interface{}, msg *KafkaMessage)
@@ -20,7 +20,7 @@ type Consumer struct {
 	brokerList []string
 	topics     []*Topic // 每个 topic 及其偏移量
 	offset     int64
-	logf       logger.AppLogFuncWithTag
+	logf       klog.AppLogFuncWithTag
 }
 
 // NewConsumer 使用提供的 broker 列表、日志函数和主题初始化一个新的 Kafka 消费者。
@@ -32,7 +32,7 @@ type Consumer struct {
 //   - - -2 : OffsetOldest; 重新开始消费
 //   - @param topics: 要消费的 Kafka 主题。
 //   - @return *Consumer: 指向新创建的 Consumer 实例的指针。
-func NewConsumer(ctx context.Context, conf *Config, logf logger.AppLogFuncWithTag) (*Consumer, error) {
+func NewConsumer(ctx context.Context, conf *Config, logf klog.AppLogFuncWithTag) (*Consumer, error) {
 	config := sarama.NewConfig()
 	// 设置config
 	config.Version = conf.Version                     // 设置协议版本
@@ -61,7 +61,7 @@ func NewConsumer(ctx context.Context, conf *Config, logf logger.AppLogFuncWithTa
 	client, err := sarama.NewClient(brokerList, config)
 	if err != nil {
 		if logf != nil {
-			logf(logger.ErrorLevel, kafka_tag, "kafka.NewClient error: {}", err.Error())
+			logf(klog.ErrorLevel, kafka_tag, "kafka.NewClient error: {}", err.Error())
 		}
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func NewConsumer(ctx context.Context, conf *Config, logf logger.AppLogFuncWithTa
 	// consumer, err := sarama.NewConsumer(brokerList, config)
 	if err != nil {
 		if logf != nil {
-			logf(logger.ErrorLevel, kafka_tag, "kafka.NewConsumer error: {}", err.Error())
+			logf(klog.ErrorLevel, kafka_tag, "kafka.NewConsumer error: {}", err.Error())
 		}
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 		partitionList, err := that.Consumer.Partitions(topic.Name)
 		if err != nil {
 			if that.logf != nil {
-				that.logf(logger.ErrorLevel, kafka_tag, "Get partition list from kafka error: {}", err.Error())
+				that.logf(klog.ErrorLevel, kafka_tag, "Get partition list from kafka error: {}", err.Error())
 			}
 			return
 		}
@@ -123,7 +123,7 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 			pc, err := that.Consumer.ConsumePartition(topic.Name, partition, offset)
 			if err != nil {
 				if that.logf != nil {
-					that.logf(logger.ErrorLevel, kafka_tag, "Create partition consumer error: {}", err.Error())
+					that.logf(klog.ErrorLevel, kafka_tag, "Create partition consumer error: {}", err.Error())
 				}
 				return
 			}
@@ -158,7 +158,7 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 		subContext.pc.Close()
 
 		if that.logf != nil {
-			that.logf(logger.DebugLevel, kafka_tag, "kafka.Consumer unsubscribe topic: {}, partition: {} success", subContext.topic, subContext.partition)
+			that.logf(klog.DebugLevel, kafka_tag, "kafka.Consumer unsubscribe topic: {}, partition: {} success", subContext.topic, subContext.partition)
 		}
 	}
 }
@@ -168,7 +168,7 @@ func (that *Consumer) Close() {
 	that.Consumer.Close()
 }
 
-// func (that *Consumer) log(lvl logger.Level, f string, args ...interface{}) {
+// func (that *Consumer) log(lvl klog.Level, f string, args ...interface{}) {
 // 	if that.logf != nil {
 // 		that.logf(lvl, f, args...)
 // 	}
@@ -183,10 +183,10 @@ type ConsumerGroup struct {
 	group      sarama.ConsumerGroup
 	brokerList []string
 	topics     []*Topic // 每个 topic 及其偏移量
-	logf       logger.AppLogFuncWithTag
+	logf       klog.AppLogFuncWithTag
 }
 
-func NewConsumerGroup(ctx context.Context, conf *Config, logf logger.AppLogFuncWithTag) (*ConsumerGroup, error) {
+func NewConsumerGroup(ctx context.Context, conf *Config, logf klog.AppLogFuncWithTag) (*ConsumerGroup, error) {
 	config := sarama.NewConfig()
 	// 设置config
 	config.Version = conf.Version                     // 设置协议版本
@@ -226,7 +226,7 @@ func NewConsumerGroup(ctx context.Context, conf *Config, logf logger.AppLogFuncW
 	client, err := sarama.NewClient(brokerList, config)
 	if err != nil {
 		if logf != nil {
-			logf(logger.ErrorLevel, kafka_tag, "kafka.NewClient error: {}", err.Error())
+			logf(klog.ErrorLevel, kafka_tag, "kafka.NewClient error: {}", err.Error())
 		}
 		return nil, err
 	}
@@ -235,7 +235,7 @@ func NewConsumerGroup(ctx context.Context, conf *Config, logf logger.AppLogFuncW
 	// group, err := sarama.NewConsumerGroup(brokerList, groupId, config)
 	if err != nil {
 		if logf != nil {
-			logf(logger.ErrorLevel, kafka_tag, "kafka.NewConsumerGroup error: {}", err.Error())
+			logf(klog.ErrorLevel, kafka_tag, "kafka.NewConsumerGroup error: {}", err.Error())
 		}
 		return nil, err
 	}
@@ -280,7 +280,7 @@ func (that *ConsumerGroup) SyncSubscribe(voidObj interface{}, callback Subscribe
 		for {
 			if err := that.group.Consume(that.ctx, topics, handler); err != nil {
 				if that.logf != nil {
-					that.logf(logger.ErrorLevel, kafka_tag, "kafka.ConsumerGroup error: {}", err.Error())
+					that.logf(klog.ErrorLevel, kafka_tag, "kafka.ConsumerGroup error: {}", err.Error())
 				}
 			}
 
@@ -315,7 +315,7 @@ func (that *ConsumerGroup) SyncSubscribe(voidObj interface{}, callback Subscribe
 
 	if err := that.group.Close(); err != nil {
 		if that.logf != nil {
-			that.logf(logger.ErrorLevel, kafka_tag, "Error closing client: {}", err.Error())
+			that.logf(klog.ErrorLevel, kafka_tag, "Error closing client: {}", err.Error())
 		}
 	}
 

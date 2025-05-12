@@ -9,7 +9,7 @@ import (
 	"github.com/khan-lau/kmq/redismq"
 
 	"github.com/khan-lau/kutils/container/kstrings"
-	"github.com/khan-lau/kutils/logger"
+	klog "github.com/khan-lau/kutils/klogger"
 )
 
 const (
@@ -24,10 +24,10 @@ type RedisMQ struct {
 	status    idl.ServiceStatus
 	publisher *redismq.RedisPubSub
 
-	logf logger.AppLogFuncWithTag
+	logf klog.AppLogFuncWithTag
 }
 
-func NewRedisMQ(ctx context.Context, name string, conf *config.RedisConfig, logf logger.AppLogFuncWithTag) (*RedisMQ, error) {
+func NewRedisMQ(ctx context.Context, name string, conf *config.RedisConfig, logf klog.AppLogFuncWithTag) (*RedisMQ, error) {
 	subCtx, subCancel := context.WithCancel(ctx)
 
 	redisMQ := &RedisMQ{
@@ -54,7 +54,7 @@ func (that *RedisMQ) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(logger.ErrorLevel, redismq_tag, "start service {} error: {}", that.name, err)
+				that.logf(klog.ErrorLevel, redismq_tag, "start service {} error: {}", that.name, err)
 			}
 			that.onError(that.name, err)
 		}
@@ -115,7 +115,7 @@ func (that *RedisMQ) Broadcast(message []byte, properties map[string]string) boo
 	for _, topic := range that.conf.Topics {
 		if !that.PublishMessage(topic, string(message)) {
 			if that.logf != nil {
-				that.logf(logger.ErrorLevel, redismq_tag, "publish topic {} message {} fault", topic, string(message))
+				that.logf(klog.ErrorLevel, redismq_tag, "publish topic {} message {} fault", topic, string(message))
 			}
 		}
 	}

@@ -6,7 +6,7 @@ import (
 	"github.com/apache/rocketmq-client-go/v2"
 	"github.com/apache/rocketmq-client-go/v2/consumer"
 	"github.com/apache/rocketmq-client-go/v2/primitive"
-	"github.com/khan-lau/kutils/logger"
+	klog "github.com/khan-lau/kutils/klogger"
 )
 
 type SubscribeCallback func(voidObj interface{}, msg *primitive.MessageExt)
@@ -17,10 +17,10 @@ type Consumer struct {
 	mqConsumer rocketmq.PushConsumer
 	queue      chan *primitive.MessageExt // 消息队列
 	conf       *RocketConfig
-	logf       logger.AppLogFuncWithTag
+	logf       klog.AppLogFuncWithTag
 }
 
-func NewConsumer(ctx context.Context, conf *RocketConfig, logf logger.AppLogFuncWithTag) (*Consumer, error) {
+func NewConsumer(ctx context.Context, conf *RocketConfig, logf klog.AppLogFuncWithTag) (*Consumer, error) {
 	opts := make([]consumer.Option, 0, 40)
 
 	if conf.GroupName != "" {
@@ -132,7 +132,7 @@ END_LOOP:
 			break END_LOOP
 		case err := <-consumerErrChan:
 			if that.logf != nil {
-				that.logf(logger.ErrorLevel, rocket_tag, "Start consumer error: {}", err.Error())
+				that.logf(klog.ErrorLevel, rocket_tag, "Start consumer error: {}", err.Error())
 			}
 			break END_LOOP
 		case msg := <-that.queue:
@@ -155,7 +155,7 @@ func (that *Consumer) Close() {
 	close(that.queue)
 	err := that.mqConsumer.Shutdown()
 	if err != nil && that.logf != nil {
-		that.logf(logger.ErrorLevel, rocket_tag, "Shutdown consumer error: {}", err.Error())
+		that.logf(klog.ErrorLevel, rocket_tag, "Shutdown consumer error: {}", err.Error())
 	}
 	that.cancel()
 }

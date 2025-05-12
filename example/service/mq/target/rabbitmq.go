@@ -9,7 +9,7 @@ import (
 	"github.com/khan-lau/kmq/rabbitmq"
 
 	"github.com/khan-lau/kutils/container/kstrings"
-	"github.com/khan-lau/kutils/logger"
+	klog "github.com/khan-lau/kutils/klogger"
 )
 
 type RabbitMQ struct {
@@ -20,14 +20,14 @@ type RabbitMQ struct {
 	status    idl.ServiceStatus
 	publisher *rabbitmq.Producer
 
-	logf logger.AppLogFuncWithTag
+	logf klog.AppLogFuncWithTag
 }
 
 const (
 	rabbitmq_tag = "rabbitmq_target"
 )
 
-func NewRabbitMQ(ctx context.Context, name string, conf *config.RabbitConfig, logf logger.AppLogFuncWithTag) (*RabbitMQ, error) {
+func NewRabbitMQ(ctx context.Context, name string, conf *config.RabbitConfig, logf klog.AppLogFuncWithTag) (*RabbitMQ, error) {
 	subCtx, subCancel := context.WithCancel(ctx)
 
 	rabbitMQ := &RabbitMQ{
@@ -54,7 +54,7 @@ func (that *RabbitMQ) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(logger.ErrorLevel, rabbitmq_tag, "start service {} error: {}", that.name, err)
+				that.logf(klog.ErrorLevel, rabbitmq_tag, "start service {} error: {}", that.name, err)
 			}
 			that.onError(that.name, err)
 		}

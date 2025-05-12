@@ -9,7 +9,7 @@ import (
 	"github.com/khan-lau/kmq/kafka"
 
 	"github.com/khan-lau/kutils/container/kstrings"
-	"github.com/khan-lau/kutils/logger"
+	klog "github.com/khan-lau/kutils/klogger"
 )
 
 type KafkaMQ struct {
@@ -20,14 +20,14 @@ type KafkaMQ struct {
 	status    idl.ServiceStatus
 	publisher *kafka.AsyncProducer
 
-	logf logger.AppLogFuncWithTag
+	logf klog.AppLogFuncWithTag
 }
 
 const (
 	kafkamq_tag = "kafkamq_target"
 )
 
-func NewKafkaMQ(ctx context.Context, name string, conf *config.KafkaConfig, logf logger.AppLogFuncWithTag) (*KafkaMQ, error) {
+func NewKafkaMQ(ctx context.Context, name string, conf *config.KafkaConfig, logf klog.AppLogFuncWithTag) (*KafkaMQ, error) {
 	subCtx, subCancel := context.WithCancel(ctx)
 
 	rabbitMQ := &KafkaMQ{
@@ -54,7 +54,7 @@ func (that *KafkaMQ) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(logger.ErrorLevel, kafkamq_tag, "start service {} error: {}", that.name, err)
+				that.logf(klog.ErrorLevel, kafkamq_tag, "start service {} error: {}", that.name, err)
 			}
 			that.onError(that.name, err)
 		}
@@ -150,7 +150,7 @@ func (that *KafkaMQ) Broadcast(message []byte, properties map[string]string) boo
 		}
 		if !that.PublishMessage(int32(topic.Partition), topic.Name, key, message) {
 			if that.logf != nil {
-				that.logf(logger.ErrorLevel, kafkamq_tag,
+				that.logf(klog.ErrorLevel, kafkamq_tag,
 					"publish topic {} partition {} message {} fault",
 					topic.Name, topic.Partition, string(message),
 				)
