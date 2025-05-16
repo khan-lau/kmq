@@ -141,8 +141,7 @@ func (that *RabbitMQ) PublishMessage(exchange string, router string, message str
 	if that.status != idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
 		return false
 	}
-	that.publisher.PublishMessage(exchange, router, message)
-	return true
+	return that.publisher.PublishMessage(exchange, router, message)
 }
 
 func (that *RabbitMQ) onError(obj interface{}, err error) {

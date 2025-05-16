@@ -146,7 +146,7 @@ func (that *SyncProducer) Publish(msg *KafkaMessage) bool {
 	return false
 }
 
-func (that *SyncProducer) PublisMessage(topic string, key, message string) {
+func (that *SyncProducer) PublisMessage(topic string, key, message string) bool {
 	msg := &KafkaMessage{
 		Topic:     topic,
 		Partition: 0,
@@ -154,10 +154,10 @@ func (that *SyncProducer) PublisMessage(topic string, key, message string) {
 		Key:       []byte(key),
 		Value:     []byte(message),
 	}
-	that.Publish(msg)
+	return that.Publish(msg)
 }
 
-func (that *SyncProducer) PublisData(topic string, key string, value []byte) {
+func (that *SyncProducer) PublisData(topic string, key string, value []byte) bool {
 	msg := &KafkaMessage{
 		Topic:     topic,
 		Partition: 0,
@@ -165,7 +165,7 @@ func (that *SyncProducer) PublisData(topic string, key string, value []byte) {
 		Key:       []byte(key),
 		Value:     value,
 	}
-	that.Publish(msg)
+	return that.Publish(msg)
 }
 
 func (that *SyncProducer) Close() {
@@ -293,11 +293,18 @@ END_LOOP:
 	}
 }
 
-func (that *AsyncProducer) Publish(msg *KafkaMessage) {
-	that.msgChan <- msg
+func (that *AsyncProducer) Publish(msg *KafkaMessage) bool {
+	if that != nil && that.msgChan != nil {
+		select {
+		case that.msgChan <- msg:
+			return true
+		default:
+		}
+	}
+	return false
 }
 
-func (that *AsyncProducer) PublisMessage(topic, key, message string) {
+func (that *AsyncProducer) PublisMessage(topic, key, message string) bool {
 	msg := &KafkaMessage{
 		Topic:     topic,
 		Partition: 0,
@@ -305,10 +312,10 @@ func (that *AsyncProducer) PublisMessage(topic, key, message string) {
 		Key:       []byte(key),
 		Value:     []byte(message),
 	}
-	that.Publish(msg)
+	return that.Publish(msg)
 }
 
-func (that *AsyncProducer) PublisData(partition int32, topic, key string, value []byte) {
+func (that *AsyncProducer) PublisData(partition int32, topic, key string, value []byte) bool {
 	msg := &KafkaMessage{
 		Topic:     topic,
 		Partition: partition,
@@ -316,7 +323,7 @@ func (that *AsyncProducer) PublisData(partition int32, topic, key string, value 
 		Key:       []byte(key),
 		Value:     value,
 	}
-	that.Publish(msg)
+	return that.Publish(msg)
 }
 
 func (that *AsyncProducer) Close() {

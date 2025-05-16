@@ -151,21 +151,21 @@ func (that *Producer) Publish(msg *RocketMessage) bool {
 	return false
 }
 
-func (that *Producer) PublishMessage(topic string, message []byte) {
+func (that *Producer) PublishMessage(topic string, message []byte) bool {
 	msg := &RocketMessage{
 		Topic:   topic,
 		Message: message,
 	}
-	that.Publish(msg)
+	return that.Publish(msg)
 }
 
-func (that *Producer) PublishData(topic string, message []byte, properties map[string]string) {
+func (that *Producer) PublishData(topic string, message []byte, properties map[string]string) bool {
 	msg := &RocketMessage{
 		Topic:      topic,
 		Message:    message,
 		Properties: properties,
 	}
-	that.Publish(msg)
+	return that.Publish(msg)
 }
 
 func (that *Producer) Close() {

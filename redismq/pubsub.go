@@ -167,12 +167,12 @@ func (that *RedisPubSub) Publish(msg *kredis.RedisMessage) bool {
 	return false
 }
 
-func (that *RedisPubSub) PublishMessage(topic string, message string) {
+func (that *RedisPubSub) PublishMessage(topic string, message string) bool {
 	msg := &kredis.RedisMessage{
 		Topic:   topic,
 		Message: message,
 	}
-	that.Publish(msg)
+	return that.Publish(msg)
 }
 
 func (that *RedisPubSub) PublishData(topic string, message string) {

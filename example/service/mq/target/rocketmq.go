@@ -157,8 +157,7 @@ func (that *RocketMQ) PublishMessage(topic string, message []byte, properties ma
 	if that.status != idl.ServiceStatusRunning {
 		return false
 	}
-	that.publisher.PublishData(topic, message, properties)
-	return true
+	return that.publisher.PublishData(topic, message, properties)
 }
 
 func (that *RocketMQ) onError(obj interface{}, err error) {

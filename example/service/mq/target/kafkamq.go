@@ -172,8 +172,7 @@ func (that *KafkaMQ) PublishMessage(partition int32, topic, key string, value []
 	if that.status != idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
 		return false
 	}
-	that.publisher.PublisData(partition, topic, key, value)
-	return true
+	return that.publisher.PublisData(partition, topic, key, value)
 }
 
 func (that *KafkaMQ) onError(obj interface{}, err error) {

@@ -130,8 +130,7 @@ func (that *RedisMQ) PublishMessage(topic string, message string) bool {
 	if that.status != idl.ServiceStatusRunning {
 		return false
 	}
-	that.publisher.PublishMessage(topic, message)
-	return true
+	return that.publisher.PublishMessage(topic, message)
 }
 
 func (that *RedisMQ) onError(obj interface{}, err error) {

@@ -115,13 +115,13 @@ func (that *Producer) Publish(msg *RabbitMessage) bool {
 	return false
 }
 
-func (that *Producer) PublishMessage(exchange string, router string, message string) {
+func (that *Producer) PublishMessage(exchange string, router string, message string) bool {
 	msg := &RabbitMessage{
 		Exchange: exchange,
 		Router:   []string{router},
 		Body:     []byte(message),
 	}
-	that.Publish(msg)
+	return that.Publish(msg)
 }
 
 func (that *Producer) Close() {
