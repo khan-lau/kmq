@@ -135,8 +135,15 @@ END_LOOP:
 	}
 }
 
-func (that *SyncProducer) Publish(msg *KafkaMessage) {
-	that.msgChan <- msg
+func (that *SyncProducer) Publish(msg *KafkaMessage) bool {
+	if that != nil && that.msgChan != nil {
+		select {
+		case that.msgChan <- msg:
+			return true
+		default:
+		}
+	}
+	return false
 }
 
 func (that *SyncProducer) PublisMessage(topic string, key, message string) {

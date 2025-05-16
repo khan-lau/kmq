@@ -140,8 +140,15 @@ END_LOOP:
 	}
 }
 
-func (that *Producer) Publish(msg *RocketMessage) {
-	that.queue <- msg
+func (that *Producer) Publish(msg *RocketMessage) bool {
+	if that != nil && that.queue != nil {
+		select {
+		case that.queue <- msg:
+			return true
+		default:
+		}
+	}
+	return false
 }
 
 func (that *Producer) PublishMessage(topic string, message []byte) {

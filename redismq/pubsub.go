@@ -156,8 +156,15 @@ func (that *RedisPubSub) receivedMessage(topic string, payload interface{}) (*kr
 	}
 }
 
-func (that *RedisPubSub) Publish(msg *kredis.RedisMessage) {
-	that.queue <- msg
+func (that *RedisPubSub) Publish(msg *kredis.RedisMessage) bool {
+	if that != nil && that.queue != nil {
+		select {
+		case that.queue <- msg:
+			return true
+		default:
+		}
+	}
+	return false
 }
 
 func (that *RedisPubSub) PublishMessage(topic string, message string) {

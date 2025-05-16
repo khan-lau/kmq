@@ -104,10 +104,15 @@ END_LOOP:
 	}
 }
 
-func (that *Producer) Publish(msg *RabbitMessage) {
+func (that *Producer) Publish(msg *RabbitMessage) bool {
 	if that != nil && that.queue != nil {
-		that.queue <- msg
+		select {
+		case that.queue <- msg:
+			return true
+		default:
+		}
 	}
+	return false
 }
 
 func (that *Producer) PublishMessage(exchange string, router string, message string) {
