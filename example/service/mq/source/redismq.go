@@ -79,7 +79,7 @@ func (that *RedisMQ) Start() error {
 		SetDB(int(that.conf.DbNum)).
 		SetRetry(int(that.conf.Retry)).
 		SetTopics(that.conf.Topics...)
-	that.subscriber = redismq.NewRedisPubSub(that.ctx, redisConf, that.logf)
+	that.subscriber = redismq.NewRedisPubSub(that.ctx, 20000, redisConf, that.logf)
 	redisConf.SetExitCallback(func(event interface{}) {
 		that.onExit(event)
 	})

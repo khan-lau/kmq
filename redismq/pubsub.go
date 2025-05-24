@@ -17,18 +17,20 @@ type RedisPubSub struct {
 	redisHandler *kredis.KRedis
 	connected    bool
 	queue        chan *kredis.RedisMessage // 消息队列
+	chanSize     uint                      // 队列大小
 	conf         *RedisConfig
 	logf         klog.AppLogFuncWithTag
 }
 
-func NewRedisPubSub(ctx context.Context, conf *RedisConfig, logf klog.AppLogFuncWithTag) *RedisPubSub {
+func NewRedisPubSub(ctx context.Context, chanSize uint, conf *RedisConfig, logf klog.AppLogFuncWithTag) *RedisPubSub {
 	ctx, cancel := context.WithCancel(ctx)
 	redisHD := kredis.NewKRedis(ctx, conf.Host, int(conf.Port), "", conf.Password, conf.DB)
 	redisPs := &RedisPubSub{
 		ctx: ctx, cancel: cancel,
 		redisHandler: redisHD,
 		connected:    false,
-		queue:        make(chan *kredis.RedisMessage, 1000),
+		chanSize:     chanSize,
+		queue:        make(chan *kredis.RedisMessage, chanSize),
 		conf:         conf,
 		logf:         logf,
 	}
@@ -62,7 +64,7 @@ func (that *RedisPubSub) SyncSubscribe(voidObj interface{}, callback SubscribeCa
 	}
 
 	// consumerErrChan := make(chan error)
-	that.redisHandler.PSubscribeWithChanSize(1000, 20000,
+	that.redisHandler.PSubscribeWithChanSize(1000, int(that.chanSize),
 		func(err error, topic string, payload interface{}) {
 			if err != nil {
 				if that.logf != nil {
