@@ -97,7 +97,7 @@ func (that *KafkaMQ) Start() error {
 		SetNet(netConfig).
 		SetProducer(kafkaProducerConfig)
 
-	publisher, err := kafka.NewAsyncProducer(that.ctx, kafkaConfig, that.logf)
+	publisher, err := kafka.NewAsyncProducer(that.ctx, 20000, kafkaConfig, that.logf)
 	if err != nil {
 		return err
 	}

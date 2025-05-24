@@ -24,6 +24,7 @@ type SyncProducer struct {
 	conf       *Config
 	Producer   sarama.SyncProducer
 	msgChan    chan *KafkaMessage
+	chanSize   uint // 消息通道大小
 	logf       klog.AppLogFuncWithTag
 }
 
@@ -38,7 +39,7 @@ type SyncProducer struct {
 // 返回:
 //
 //	*SyncProducer - 指向初始化的SyncProducer的指针。
-func NewSyncProducer(ctx context.Context, conf *Config, logf klog.AppLogFuncWithTag) (*SyncProducer, error) {
+func NewSyncProducer(ctx context.Context, chanSize uint, conf *Config, logf klog.AppLogFuncWithTag) (*SyncProducer, error) {
 	config := sarama.NewConfig()
 	// 设置config
 	config.Version = conf.Version                     // 设置协议版本
@@ -77,7 +78,7 @@ func NewSyncProducer(ctx context.Context, conf *Config, logf klog.AppLogFuncWith
 		return nil, err
 	}
 
-	msgChan := make(chan *KafkaMessage, 10000)
+	msgChan := make(chan *KafkaMessage, chanSize) // 初始化消息通道
 
 	subCtx, subCancel := context.WithCancel(ctx)
 	return &SyncProducer{
@@ -87,6 +88,7 @@ func NewSyncProducer(ctx context.Context, conf *Config, logf klog.AppLogFuncWith
 		conf:       conf,
 		Producer:   producer,
 		msgChan:    msgChan,
+		chanSize:   chanSize,
 		logf:       logf,
 	}, nil
 }
@@ -182,6 +184,7 @@ type AsyncProducer struct {
 	conf       *Config
 	Producer   sarama.AsyncProducer
 	msgChan    chan *KafkaMessage
+	chanSize   uint // 消息通道大小
 	logf       klog.AppLogFuncWithTag
 }
 
@@ -196,7 +199,7 @@ type AsyncProducer struct {
 // 返回:
 //
 //	*AsyncProducer：创建的异步生产者的指针。
-func NewAsyncProducer(ctx context.Context, conf *Config, logf klog.AppLogFuncWithTag) (*AsyncProducer, error) {
+func NewAsyncProducer(ctx context.Context, chanSize uint, conf *Config, logf klog.AppLogFuncWithTag) (*AsyncProducer, error) {
 	config := sarama.NewConfig()
 	// 设置config
 	config.Version = conf.Version                     // 设置协议版本
@@ -235,7 +238,7 @@ func NewAsyncProducer(ctx context.Context, conf *Config, logf klog.AppLogFuncWit
 		return nil, err
 	}
 
-	msgChan := make(chan *KafkaMessage, 10000)
+	msgChan := make(chan *KafkaMessage, chanSize)
 
 	subCtx, subCancel := context.WithCancel(ctx)
 	return &AsyncProducer{
@@ -245,6 +248,7 @@ func NewAsyncProducer(ctx context.Context, conf *Config, logf klog.AppLogFuncWit
 		conf:       conf,
 		Producer:   producer,
 		msgChan:    msgChan,
+		chanSize:   chanSize,
 		logf:       logf,
 	}, nil
 }

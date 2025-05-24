@@ -21,11 +21,12 @@ type Producer struct {
 	cancel     context.CancelFunc
 	mqProducer rocketmq.Producer
 	queue      chan *RocketMessage // 消息队列
+	chanSize   uint                // 队列大小
 	conf       *RocketConfig
 	logf       klog.AppLogFuncWithTag
 }
 
-func NewProducer(ctx context.Context, conf *RocketConfig, logf klog.AppLogFuncWithTag) (*Producer, error) {
+func NewProducer(ctx context.Context, chanSize uint, conf *RocketConfig, logf klog.AppLogFuncWithTag) (*Producer, error) {
 	opts := make([]producer.Option, 0, 40)
 	if conf.GroupName != "" {
 		groupOption := producer.WithGroupName(conf.GroupName)
@@ -78,7 +79,8 @@ func NewProducer(ctx context.Context, conf *RocketConfig, logf klog.AppLogFuncWi
 	tProducer := &Producer{
 		ctx:        ctx,
 		mqProducer: rocketProducer,
-		queue:      make(chan *RocketMessage, 1000),
+		queue:      make(chan *RocketMessage, chanSize),
+		chanSize:   chanSize,
 		conf:       conf,
 		logf:       logf,
 	}

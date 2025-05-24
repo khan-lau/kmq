@@ -84,7 +84,7 @@ func (that *RabbitMQ) Start() error {
 		SetVHost(that.conf.VHost).
 		SetProducer(rabbitProducerConfig)
 
-	publisher, err := rabbitmq.NewProducer(that.ctx, rabbitConfig, that.logf)
+	publisher, err := rabbitmq.NewProducer(that.ctx, 20000, rabbitConfig, that.logf)
 	if err != nil {
 		return err
 	}

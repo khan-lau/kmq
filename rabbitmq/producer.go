@@ -29,13 +29,14 @@ type Producer struct {
 	publisher  *rabbitmq.Publisher
 
 	// queue <-chan *mean.MeanMSG // 只读消息队列
-	queue chan *RabbitMessage // 消息队列
-	conf  *RabbitConfig
-	logf  klog.AppLogFuncWithTag
+	queue    chan *RabbitMessage // 消息队列
+	chanSize uint                // 队列大小
+	conf     *RabbitConfig
+	logf     klog.AppLogFuncWithTag
 }
 
-func NewProducer(ctx context.Context, conf *RabbitConfig, logf klog.AppLogFuncWithTag) (*Producer, error) {
-	queue := make(chan *RabbitMessage, 1000)
+func NewProducer(ctx context.Context, chanSize uint, conf *RabbitConfig, logf klog.AppLogFuncWithTag) (*Producer, error) {
+	queue := make(chan *RabbitMessage, chanSize)
 	rlog := &GoRabbitLogger{logf: logf}
 	conn, err := rabbitmq.NewConn(
 		kstrings.FormatString("amqp://{}:{}@{}:{}{}", conf.User, conf.Password, conf.Host, int(conf.Port), conf.VHost),
@@ -71,7 +72,7 @@ func NewProducer(ctx context.Context, conf *RabbitConfig, logf klog.AppLogFuncWi
 	})
 
 	subCtx, subCancel := context.WithCancel(ctx)
-	return &Producer{ctx: subCtx, cancelFunc: subCancel, conn: conn, publisher: publisher, queue: queue, conf: conf, logf: logf}, nil
+	return &Producer{ctx: subCtx, cancelFunc: subCancel, conn: conn, publisher: publisher, queue: queue, chanSize: chanSize, conf: conf, logf: logf}, nil
 }
 
 func (that *Producer) Start() {
