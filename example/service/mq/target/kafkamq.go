@@ -148,7 +148,7 @@ func (that *KafkaMQ) Broadcast(message []byte, properties map[string]string) boo
 		if properties != nil {
 			key = properties["key"]
 		}
-		if !that.PublishMessage(int32(topic.Partition), topic.Name, key, message) {
+		if !that.PublishMessageWithProperties(int32(topic.Partition), topic.Name, key, message, properties) {
 			if that.logf != nil {
 				that.logf(klog.ErrorLevel, kafkamq_tag,
 					"publish topic {} partition {} message {} fault",
@@ -165,14 +165,21 @@ func (that *KafkaMQ) Publish(topic string, message []byte, properties map[string
 	if properties != nil {
 		key = properties["key"]
 	}
-	return that.PublishMessage(0, topic, key, message)
+	return that.PublishMessageWithProperties(0, topic, key, message, properties)
 }
 
 func (that *KafkaMQ) PublishMessage(partition int32, topic, key string, value []byte) bool {
 	if that.status != idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
 		return false
 	}
-	return that.publisher.PublisData(partition, topic, key, value)
+	return that.publisher.PublisDataWithProperties(partition, topic, key, value, nil)
+}
+
+func (that *KafkaMQ) PublishMessageWithProperties(partition int32, topic, key string, value []byte, properties map[string]string) bool {
+	if that.status != idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
+		return false
+	}
+	return that.publisher.PublisDataWithProperties(partition, topic, key, value, properties)
 }
 
 func (that *KafkaMQ) onError(obj interface{}, err error) {

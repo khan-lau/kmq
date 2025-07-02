@@ -57,7 +57,7 @@ func NewConsumer(ctx context.Context, conf *Config, logf klog.AppLogFuncWithTag)
 	// 如果设置为 true, 当 Kafka 集群的主机名称为 IP 地址时, 可能会导致连接失败, 因此这里设置为 false。
 	config.Net.ResolveCanonicalBootstrapServers = conf.Net.ResolveHost
 
-	brokerList := klists.ToKSlice[string](conf.Brokers)
+	brokerList := klists.ToKSlice(conf.Brokers)
 	client, err := sarama.NewClient(brokerList, config)
 	if err != nil {
 		if logf != nil {
@@ -75,7 +75,7 @@ func NewConsumer(ctx context.Context, conf *Config, logf klog.AppLogFuncWithTag)
 		return nil, err
 	}
 
-	topics := klists.ToKSlice[*Topic](conf.Topics)
+	topics := klists.ToKSlice(conf.Topics)
 	topics = QueryTopics(client, topics...)
 
 	subCtx, subCancel := context.WithCancel(ctx)
@@ -222,7 +222,7 @@ func NewConsumerGroup(ctx context.Context, conf *Config, logf klog.AppLogFuncWit
 	// 如果设置为 true, 当 Kafka 集群的主机名称为 IP 地址时, 可能会导致连接失败, 因此这里设置为 false。
 	config.Net.ResolveCanonicalBootstrapServers = conf.Net.ResolveHost
 
-	brokerList := klists.ToKSlice[string](conf.Brokers)
+	brokerList := klists.ToKSlice(conf.Brokers)
 	client, err := sarama.NewClient(brokerList, config)
 	if err != nil {
 		if logf != nil {
@@ -240,7 +240,7 @@ func NewConsumerGroup(ctx context.Context, conf *Config, logf klog.AppLogFuncWit
 		return nil, err
 	}
 
-	topics := klists.ToKSlice[*Topic](conf.Topics)
+	topics := klists.ToKSlice(conf.Topics)
 	topics = QueryTopics(client, topics...)
 
 	subCtx, subCancel := context.WithCancel(ctx)

@@ -12,6 +12,7 @@ type KafkaMessage struct {
 	Topic     string
 	Partition int32
 	Offset    int64
+	Headers   []sarama.RecordHeader
 	Key       []byte
 	Value     []byte
 }
@@ -69,7 +70,7 @@ func NewSyncProducer(ctx context.Context, chanSize uint, conf *Config, logf klog
 	config.Producer.Retry.Max = conf.Producer.RetryMax                 // 设置重试次数: 最多重试3次
 	config.Producer.Timeout = conf.Producer.Timeout                    // 设置发送超时时间: 30s
 
-	brokerList := klists.ToKSlice[string](conf.Brokers)
+	brokerList := klists.ToKSlice(conf.Brokers)
 	producer, err := sarama.NewSyncProducer(brokerList, config)
 	if err != nil {
 		if logf != nil {
@@ -107,8 +108,9 @@ END_LOOP:
 		case msg := <-that.msgChan:
 			// that.log(klog.DebugLevel, "ready to topic: {} send {}", msg.Topic, string(msg.Value))
 			rawMsg := &sarama.ProducerMessage{
-				Topic: msg.Topic,
-				Value: sarama.ByteEncoder(msg.Value),
+				Topic:   msg.Topic,
+				Value:   sarama.ByteEncoder(msg.Value),
+				Headers: msg.Headers,
 			}
 
 			// 发送消息
@@ -166,6 +168,22 @@ func (that *SyncProducer) PublisData(topic string, key string, value []byte) boo
 		Offset:    0,
 		Key:       []byte(key),
 		Value:     value,
+	}
+	return that.Publish(msg)
+}
+
+func (that *SyncProducer) PublisDataWithProperties(partition int32, topic, key string, value []byte, properties map[string]string) bool {
+	headers := make([]sarama.RecordHeader, 0, len(properties))
+	for k, v := range properties {
+		headers = append(headers, sarama.RecordHeader{Key: []byte(k), Value: []byte(v)})
+	}
+	msg := &KafkaMessage{
+		Topic:     topic,
+		Partition: partition,
+		Offset:    0,
+		Key:       []byte(key),
+		Value:     value,
+		Headers:   headers,
 	}
 	return that.Publish(msg)
 }
@@ -229,7 +247,7 @@ func NewAsyncProducer(ctx context.Context, chanSize uint, conf *Config, logf klo
 	config.Producer.Retry.Max = conf.Producer.RetryMax                 // 设置重试次数: 最多重试3次
 	config.Producer.Timeout = conf.Producer.Timeout                    // 设置发送超时时间: 30s
 
-	brokerList := klists.ToKSlice[string](conf.Brokers)
+	brokerList := klists.ToKSlice(conf.Brokers)
 	producer, err := sarama.NewAsyncProducer(brokerList, config)
 	if err != nil {
 		if logf != nil {
@@ -284,7 +302,7 @@ END_LOOP:
 		case <-that.ctx.Done():
 			break END_LOOP
 		case msg := <-that.msgChan:
-			rawMsg := &sarama.ProducerMessage{Topic: msg.Topic, Key: sarama.StringEncoder(msg.Key), Value: sarama.ByteEncoder(msg.Value)}
+			rawMsg := &sarama.ProducerMessage{Topic: msg.Topic, Key: sarama.StringEncoder(msg.Key), Value: sarama.ByteEncoder(msg.Value), Headers: msg.Headers}
 			that.Producer.Input() <- rawMsg
 		}
 	}
@@ -326,6 +344,22 @@ func (that *AsyncProducer) PublisData(partition int32, topic, key string, value 
 		Offset:    0,
 		Key:       []byte(key),
 		Value:     value,
+	}
+	return that.Publish(msg)
+}
+
+func (that *AsyncProducer) PublisDataWithProperties(partition int32, topic, key string, value []byte, properties map[string]string) bool {
+	headers := make([]sarama.RecordHeader, 0, len(properties))
+	for k, v := range properties {
+		headers = append(headers, sarama.RecordHeader{Key: []byte(k), Value: []byte(v)})
+	}
+	msg := &KafkaMessage{
+		Topic:     topic,
+		Partition: partition,
+		Offset:    0,
+		Key:       []byte(key),
+		Value:     value,
+		Headers:   headers,
 	}
 	return that.Publish(msg)
 }
