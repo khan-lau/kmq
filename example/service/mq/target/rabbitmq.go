@@ -1,20 +1,19 @@
 package target
 
 import (
-	"context"
 	"time"
 
 	"github.com/khan-lau/kmq/example/bean/config"
 	"github.com/khan-lau/kmq/example/service/idl"
 	"github.com/khan-lau/kmq/rabbitmq"
 
+	"github.com/khan-lau/kutils/container/kcontext"
 	"github.com/khan-lau/kutils/container/kstrings"
 	klog "github.com/khan-lau/kutils/klogger"
 )
 
 type RabbitMQ struct {
-	ctx       context.Context
-	cancel    context.CancelFunc
+	ctx       *kcontext.ContextNode
 	conf      *config.RabbitConfig
 	name      string // 服务名称
 	status    idl.ServiceStatus
@@ -27,12 +26,11 @@ const (
 	rabbitmq_tag = "rabbitmq_target"
 )
 
-func NewRabbitMQ(ctx context.Context, name string, conf *config.RabbitConfig, logf klog.AppLogFuncWithTag) (*RabbitMQ, error) {
-	subCtx, subCancel := context.WithCancel(ctx)
+func NewRabbitMQ(ctx *kcontext.ContextNode, name string, conf *config.RabbitConfig, logf klog.AppLogFuncWithTag) (*RabbitMQ, error) {
+	subCtx := ctx.NewChild(kstrings.FormatString("{}_{}", rabbitmq_tag, name))
 
 	rabbitMQ := &RabbitMQ{
 		ctx:       subCtx,
-		cancel:    subCancel,
 		conf:      conf,
 		name:      name,
 		status:    idl.ServiceStatusStopped,
@@ -121,11 +119,12 @@ func (that *RabbitMQ) Restart() error {
 }
 
 func (that *RabbitMQ) Stop() error {
-	that.cancel()
+	that.ctx.Cancel()
 	that.publisher.Close()
 	that.status = idl.ServiceStatusStopped // 设置服务状态为停止状态
 	that.publisher = nil
 	time.Sleep(500 * time.Millisecond)
+	that.ctx.Remove()
 	return nil
 }
 

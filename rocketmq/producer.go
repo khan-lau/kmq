@@ -7,6 +7,7 @@ import (
 	"github.com/apache/rocketmq-client-go/v2"
 	"github.com/apache/rocketmq-client-go/v2/primitive"
 	"github.com/apache/rocketmq-client-go/v2/producer"
+	"github.com/khan-lau/kutils/container/kcontext"
 	klog "github.com/khan-lau/kutils/klogger"
 )
 
@@ -17,8 +18,7 @@ type RocketMessage struct {
 }
 
 type Producer struct {
-	ctx        context.Context
-	cancel     context.CancelFunc
+	ctx        *kcontext.ContextNode
 	mqProducer rocketmq.Producer
 	queue      chan *RocketMessage // 消息队列
 	chanSize   uint                // 队列大小
@@ -26,7 +26,7 @@ type Producer struct {
 	logf       klog.AppLogFuncWithTag
 }
 
-func NewProducer(ctx context.Context, chanSize uint, conf *RocketConfig, logf klog.AppLogFuncWithTag) (*Producer, error) {
+func NewProducer(ctx *kcontext.ContextNode, chanSize uint, conf *RocketConfig, logf klog.AppLogFuncWithTag) (*Producer, error) {
 	opts := make([]producer.Option, 0, 40)
 	if conf.GroupName != "" {
 		groupOption := producer.WithGroupName(conf.GroupName)
@@ -85,8 +85,8 @@ func NewProducer(ctx context.Context, chanSize uint, conf *RocketConfig, logf kl
 		logf:       logf,
 	}
 
-	subCtx, SubCancel := context.WithCancel(ctx)
-	tProducer.ctx, tProducer.cancel = subCtx, SubCancel
+	subCtx := ctx.NewChild("rocketmq_producer")
+	tProducer.ctx = subCtx
 
 	return tProducer, nil
 }
@@ -104,7 +104,7 @@ func (that *Producer) Start() {
 END_LOOP:
 	for {
 		select {
-		case <-that.ctx.Done():
+		case <-that.ctx.Context().Done():
 			break END_LOOP
 		case msg := <-that.queue:
 			mqMessage := primitive.NewMessage(msg.Topic, msg.Message)
@@ -112,7 +112,7 @@ END_LOOP:
 				mqMessage.WithProperties(msg.Properties)
 			}
 			if that.conf.Producer.AsyncSend {
-				_ = that.mqProducer.SendAsync(that.ctx, func(ctx context.Context, result *primitive.SendResult, err error) {
+				_ = that.mqProducer.SendAsync(that.ctx.Context(), func(ctx context.Context, result *primitive.SendResult, err error) {
 					if err != nil {
 						if that.logf != nil {
 							that.logf(klog.ErrorLevel, rocket_tag, "Send message error: {}", err.Error())
@@ -124,7 +124,7 @@ END_LOOP:
 					}
 				}, mqMessage)
 			} else {
-				_, err := that.mqProducer.SendSync(that.ctx, mqMessage)
+				_, err := that.mqProducer.SendSync(that.ctx.Context(), mqMessage)
 				if err != nil {
 					if that.logf != nil {
 						that.logf(klog.ErrorLevel, rocket_tag, "Send message error: {}", err.Error())
@@ -171,9 +171,10 @@ func (that *Producer) PublishData(topic string, message []byte, properties map[s
 }
 
 func (that *Producer) Close() {
-	that.cancel()
+	that.ctx.Cancel()
 	err := that.mqProducer.Shutdown()
 	if err != nil && that.logf != nil {
 		that.logf(klog.ErrorLevel, rocket_tag, "Shutdown producer error: {}", err.Error())
 	}
+	that.ctx.Remove()
 }

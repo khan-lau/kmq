@@ -1,7 +1,6 @@
 package source
 
 import (
-	"context"
 	"time"
 
 	"github.com/khan-lau/kmq/example/bean/config"
@@ -10,13 +9,13 @@ import (
 
 	"github.com/apache/rocketmq-client-go/v2/consumer"
 	"github.com/apache/rocketmq-client-go/v2/primitive"
+	"github.com/khan-lau/kutils/container/kcontext"
 	"github.com/khan-lau/kutils/container/kstrings"
 	klog "github.com/khan-lau/kutils/klogger"
 )
 
 type RocketMQ struct {
-	ctx        context.Context
-	cancel     context.CancelFunc
+	ctx        *kcontext.ContextNode
 	conf       *config.RocketConfig
 	name       string // 服务名称
 	status     idl.ServiceStatus
@@ -30,12 +29,11 @@ const (
 	rocketmq_tag = "rocketmq_source"
 )
 
-func NewRocketMQ(ctx context.Context, name string, conf *config.RocketConfig, logf klog.AppLogFuncWithTag) (*RocketMQ, error) {
-	subCtx, subCancel := context.WithCancel(ctx)
+func NewRocketMQ(ctx *kcontext.ContextNode, name string, conf *config.RocketConfig, logf klog.AppLogFuncWithTag) (*RocketMQ, error) {
+	subCtx := ctx.NewChild(kstrings.FormatString("{}_{}", rocketmq_tag, name))
 
 	rocketMQ := &RocketMQ{
 		ctx:        subCtx,
-		cancel:     subCancel,
 		conf:       conf,
 		name:       name,
 		status:     idl.ServiceStatusStopped,
@@ -153,11 +151,12 @@ func (that *RocketMQ) Restart() error {
 }
 
 func (that *RocketMQ) Stop() error {
-	that.cancel()
+	that.ctx.Cancel()
 	that.subscriber.Close()
 	that.status = idl.ServiceStatusStopped // 设置服务状态为停止状态
 	that.subscriber = nil
 	time.Sleep(500 * time.Millisecond)
+	that.ctx.Remove()
 	return nil
 }
 

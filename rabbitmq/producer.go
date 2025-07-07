@@ -1,8 +1,7 @@
 package rabbitmq
 
 import (
-	"context"
-
+	"github.com/khan-lau/kutils/container/kcontext"
 	"github.com/khan-lau/kutils/container/kstrings"
 	klog "github.com/khan-lau/kutils/klogger"
 	"github.com/wagslane/go-rabbitmq"
@@ -23,10 +22,9 @@ func NewRabbitMessage(exchange string, routers []string, body []byte) *RabbitMes
 /////////////////////////////////////////////////////////////
 
 type Producer struct {
-	ctx        context.Context
-	cancelFunc context.CancelFunc
-	conn       *rabbitmq.Conn
-	publisher  *rabbitmq.Publisher
+	ctx       *kcontext.ContextNode
+	conn      *rabbitmq.Conn
+	publisher *rabbitmq.Publisher
 
 	// queue <-chan *mean.MeanMSG // 只读消息队列
 	queue    chan *RabbitMessage // 消息队列
@@ -35,7 +33,7 @@ type Producer struct {
 	logf     klog.AppLogFuncWithTag
 }
 
-func NewProducer(ctx context.Context, chanSize uint, conf *RabbitConfig, logf klog.AppLogFuncWithTag) (*Producer, error) {
+func NewProducer(ctx *kcontext.ContextNode, chanSize uint, conf *RabbitConfig, logf klog.AppLogFuncWithTag) (*Producer, error) {
 	queue := make(chan *RabbitMessage, chanSize)
 	rlog := &GoRabbitLogger{logf: logf}
 	conn, err := rabbitmq.NewConn(
@@ -71,19 +69,19 @@ func NewProducer(ctx context.Context, chanSize uint, conf *RabbitConfig, logf kl
 		}
 	})
 
-	subCtx, subCancel := context.WithCancel(ctx)
-	return &Producer{ctx: subCtx, cancelFunc: subCancel, conn: conn, publisher: publisher, queue: queue, chanSize: chanSize, conf: conf, logf: logf}, nil
+	subCtx := ctx.NewChild("rabbitmq_producer")
+	return &Producer{ctx: subCtx, conn: conn, publisher: publisher, queue: queue, chanSize: chanSize, conf: conf, logf: logf}, nil
 }
 
 func (that *Producer) Start() {
 END_LOOP:
 	for {
 		select {
-		case <-that.ctx.Done():
+		case <-that.ctx.Context().Done():
 			break END_LOOP
 		case msg := <-that.queue:
 			err := that.publisher.PublishWithContext( //nolint
-				that.ctx,
+				that.ctx.Context(),
 				msg.Body,
 				msg.Router,
 				rabbitmq.WithPublishOptionsExchange(msg.Exchange),
@@ -129,7 +127,7 @@ func (that *Producer) Close() {
 	// if that.logf != nil {
 	// 	that.logf(klog.InfoLevel, "close producer, %v", string(debug.Stack()))
 	// }
-	that.cancelFunc()
+	that.ctx.Cancel()
 
 	if that.publisher != nil {
 		that.publisher.Close()
@@ -138,5 +136,6 @@ func (that *Producer) Close() {
 	if that.conn != nil {
 		_ = that.conn.Close()
 	}
+	that.ctx.Remove()
 
 }

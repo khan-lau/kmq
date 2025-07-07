@@ -1,20 +1,19 @@
 package source
 
 import (
-	"context"
 	"time"
 
 	"github.com/khan-lau/kmq/example/bean/config"
 	"github.com/khan-lau/kmq/example/service/idl"
 	"github.com/khan-lau/kmq/kafka"
 
+	"github.com/khan-lau/kutils/container/kcontext"
 	"github.com/khan-lau/kutils/container/kstrings"
 	klog "github.com/khan-lau/kutils/klogger"
 )
 
 type KafkaMQ struct {
-	ctx        context.Context
-	cancel     context.CancelFunc
+	ctx        *kcontext.ContextNode
 	conf       *config.KafkaConfig
 	name       string // 服务名称
 	status     idl.ServiceStatus
@@ -28,12 +27,11 @@ const (
 	kafkamq_tag = "kafkamq_source"
 )
 
-func NewKafkaMQ(ctx context.Context, name string, conf *config.KafkaConfig, logf klog.AppLogFuncWithTag) (*KafkaMQ, error) {
-	subCtx, subCancel := context.WithCancel(ctx)
+func NewKafkaMQ(ctx *kcontext.ContextNode, name string, conf *config.KafkaConfig, logf klog.AppLogFuncWithTag) (*KafkaMQ, error) {
+	subCtx := ctx.NewChild(kstrings.FormatString("{}_{}", kafkamq_tag, name))
 
 	rabbitMQ := &KafkaMQ{
 		ctx:        subCtx,
-		cancel:     subCancel,
 		conf:       conf,
 		name:       name,
 		status:     idl.ServiceStatusStopped,
@@ -141,11 +139,12 @@ func (that *KafkaMQ) Restart() error {
 }
 
 func (that *KafkaMQ) Stop() error {
-	that.cancel()
+	that.ctx.Cancel()
 	that.subscriber.Close()
 	that.status = idl.ServiceStatusStopped // 设置服务状态为停止状态
 	that.subscriber = nil
 	time.Sleep(500 * time.Millisecond)
+	that.ctx.Remove()
 	return nil
 }
 

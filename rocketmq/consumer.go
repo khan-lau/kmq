@@ -6,21 +6,21 @@ import (
 	"github.com/apache/rocketmq-client-go/v2"
 	"github.com/apache/rocketmq-client-go/v2/consumer"
 	"github.com/apache/rocketmq-client-go/v2/primitive"
+	"github.com/khan-lau/kutils/container/kcontext"
 	klog "github.com/khan-lau/kutils/klogger"
 )
 
 type SubscribeCallback func(voidObj interface{}, msg *primitive.MessageExt)
 
 type Consumer struct {
-	ctx        context.Context
-	cancel     context.CancelFunc
+	ctx        *kcontext.ContextNode
 	mqConsumer rocketmq.PushConsumer
 	queue      chan *primitive.MessageExt // 消息队列
 	conf       *RocketConfig
 	logf       klog.AppLogFuncWithTag
 }
 
-func NewConsumer(ctx context.Context, conf *RocketConfig, logf klog.AppLogFuncWithTag) (*Consumer, error) {
+func NewConsumer(ctx *kcontext.ContextNode, conf *RocketConfig, logf klog.AppLogFuncWithTag) (*Consumer, error) {
 	opts := make([]consumer.Option, 0, 40)
 
 	if conf.GroupName != "" {
@@ -105,8 +105,10 @@ func NewConsumer(ctx context.Context, conf *RocketConfig, logf klog.AppLogFuncWi
 			return nil, err
 		}
 	}
-	subCtx, SubCancel := context.WithCancel(ctx)
-	tConsumer.ctx, tConsumer.cancel = subCtx, SubCancel
+	// subCtx, SubCancel := context.WithCancel(ctx)
+	subCtx := ctx.NewChild("rocketmq_consumer")
+
+	tConsumer.ctx = subCtx
 
 	return tConsumer, nil
 }
@@ -128,7 +130,7 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 END_LOOP:
 	for {
 		select {
-		case <-that.ctx.Done():
+		case <-that.ctx.Context().Done():
 			break END_LOOP
 		case err := <-consumerErrChan:
 			if that.logf != nil {
@@ -157,5 +159,6 @@ func (that *Consumer) Close() {
 	if err != nil && that.logf != nil {
 		that.logf(klog.ErrorLevel, rocket_tag, "Shutdown consumer error: {}", err.Error())
 	}
-	that.cancel()
+	that.ctx.Cancel()
+	that.ctx.Remove()
 }

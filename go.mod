@@ -6,6 +6,7 @@ require (
 	github.com/BurntSushi/toml v1.1.0
 	github.com/IBM/sarama v1.44.0
 	github.com/apache/rocketmq-client-go/v2 v2.1.2
+	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/khan-lau/kutils v0.4.0
 	github.com/khan-lau/mapstructure v1.5.4
 	github.com/titanous/json5 v1.0.0
@@ -24,6 +25,7 @@ require (
 	github.com/golang/mock v1.3.1 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.3.0 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
@@ -56,6 +58,7 @@ require (
 	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/lint v0.0.0-20190930215403-16217165b5de // indirect
 	golang.org/x/net v0.33.0 // indirect
+	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/term v0.27.0 // indirect
 	golang.org/x/tools v0.22.0 // indirect

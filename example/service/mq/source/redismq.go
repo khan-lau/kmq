@@ -1,21 +1,20 @@
 package source
 
 import (
-	"context"
 	"time"
 
 	"github.com/khan-lau/kmq/example/bean/config"
 	"github.com/khan-lau/kmq/example/service/idl"
 	"github.com/khan-lau/kmq/redismq"
 
+	"github.com/khan-lau/kutils/container/kcontext"
 	"github.com/khan-lau/kutils/container/kstrings"
 	"github.com/khan-lau/kutils/db/kredis"
 	klog "github.com/khan-lau/kutils/klogger"
 )
 
 type RedisMQ struct {
-	ctx        context.Context
-	cancel     context.CancelFunc
+	ctx        *kcontext.ContextNode
 	conf       *config.RedisConfig
 	name       string // 服务名称
 	status     idl.ServiceStatus
@@ -29,12 +28,11 @@ const (
 	redismq_tag = "redismq_source"
 )
 
-func NewRedisMQ(ctx context.Context, name string, conf *config.RedisConfig, logf klog.AppLogFuncWithTag) (*RedisMQ, error) {
-	subCtx, subCancel := context.WithCancel(ctx)
+func NewRedisMQ(ctx *kcontext.ContextNode, name string, conf *config.RedisConfig, logf klog.AppLogFuncWithTag) (*RedisMQ, error) {
+	subCtx := ctx.NewChild(kstrings.FormatString("{}_{}", redismq_tag, name))
 
 	redisMQ := &RedisMQ{
 		ctx:        subCtx,
-		cancel:     subCancel,
 		conf:       conf,
 		name:       name,
 		status:     idl.ServiceStatusStopped,
@@ -113,11 +111,12 @@ func (that *RedisMQ) Restart() error {
 }
 
 func (that *RedisMQ) Stop() error {
-	that.cancel()
+	that.ctx.Cancel()
 	that.subscriber.Close()
 	that.status = idl.ServiceStatusStopped // 设置服务状态为停止状态
 	that.subscriber = nil
 	time.Sleep(500 * time.Millisecond)
+	that.ctx.Remove()
 	return nil
 }
 

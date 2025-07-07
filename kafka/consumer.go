@@ -1,9 +1,8 @@
 package kafka
 
 import (
-	"context"
-
 	"github.com/IBM/sarama"
+	"github.com/khan-lau/kutils/container/kcontext"
 	"github.com/khan-lau/kutils/container/klists"
 	klog "github.com/khan-lau/kutils/klogger"
 )
@@ -13,8 +12,7 @@ type SubscribeCallback func(voidObj interface{}, msg *KafkaMessage)
 /////////////////////////////////////////////////////////////
 
 type Consumer struct {
-	ctx        context.Context
-	cancel     context.CancelFunc
+	ctx        *kcontext.ContextNode
 	conf       *Config
 	Consumer   sarama.Consumer
 	brokerList []string
@@ -32,7 +30,7 @@ type Consumer struct {
 //   - - -2 : OffsetOldest; 重新开始消费
 //   - @param topics: 要消费的 Kafka 主题。
 //   - @return *Consumer: 指向新创建的 Consumer 实例的指针。
-func NewConsumer(ctx context.Context, conf *Config, logf klog.AppLogFuncWithTag) (*Consumer, error) {
+func NewConsumer(ctx *kcontext.ContextNode, conf *Config, logf klog.AppLogFuncWithTag) (*Consumer, error) {
 	config := sarama.NewConfig()
 	// 设置config
 	config.Version = conf.Version                     // 设置协议版本
@@ -78,10 +76,9 @@ func NewConsumer(ctx context.Context, conf *Config, logf klog.AppLogFuncWithTag)
 	topics := klists.ToKSlice(conf.Topics)
 	topics = QueryTopics(client, topics...)
 
-	subCtx, subCancel := context.WithCancel(ctx)
+	subCtx := ctx.NewChild("kafka_single_consumer")
 	return &Consumer{
 		ctx:        subCtx,
-		cancel:     subCancel,
 		brokerList: brokerList,
 		conf:       conf,
 		Consumer:   consumer,
@@ -101,8 +98,7 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 	type SubContext struct {
 		topic     string
 		partition int32
-		ctx       context.Context
-		cancel    context.CancelFunc
+		ctx       *kcontext.ContextNode
 		pc        sarama.PartitionConsumer
 	}
 	contextList := klists.New[*SubContext]()
@@ -128,14 +124,14 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 				return
 			}
 
-			subCtx, subCancel := context.WithCancel(that.ctx)
-			contextList.PushBack(&SubContext{topic: topic.Name, partition: partition, ctx: subCtx, cancel: subCancel, pc: pc})
+			subCtx := that.ctx.NewChild("kafka_single_consumer_child")
+			contextList.PushBack(&SubContext{topic: topic.Name, partition: partition, ctx: subCtx, pc: pc})
 
-			go func(ctx context.Context, pc sarama.PartitionConsumer) {
+			go func(ctx *kcontext.ContextNode, pc sarama.PartitionConsumer) {
 			SUB_END_LOOP:
 				for {
 					select {
-					case <-ctx.Done():
+					case <-ctx.Context().Done():
 						pc.Close()
 						break SUB_END_LOOP
 
@@ -150,13 +146,13 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 		}
 	}
 
-	<-that.ctx.Done()
+	<-that.ctx.Context().Done()
 
 	for it := contextList.Front(); it != nil; it = it.Next() {
 		subContext := it.Value
-		subContext.cancel()
+		subContext.ctx.Cancel()
 		subContext.pc.Close()
-
+		subContext.ctx.Remove()
 		if that.logf != nil {
 			that.logf(klog.DebugLevel, kafka_tag, "kafka.Consumer unsubscribe topic: {}, partition: {} success", subContext.topic, subContext.partition)
 		}
@@ -164,8 +160,9 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 }
 
 func (that *Consumer) Close() {
-	that.cancel()
+	that.ctx.Cancel()
 	that.Consumer.Close()
+	that.ctx.Remove()
 }
 
 // func (that *Consumer) log(lvl klog.Level, f string, args ...interface{}) {
@@ -177,8 +174,7 @@ func (that *Consumer) Close() {
 /////////////////////////////////////////////////////////////
 
 type ConsumerGroup struct {
-	ctx        context.Context
-	cancel     context.CancelFunc
+	ctx        *kcontext.ContextNode
 	conf       *Config
 	group      sarama.ConsumerGroup
 	brokerList []string
@@ -186,7 +182,7 @@ type ConsumerGroup struct {
 	logf       klog.AppLogFuncWithTag
 }
 
-func NewConsumerGroup(ctx context.Context, conf *Config, logf klog.AppLogFuncWithTag) (*ConsumerGroup, error) {
+func NewConsumerGroup(ctx *kcontext.ContextNode, conf *Config, logf klog.AppLogFuncWithTag) (*ConsumerGroup, error) {
 	config := sarama.NewConfig()
 	// 设置config
 	config.Version = conf.Version                     // 设置协议版本
@@ -243,10 +239,9 @@ func NewConsumerGroup(ctx context.Context, conf *Config, logf klog.AppLogFuncWit
 	topics := klists.ToKSlice(conf.Topics)
 	topics = QueryTopics(client, topics...)
 
-	subCtx, subCancel := context.WithCancel(ctx)
+	subCtx := ctx.NewChild("kafka_group_consumer")
 	return &ConsumerGroup{
 		ctx:        subCtx,
-		cancel:     subCancel,
 		conf:       conf,
 		group:      group,
 		brokerList: brokerList,
@@ -264,7 +259,7 @@ func (that *ConsumerGroup) Subscribe(voidObj interface{}, callback SubscribeCall
 func (that *ConsumerGroup) SyncSubscribe(voidObj interface{}, callback SubscribeCallback) {
 	msgChan := make(chan *KafkaMessage, 10000)
 
-	tmpCtx, tmpCancel := context.WithCancel(that.ctx)
+	tmpCtx := that.ctx.NewChild("kafka_group_consumer_tmp")
 
 	topicNameList := make([]string, 0, len(that.topics))
 	for _, topic := range that.topics {
@@ -276,28 +271,28 @@ func (that *ConsumerGroup) SyncSubscribe(voidObj interface{}, callback Subscribe
 	consumerErrChan := make(chan error)
 	// 定义消费者组处理程序
 	handler := &privateConsumerGroupHandler{msgChan: msgChan, topics: that.topics}
-	go func(ctx context.Context, topics []string, handler *privateConsumerGroupHandler) {
+	go func(ctx *kcontext.ContextNode, topics []string, handler *privateConsumerGroupHandler) {
 		for {
-			if err := that.group.Consume(that.ctx, topics, handler); err != nil {
+			if err := that.group.Consume(that.ctx.Context(), topics, handler); err != nil {
 				if that.logf != nil {
 					that.logf(klog.ErrorLevel, kafka_tag, "kafka.ConsumerGroup error: {}", err.Error())
 				}
 			}
 
 			// 检查上下文是否被取消，如果是，函数传入的上下文被取消
-			if ctx.Err() != nil {
-				consumerErrChan <- ctx.Err()
+			if ctx.Context().Err() != nil {
+				consumerErrChan <- ctx.Context().Err()
 				break
 			}
 		}
 	}(tmpCtx, topicNameList, handler)
 
-	subCtx, subCancel := context.WithCancel(that.ctx)
-	go func(ctx context.Context, msgChan chan *KafkaMessage) {
+	subCtx := that.ctx.NewChild("kafka_group_consumer_child")
+	go func(ctx *kcontext.ContextNode, msgChan chan *KafkaMessage) {
 	END_LOOP:
 		for {
 			select {
-			case <-ctx.Done():
+			case <-ctx.Context().Done():
 				break END_LOOP
 			case <-consumerErrChan:
 				break END_LOOP
@@ -309,9 +304,12 @@ func (that *ConsumerGroup) SyncSubscribe(voidObj interface{}, callback Subscribe
 		}
 	}(subCtx, msgChan)
 
-	<-that.ctx.Done()
-	tmpCancel()
-	subCancel()
+	<-that.ctx.Context().Done()
+	tmpCtx.Cancel()
+	subCtx.Cancel()
+
+	tmpCtx.Remove()
+	subCtx.Remove()
 
 	if err := that.group.Close(); err != nil {
 		if that.logf != nil {
@@ -325,7 +323,7 @@ func (that *ConsumerGroup) SyncSubscribe(voidObj interface{}, callback Subscribe
 }
 
 func (that *ConsumerGroup) Close() {
-	that.cancel()
+	that.ctx.Cancel()
 	that.group.Close()
 }
 

@@ -1,9 +1,8 @@
 package kafka
 
 import (
-	"context"
-
 	"github.com/IBM/sarama"
+	"github.com/khan-lau/kutils/container/kcontext"
 	"github.com/khan-lau/kutils/container/klists"
 	klog "github.com/khan-lau/kutils/klogger"
 )
@@ -19,8 +18,7 @@ type KafkaMessage struct {
 
 // Producer 发送消息到 kafka
 type SyncProducer struct {
-	ctx        context.Context
-	cancel     context.CancelFunc
+	ctx        *kcontext.ContextNode
 	brokerList []string
 	conf       *Config
 	Producer   sarama.SyncProducer
@@ -33,14 +31,14 @@ type SyncProducer struct {
 //
 // 参数:
 //
-//	ctx context.Context - 用于生产者的上下文。
+//	ctx *kcontext.ContextNode - 用于生产者的上下文。
 //	conf *Config - 配置信息。
 //	logf klog.AppLogFunc - 用于错误处理的日志记录函数。
 //
 // 返回:
 //
 //	*SyncProducer - 指向初始化的SyncProducer的指针。
-func NewSyncProducer(ctx context.Context, chanSize uint, conf *Config, logf klog.AppLogFuncWithTag) (*SyncProducer, error) {
+func NewSyncProducer(ctx *kcontext.ContextNode, chanSize uint, conf *Config, logf klog.AppLogFuncWithTag) (*SyncProducer, error) {
 	config := sarama.NewConfig()
 	// 设置config
 	config.Version = conf.Version                     // 设置协议版本
@@ -81,10 +79,9 @@ func NewSyncProducer(ctx context.Context, chanSize uint, conf *Config, logf klog
 
 	msgChan := make(chan *KafkaMessage, chanSize) // 初始化消息通道
 
-	subCtx, subCancel := context.WithCancel(ctx)
+	subCtx := ctx.NewChild("kafka_sync_producer")
 	return &SyncProducer{
 		ctx:        subCtx,
-		cancel:     subCancel,
 		brokerList: brokerList,
 		conf:       conf,
 		Producer:   producer,
@@ -102,7 +99,7 @@ func (that *SyncProducer) SyncStart() {
 END_LOOP:
 	for {
 		select {
-		case <-that.ctx.Done():
+		case <-that.ctx.Context().Done():
 			// that.log(klog.InfoLevel, "kafka.SyncProducer cancel")
 			break END_LOOP
 		case msg := <-that.msgChan:
@@ -128,7 +125,7 @@ END_LOOP:
 		}
 	}
 
-	<-that.ctx.Done()
+	<-that.ctx.Context().Done()
 
 	if that.logf != nil {
 		that.logf(klog.InfoLevel, kafka_tag, "kafka.SyncProducer close")
@@ -189,15 +186,15 @@ func (that *SyncProducer) PublisDataWithProperties(partition int32, topic, key s
 }
 
 func (that *SyncProducer) Close() {
-	that.cancel()
+	that.ctx.Cancel()
 	that.Producer.Close()
+	that.ctx.Remove()
 }
 
 /////////////////////////////////////////////////////////////
 
 type AsyncProducer struct {
-	ctx        context.Context
-	cancel     context.CancelFunc
+	ctx        *kcontext.ContextNode
 	brokerList []string
 	conf       *Config
 	Producer   sarama.AsyncProducer
@@ -217,7 +214,7 @@ type AsyncProducer struct {
 // 返回:
 //
 //	*AsyncProducer：创建的异步生产者的指针。
-func NewAsyncProducer(ctx context.Context, chanSize uint, conf *Config, logf klog.AppLogFuncWithTag) (*AsyncProducer, error) {
+func NewAsyncProducer(ctx *kcontext.ContextNode, chanSize uint, conf *Config, logf klog.AppLogFuncWithTag) (*AsyncProducer, error) {
 	config := sarama.NewConfig()
 	// 设置config
 	config.Version = conf.Version                     // 设置协议版本
@@ -258,10 +255,9 @@ func NewAsyncProducer(ctx context.Context, chanSize uint, conf *Config, logf klo
 
 	msgChan := make(chan *KafkaMessage, chanSize)
 
-	subCtx, subCancel := context.WithCancel(ctx)
+	subCtx := ctx.NewChild("kafka_async_producer")
 	return &AsyncProducer{
 		ctx:        subCtx,
-		cancel:     subCancel,
 		brokerList: brokerList,
 		conf:       conf,
 		Producer:   producer,
@@ -273,12 +269,12 @@ func NewAsyncProducer(ctx context.Context, chanSize uint, conf *Config, logf klo
 
 func (that *AsyncProducer) Start() {
 
-	tmpCtx, tmpCancel := context.WithCancel(that.ctx)
-	go func(ctx context.Context) {
+	tmpCtx := that.ctx.NewChild("kafka_single_producer_child")
+	go func(ctx *kcontext.ContextNode) {
 	END_LOOP:
 		for {
 			select {
-			case <-that.ctx.Done():
+			case <-ctx.Context().Done():
 				break END_LOOP
 			case success := <-that.Producer.Successes():
 				byteArr, _ := success.Value.Encode()
@@ -299,7 +295,7 @@ func (that *AsyncProducer) Start() {
 END_LOOP:
 	for {
 		select {
-		case <-that.ctx.Done():
+		case <-that.ctx.Context().Done():
 			break END_LOOP
 		case msg := <-that.msgChan:
 			rawMsg := &sarama.ProducerMessage{Topic: msg.Topic, Key: sarama.StringEncoder(msg.Key), Value: sarama.ByteEncoder(msg.Value), Headers: msg.Headers}
@@ -307,8 +303,9 @@ END_LOOP:
 		}
 	}
 
-	<-that.ctx.Done()
-	tmpCancel()
+	<-that.ctx.Context().Done()
+	tmpCtx.Cancel()
+	tmpCtx.Remove()
 
 	if that.conf.OnExit != nil {
 		that.conf.OnExit(nil)
@@ -365,6 +362,7 @@ func (that *AsyncProducer) PublisDataWithProperties(partition int32, topic, key 
 }
 
 func (that *AsyncProducer) Close() {
-	that.cancel()
+	that.ctx.Cancel()
+	that.ctx.Remove()
 	that.Producer.AsyncClose()
 }
