@@ -6,3 +6,7 @@ go.sum
 *.rar
 *.7z
 *.gz
+
+
+cmd/**
+conf/**

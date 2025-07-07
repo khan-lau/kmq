@@ -130,6 +130,16 @@ func (that *MqttSubPub) SyncSubscribe(voidObj interface{}, callback SubscribeCal
 	}
 }
 
+func (that *MqttSubPub) UnSubscribe(topics ...string) bool {
+	that.mux.RLock()
+	defer that.mux.RUnlock()
+	if that.connected && that != nil {
+		token := that.client.Unsubscribe(topics...)
+		return token.Wait() // 阻塞等待订阅完成
+	}
+	return false
+}
+
 func (that *MqttSubPub) Publish(message *MqttMessage) bool {
 	that.mux.RLock()
 	defer that.mux.RUnlock()

@@ -137,3 +137,10 @@ func (that *MqttMQ) OnRecved(topic string, partition int, offset int64, properti
 		that.OnRecivedCallback(that.Name(), topic, partition, offset, properties, message)
 	}
 }
+
+func (that *MqttMQ) UnSubscribe(topics ...string) bool {
+	if that.status != idl.ServiceStatusRunning {
+		return false
+	}
+	return that.subscriber.UnSubscribe(topics...)
+}
