@@ -1,6 +1,7 @@
 package target
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/khan-lau/kmq/example/bean/config"
@@ -137,8 +138,37 @@ func (that *MqttMQ) Broadcast(message []byte, properties map[string]string) bool
 	return true
 }
 
-func (that *MqttMQ) Publish(topic string, message []byte, _ map[string]string) bool {
-	return that.PublishMessage(topic, string(message))
+// Publish 方法用于发布消息到指定的主题。
+//
+// 参数：
+//
+//	topic string: 要发布消息的主题。
+//	message []byte: 要发布的消息内容。
+//	attr map[string]string: 附加属性，用于设置消息的 QoS 等级和 Retained 标志。
+//
+// 返回值：
+//
+//	bool: 如果消息成功发布，则返回 true；否则返回 false。
+func (that *MqttMQ) Publish(topic string, message []byte, attr map[string]string) bool {
+	qos := byte(1)
+	retained := false
+
+	if attr != nil {
+		if str, ok := attr["qos"]; ok {
+			if i, err := strconv.Atoi(str); err == nil {
+				qos = byte(i)
+			}
+		}
+
+		if str, ok := attr["retained"]; ok {
+			if str == "true" || str == "1" || str == "True" || str == "TRUE" {
+				retained = true
+			}
+		}
+	}
+	msg := &mqtt.MqttMessage{Topic: topic, Qos: qos, Retained: retained, Payload: message}
+
+	return that.publish(msg)
 }
 
 func (that *MqttMQ) PublishMessage(topic string, message string) bool {
@@ -146,4 +176,11 @@ func (that *MqttMQ) PublishMessage(topic string, message string) bool {
 		return false
 	}
 	return that.publisher.PublishMessage(topic, message)
+}
+
+func (that *MqttMQ) publish(msg *mqtt.MqttMessage) bool {
+	if that.status != idl.ServiceStatusRunning {
+		return false
+	}
+	return that.publisher.Publish(msg)
 }

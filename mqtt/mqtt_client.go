@@ -51,7 +51,7 @@ func (that *MqttSubPub) Start() {
 	go func() {
 		flag := that.SyncStart()
 		if !flag && that.logf != nil {
-			that.logf(klog.ErrorLevel, mqtt_tag, "mqtt.client async start fault")
+			that.logf(klog.ErrorLevel, mqtt_tag, "mqtt.client {} async start fault", that.conf.ClientId())
 		}
 	}()
 }
@@ -59,6 +59,9 @@ func (that *MqttSubPub) Start() {
 func (that *MqttSubPub) SyncStart() bool {
 	flag := that.connect()
 	if !flag {
+		if that.logf != nil {
+			that.logf(klog.ErrorLevel, mqtt_tag, "mqtt {} connect fault", that.conf.ClientId())
+		}
 		return false
 	}
 
@@ -81,11 +84,11 @@ func (that *MqttSubPub) Subscribe(voidObj interface{}, callback SubscribeCallbac
 				break END_LOOP
 			default:
 				//  此处订阅失败要死循环继续订阅, 直到成功为止
-				if that.SyncSubscribe(voidObj, callback) {
+				if that.asyncSubscribe(voidObj, callback) {
 					break END_LOOP
 				} else {
 					if that.logf != nil {
-						that.logf(klog.DebugLevel, mqtt_tag, "mqtt subscribe fault, retry")
+						that.logf(klog.DebugLevel, mqtt_tag, "mqtt {} subscribe fault, retry", that.conf.ClientId())
 					}
 				}
 			}
@@ -93,11 +96,10 @@ func (that *MqttSubPub) Subscribe(voidObj interface{}, callback SubscribeCallbac
 	}(subCtx)
 }
 
-func (that *MqttSubPub) SyncSubscribe(voidObj interface{}, callback SubscribeCallback) bool {
-
+func (that *MqttSubPub) asyncSubscribe(voidObj interface{}, callback SubscribeCallback) bool {
 	that.mux.RLock()
-	defer that.mux.RUnlock()
 	if that.connected { // 未连接, 订阅失败
+		that.mux.RUnlock()
 
 		topicFilters := make(map[string]byte)
 		topics := that.conf.Topics()
@@ -116,15 +118,24 @@ func (that *MqttSubPub) SyncSubscribe(voidObj interface{}, callback SubscribeCal
 					})
 				}
 			})
-			token.Wait() // 阻塞等待订阅完成
-			if that.logf != nil {
-				that.logf(klog.InfoLevel, mqtt_tag, "mqtt subscribe topics: {} finished", strings.Join(topics, ", "))
+			// 阻塞等待订阅完成
+			if token.Wait() && token.Error() != nil {
+				if that.logf != nil {
+					that.logf(klog.ErrorLevel, mqtt_tag, "mqtt {} subscribe fault: {}", that.conf.ClientId(), token.Error())
+				}
+				return false
+			} else {
+				if that.logf != nil {
+					that.logf(klog.InfoLevel, mqtt_tag, "mqtt {} subscribe topics: {} finished", that.conf.ClientId(), strings.Join(topics, ", "))
+				}
 			}
+
 		}
 		return true
 	} else {
+		that.mux.RUnlock()
 		if that.logf != nil {
-			that.logf(klog.InfoLevel, mqtt_tag, "Client is connected, do nothing")
+			that.logf(klog.WarnLevel, mqtt_tag, "Client is not connected, can't subscribe")
 		}
 		return false
 	}
@@ -135,7 +146,15 @@ func (that *MqttSubPub) UnSubscribe(topics ...string) bool {
 	defer that.mux.RUnlock()
 	if that.connected && that != nil {
 		token := that.client.Unsubscribe(topics...)
-		return token.Wait() // 阻塞等待订阅完成
+
+		// 阻塞等待订阅完成
+		if token.Wait() && token.Error() == nil {
+			return true
+		} else {
+			if that.logf != nil {
+				that.logf(klog.ErrorLevel, mqtt_tag, "mqtt {} unsub fault: {}", that.conf.ClientId(), token.Error())
+			}
+		}
 	}
 	return false
 }
@@ -173,10 +192,16 @@ func (that *MqttSubPub) SendData(topic string, qos byte, retained bool, payload 
 	defer that.mux.RUnlock()
 	if that.client != nil && that.connected {
 		token := that.client.Publish(topic, qos, retained, payload)
-		return token.Wait()
+		if token.Wait() && token.Error() != nil {
+			if that.logf != nil {
+				that.logf(klog.ErrorLevel, mqtt_tag, "mqtt {} send fault: {}", that.conf.ClientId(), token.Error())
+			}
+			return false
+		}
 	} else {
 		return false
 	}
+	return true
 }
 
 func (that *MqttSubPub) Close() {
@@ -244,7 +269,7 @@ func (that *MqttSubPub) connect() bool {
 		opts.SetOnConnectHandler(func(c paho.Client) {
 			that.mux.Lock()
 			if that.logf != nil {
-				that.logf(klog.InfoLevel, mqtt_tag, "mqtt {} connect success", that.conf.Broker())
+				that.logf(klog.InfoLevel, mqtt_tag, "mqtt {} {} connect success", that.conf.ClientId(), that.conf.Broker())
 			}
 
 			that.connected = true
@@ -256,7 +281,7 @@ func (that *MqttSubPub) connect() bool {
 		opts.SetConnectionLostHandler(func(c paho.Client, err error) {
 			that.mux.Lock()
 			if that.logf != nil {
-				that.logf(klog.InfoLevel, mqtt_tag, "mqtt {} connect lost", that.conf.Broker())
+				that.logf(klog.InfoLevel, mqtt_tag, "mqtt {} {} connect lost", that.conf.ClientId(), that.conf.Broker())
 			}
 
 			that.connected = false
@@ -264,14 +289,17 @@ func (that *MqttSubPub) connect() bool {
 			that.mux.Unlock()
 		})
 
-		// // 重连事件
-		// opts.SetReconnectingHandler(func(c paho.Client, option *paho.ClientOptions) {
-		// })
+		// 重连事件
+		opts.SetReconnectingHandler(func(c paho.Client, option *paho.ClientOptions) {
+			if that.logf != nil {
+				that.logf(klog.DebugLevel, mqtt_tag, "mqtt {} {} reconnecting", that.conf.ClientId(), that.conf.Broker())
+			}
+		})
 
 		// 全局 MQTT pub 消息处理, subscribe 操作时没有指定明确回调函数的, 都会走这里处理
 		opts.SetDefaultPublishHandler(func(client paho.Client, msg paho.Message) {
 			if that.logf != nil {
-				that.logf(klog.DebugLevel, mqtt_tag, "mqtt {} receive message: {}", that.conf.Broker(), string(msg.Payload()))
+				that.logf(klog.DebugLevel, mqtt_tag, "mqtt {} {} receive message: {}", that.conf.ClientId(), that.conf.Broker(), string(msg.Payload()))
 			}
 		})
 
@@ -279,11 +307,12 @@ func (that *MqttSubPub) connect() bool {
 		that.client = client
 		if token := client.Connect(); token.Wait() && token.Error() != nil {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, mqtt_tag, "mqtt {} connect error: {}", that.conf.Broker(), token.Error())
+				that.logf(klog.ErrorLevel, mqtt_tag, "mqtt {} {} connect error: {}", that.conf.ClientId(), that.conf.Broker(), token.Error())
 			}
 		}
+		return true
 	}
-	return false
+	return true
 }
 
 func (that *MqttSubPub) ReadySend() {
@@ -310,7 +339,7 @@ func (that *MqttSubPub) ReadySend() {
 							break END_SUB_LOOP
 						} else {
 							if that.logf != nil {
-								that.logf(klog.DebugLevel, mqtt_tag, "mqtt publish to {} fault, retry", msg.Topic)
+								that.logf(klog.DebugLevel, mqtt_tag, "mqtt {} publish to {} fault, retry", that.conf.ClientId(), msg.Topic)
 							}
 							time.Sleep(500 * time.Millisecond) // 等待500ms后重试
 						}
