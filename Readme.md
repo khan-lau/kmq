@@ -5,6 +5,8 @@ mq 客户端封装, 支持4种MQ
 2. RabbitMQ
 3. RedisMQ
 4. Kafka
+5. MQTT - 支持mqtt 3.1 和 mqtt 3.1.1协议, mqtt5不支持
+
 
 使用方法见 `example`目录
 1. `source` - comsumer 范例

@@ -277,7 +277,7 @@ func (that *Config) String() string {
 	return kstrings.FormatString("Config{broker: {}, clientId: {}, username: {}, password: {}, keepAlive: {}, cleanSession: {}, qos: {}, "+
 		"willTopic: {}, willPayload: {}, willQos: {}, willRetain: {}, version: {}, timeout: {}, topics:[{}], useTLS: {}, caCertPath: {}}",
 		that.broker, that.clientId, that.username, that.password, that.keepAlive, that.cleanSession, that.qos,
-		that.willTopic, that.willPayload, that.willQos, that.willRetain,
+		that.willTopic, string(that.willPayload), that.willQos, that.willRetain,
 		that.version, that.timeout,
 		strings.Join(klists.ToKSlice(that.topics), ", "),
 		that.useTLS,
