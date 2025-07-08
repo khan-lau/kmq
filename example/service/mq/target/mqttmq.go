@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	mqtt_tag = "redismq_target"
+	mqtt_tag = "mqtt_target"
 )
 
 type MqttMQ struct {
