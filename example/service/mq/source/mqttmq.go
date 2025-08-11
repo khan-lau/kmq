@@ -86,7 +86,7 @@ func (that *MqttMQ) Start() error {
 		if isAuthed {
 			// 断开重连, 并且鉴权成功后, 需要重新订阅主题
 			client.Subscribe(nil, func(voidObj interface{}, msg *mqtt.MqttMessage) {
-				that.OnRecved(msg.Topic, 0, int64(msg.MessageID), nil, msg.Payload)
+				that.OnRecved(nil, msg.Topic, 0, int64(msg.MessageID), nil, msg.Payload)
 			})
 		} else {
 			that.onExit(client)
@@ -132,9 +132,9 @@ func (that *MqttMQ) onError(obj interface{}, err error) {
 func (that *MqttMQ) onExit(obj interface{}) {
 }
 
-func (that *MqttMQ) OnRecved(topic string, partition int, offset int64, properties map[string]string, message []byte) {
+func (that *MqttMQ) OnRecved(origin interface{}, topic string, partition int, offset int64, properties map[string]string, message []byte) {
 	if that.OnRecivedCallback != nil {
-		that.OnRecivedCallback(that.Name(), topic, partition, offset, properties, message)
+		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, properties, message)
 	}
 }
 

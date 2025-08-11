@@ -6,7 +6,7 @@ import (
 	"github.com/wagslane/go-rabbitmq"
 )
 
-type SubscribeCallback func(voidObj interface{}, msg *rabbitmq.Delivery)
+type SubscribeCallback func(voidObj interface{}, msg *Message)
 
 type Consumer struct {
 	conn     *rabbitmq.Conn
@@ -73,11 +73,18 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 
 		// that.queue <- d.Body
 		if callback != nil {
-			callback(voidObj, &d)
+			callback(voidObj, &Message{Delivery: &d})
 		}
 
-		// rabbitmq.Ack, rabbitmq.NackDiscard, rabbitmq.NackRequeue
-		return rabbitmq.Ack
+		// rabbitmq.Ack, 成功处理消息，从队列中移除。
+		// rabbitmq.NackDiscard, 失败处理，但错误是永久性的，所以直接丢弃消息。
+		// rabbitmq.NackRequeue, 失败处理，但错误是暂时性的，所以重新入队，等待再次处理。
+		// rabbitmq.Manual, 手动处理，需要调用msg.Ack()或msg.Nack()
+		if that.conf.Consumer.AutoCommit {
+			return rabbitmq.Ack
+		} else {
+			return rabbitmq.Manual
+		}
 	})
 
 	if err != nil {

@@ -92,7 +92,7 @@ func (that *RedisMQ) Start() error {
 		that.status = idl.ServiceStatusRunning //设置服务状态为运行状态
 	}()
 	that.subscriber.SyncSubscribe(nil, func(voidObj interface{}, msg *kredis.RedisMessage) {
-		that.OnRecved(msg.Topic, 0, 0, nil, []byte(msg.Message))
+		that.OnRecved(nil, msg.Topic, 0, 0, nil, []byte(msg.Message))
 	})
 
 	return nil
@@ -126,8 +126,8 @@ func (that *RedisMQ) onError(obj interface{}, err error) {
 func (that *RedisMQ) onExit(obj interface{}) {
 }
 
-func (that *RedisMQ) OnRecved(topic string, partition int, offset int64, properties map[string]string, message []byte) {
+func (that *RedisMQ) OnRecved(origin interface{}, topic string, partition int, offset int64, properties map[string]string, message []byte) {
 	if that.OnRecivedCallback != nil {
-		that.OnRecivedCallback(that.Name(), topic, partition, offset, properties, message)
+		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, properties, message)
 	}
 }

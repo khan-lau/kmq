@@ -8,7 +8,6 @@ import (
 	"github.com/khan-lau/kmq/rocketmq"
 
 	"github.com/apache/rocketmq-client-go/v2/consumer"
-	"github.com/apache/rocketmq-client-go/v2/primitive"
 	"github.com/khan-lau/kutils/container/kcontext"
 	"github.com/khan-lau/kutils/container/kstrings"
 	klog "github.com/khan-lau/kutils/klogger"
@@ -19,7 +18,7 @@ type RocketMQ struct {
 	conf       *config.RocketConfig
 	name       string // 服务名称
 	status     idl.ServiceStatus
-	subscriber *rocketmq.Consumer
+	subscriber *rocketmq.PushConsumer
 
 	logf              klog.AppLogFuncWithTag
 	OnRecivedCallback idl.OnRecived // 消息接收回调函数
@@ -112,7 +111,7 @@ func (that *RocketMQ) Start() error {
 		SetNsResolver(that.conf.NsResolver).
 		SetConsumer(rocketConsumerConfig)
 
-	subscriber, err := rocketmq.NewConsumer(that.ctx, rocketConfig, that.logf)
+	subscriber, err := rocketmq.NewPushConsumer(that.ctx, rocketConfig, that.logf)
 	if err != nil {
 		return err
 	}
@@ -131,8 +130,8 @@ func (that *RocketMQ) Start() error {
 		that.status = idl.ServiceStatusRunning //设置服务状态为运行状态
 	}()
 
-	that.subscriber.SyncSubscribe(nil, func(voidObj interface{}, msg *primitive.MessageExt) {
-		that.OnRecved(msg.Topic, 0, int64(msg.QueueOffset), msg.GetProperties(), msg.Body)
+	that.subscriber.SyncSubscribe(nil, func(voidObj interface{}, msg *rocketmq.Message) {
+		that.OnRecved(msg, msg.Topic, 0, int64(msg.StoreTimestamp), msg.GetProperties(), msg.Body)
 	})
 
 	return nil
@@ -166,8 +165,8 @@ func (that *RocketMQ) onError(obj interface{}, err error) {
 func (that *RocketMQ) onExit(obj interface{}) {
 }
 
-func (that *RocketMQ) OnRecved(topic string, partition int, offset int64, properties map[string]string, message []byte) {
+func (that *RocketMQ) OnRecved(origin interface{}, topic string, partition int, offset int64, properties map[string]string, message []byte) {
 	if that.OnRecivedCallback != nil {
-		that.OnRecivedCallback(that.Name(), topic, partition, offset, properties, message)
+		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, properties, message)
 	}
 }

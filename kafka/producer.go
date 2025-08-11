@@ -7,15 +7,6 @@ import (
 	klog "github.com/khan-lau/kutils/klogger"
 )
 
-type KafkaMessage struct {
-	Topic     string
-	Partition int32
-	Offset    int64
-	Headers   []sarama.RecordHeader
-	Key       []byte
-	Value     []byte
-}
-
 // Producer 发送消息到 kafka
 type SyncProducer struct {
 	ctx        *kcontext.ContextNode

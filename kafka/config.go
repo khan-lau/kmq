@@ -29,6 +29,32 @@ type EventCallbackFunc func(event interface{})
 
 /////////////////////////////////////////////////////////////
 
+/////////////////////////////////////////////////////////////
+
+type KafkaMessage struct {
+	Topic     string
+	Partition int32
+	Offset    int64
+	Headers   []sarama.RecordHeader
+	Key       []byte
+	Value     []byte
+
+	session sarama.ConsumerGroupSession
+}
+
+// 确认当前消息seq之前的所有消息
+func (that *KafkaMessage) Ack() error {
+	if that.session == nil {
+		return nil
+	}
+	that.session.MarkOffset(that.Topic, that.Partition, that.Offset+1, "")
+	return nil
+}
+
+/////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////
+
 type Topic struct {
 	Name      string
 	Partition map[int32]int64

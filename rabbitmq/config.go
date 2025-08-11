@@ -2,6 +2,7 @@ package rabbitmq
 
 import (
 	klog "github.com/khan-lau/kutils/klogger"
+	"github.com/wagslane/go-rabbitmq"
 )
 
 type RabbitWorkType uint8
@@ -73,6 +74,7 @@ type ConsumerConfig struct {
 	Exchange   string // 交换机名称
 	KRouterKey string // 路由键
 	WorkType   string // 工作模式
+	AutoCommit bool   // 自动确认消息
 }
 
 func NewConsumerConfig() *ConsumerConfig {
@@ -107,6 +109,21 @@ func (that *ConsumerConfig) SetWorkType(workType string) *ConsumerConfig {
 	that.WorkType = workType
 	return that
 }
+
+func (that *ConsumerConfig) SetAutoCommit(autoCommit bool) *ConsumerConfig {
+	that.AutoCommit = autoCommit
+	return that
+}
+
+////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////
+
+type Message struct {
+	*rabbitmq.Delivery
+}
+
+////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////
 

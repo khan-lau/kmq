@@ -7,8 +7,6 @@ import (
 	"github.com/khan-lau/kmq/example/service/idl"
 	"github.com/khan-lau/kmq/rabbitmq"
 
-	grabbitmq "github.com/wagslane/go-rabbitmq"
-
 	"github.com/khan-lau/kutils/container/kcontext"
 	"github.com/khan-lau/kutils/container/kstrings"
 	klog "github.com/khan-lau/kutils/klogger"
@@ -103,8 +101,8 @@ func (that *RabbitMQ) Start() error {
 		that.status = idl.ServiceStatusRunning //设置服务状态为运行状态
 	}()
 
-	that.subscriber.SyncSubscribe(nil, func(voidObj interface{}, msg *grabbitmq.Delivery) {
-		that.OnRecved(msg.RoutingKey, 0, msg.Timestamp.UnixMilli(), nil, []byte(msg.Body))
+	that.subscriber.SyncSubscribe(nil, func(voidObj interface{}, msg *rabbitmq.Message) {
+		that.OnRecved(msg, msg.RoutingKey, 0, msg.Timestamp.UnixMilli(), nil, []byte(msg.Body))
 	})
 
 	return nil
@@ -138,8 +136,8 @@ func (that *RabbitMQ) onError(obj interface{}, err error) {
 func (that *RabbitMQ) onExit(obj interface{}) {
 }
 
-func (that *RabbitMQ) OnRecved(topic string, partition int, offset int64, properties map[string]string, message []byte) {
+func (that *RabbitMQ) OnRecved(origin interface{}, topic string, partition int, offset int64, properties map[string]string, message []byte) {
 	if that.OnRecivedCallback != nil {
-		that.OnRecivedCallback(that.Name(), topic, partition, offset, properties, message)
+		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, properties, message)
 	}
 }

@@ -270,7 +270,7 @@ func (that *ConsumerGroup) SyncSubscribe(voidObj interface{}, callback Subscribe
 
 	consumerErrChan := make(chan error)
 	// 定义消费者组处理程序
-	handler := &privateConsumerGroupHandler{msgChan: msgChan, topics: that.topics}
+	handler := &privateConsumerGroupHandler{msgChan: msgChan, topics: that.topics, autoCommit: that.conf.Consumer.AutoCommit}
 	go func(ctx *kcontext.ContextNode, topics []string, handler *privateConsumerGroupHandler) {
 		for {
 			if err := that.group.Consume(that.ctx.Context(), topics, handler); err != nil {
@@ -335,8 +335,9 @@ func (that *ConsumerGroup) Close() {
 // 请注意，处理程序很可能从多个 goroutine 同时并发调用，
 // 确保所有状态都安全地防止竞争条件。
 type privateConsumerGroupHandler struct {
-	msgChan chan *KafkaMessage
-	topics  []*Topic
+	msgChan    chan *KafkaMessage
+	autoCommit bool
+	topics     []*Topic
 }
 
 // Setup 是在新的会话开始之前调用的，在 ConsumeClaim 之前。
@@ -360,8 +361,10 @@ func (that *privateConsumerGroupHandler) Cleanup(sarama.ConsumerGroupSession) er
 // 一旦 Messages() 通道被关闭，Handler 必须完成其消息处理循环并退出。
 func (that *privateConsumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
-		that.msgChan <- &KafkaMessage{Topic: msg.Topic, Partition: msg.Partition, Offset: msg.Offset, Key: msg.Key, Value: msg.Value}
-		session.MarkMessage(msg, "")
+		that.msgChan <- &KafkaMessage{Topic: msg.Topic, Partition: msg.Partition, Offset: msg.Offset, Key: msg.Key, Value: msg.Value, session: session}
+		if that.autoCommit {
+			session.MarkMessage(msg, "")
+		}
 	}
 	return nil
 }

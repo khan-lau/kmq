@@ -120,7 +120,7 @@ func (that *KafkaMQ) Start() error {
 	}()
 	that.subscriber.SyncSubscribe(nil, func(voidObj interface{}, msg *kafka.KafkaMessage) {
 		keyMap := map[string]string{"key": string(msg.Key)}
-		that.OnRecved(msg.Topic, int(msg.Partition), msg.Offset, keyMap, msg.Value)
+		that.OnRecved(msg, msg.Topic, int(msg.Partition), msg.Offset, keyMap, msg.Value)
 	})
 
 	return nil
@@ -154,8 +154,8 @@ func (that *KafkaMQ) onError(obj interface{}, err error) {
 func (that *KafkaMQ) onExit(obj interface{}) {
 }
 
-func (that *KafkaMQ) OnRecved(topic string, partition int, offset int64, properties map[string]string, message []byte) {
+func (that *KafkaMQ) OnRecved(origin interface{}, topic string, partition int, offset int64, properties map[string]string, message []byte) {
 	if that.OnRecivedCallback != nil {
-		that.OnRecivedCallback(that.Name(), topic, partition, offset, properties, message)
+		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, properties, message)
 	}
 }

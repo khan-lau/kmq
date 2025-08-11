@@ -13,7 +13,7 @@ const (
 	ServiceStatusRestart ServiceStatus = "restarting"
 )
 
-type OnRecived func(name string, topic string, partition int, offset int64, properties map[string]string, message []byte)
+type OnRecived func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte)
 
 type ServiceInterface interface {
 	// 服务名称

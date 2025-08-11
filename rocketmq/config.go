@@ -17,12 +17,40 @@ type EventCallbackFunc func(event interface{})
 
 /////////////////////////////////////////////////////////////
 
+/////////////////////////////////////////////////////////////
+
+type Message struct {
+	*primitive.MessageExt
+	consumer *PullConsumer
+}
+
+// 批量确认
+func (that *Message) Ack() error {
+	queue := that.Queue
+	if queue != nil && that.consumer != nil {
+		// that.consumer.mqConsumer.Search
+		if err := that.consumer.mqConsumer.UpdateOffset(queue, that.QueueOffset); err != nil {
+			return err
+		} else {
+			if err := that.consumer.mqConsumer.PersistOffset(that.consumer.ctx.Context(), that.Topic); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+/////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////
+
 type RocketConsumerConfig struct {
 	Topics              []string
 	Mode                consumer.MessageModel     // BroadCasting 广播模式;  Clustering 集群模式; 默认为 Clustering
 	Offset              consumer.ConsumeFromWhere // ConsumeFromFirstOffset 最新消息;  ConsumeFromLastOffset  最旧消息; ConsumeFromTimestamp 指定时间戳开始消费
 	Timestamp           string                    // 指定时间戳开始消费, "20131223171201"
 	Order               bool                      // 是否顺序消费, 默认为 false
+	AutoCommit          bool                      // 自动确认, 默认为 true
 	MessageBatchMaxSize int                       // 批量消费消息的最大数量, 默认为 1
 	MaxReconsumeTimes   int                       // 最大重消费次数, 默认为 -1
 	Interceptors        []primitive.Interceptor   // 消息拦截器, 默认为空
@@ -71,6 +99,11 @@ func (that *RocketConsumerConfig) SetTimestamp(timestamp string) *RocketConsumer
 
 func (that *RocketConsumerConfig) SetOrder(order bool) *RocketConsumerConfig {
 	that.Order = order
+	return that
+}
+
+func (that *RocketConsumerConfig) SetAutoCommit(autoCommit bool) *RocketConsumerConfig {
+	that.AutoCommit = autoCommit
 	return that
 }
 
