@@ -74,7 +74,8 @@ func (that *RocketMQ) Start() error {
 		SetTopics(that.conf.Consumer.Topics...).
 		SetOrder(that.conf.Consumer.Order).
 		SetMessageBatchMaxSize(that.conf.Consumer.MessageBatchMaxSize).
-		SetMaxReconsumeTimes(that.conf.Consumer.MaxReconsumeTimes)
+		SetMaxReconsumeTimes(that.conf.Consumer.MaxReconsumeTimes).
+		SetAutoCommit(that.conf.Consumer.AutoCommit)
 
 	switch that.conf.Consumer.Mode {
 	case "Clustering":

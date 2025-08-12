@@ -73,7 +73,8 @@ func (that *RabbitMQ) Start() error {
 		SetExchange(that.conf.Consumer.Exchange).
 		SetQueueName(that.conf.Consumer.QueueName).
 		SetRouterKey(that.conf.Consumer.KRouterKey).
-		SetWorkType(that.conf.Consumer.WorkType)
+		SetWorkType(that.conf.Consumer.WorkType).
+		SetAutoCommit(that.conf.Consumer.AutoCommit)
 
 	rabbitConfig := rabbitmq.NewRabbitConfig().
 		SetUser(that.conf.User).

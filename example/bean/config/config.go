@@ -22,23 +22,10 @@ type Log struct {
 	LogDir       string `json:"logDir" toml:"logDir" yaml:"logDir"`                   // 日志文件存储目录
 }
 
-type RDB struct {
-	Url         string `json:"url" toml:"url" yaml:"url"`                         // 数据库连接
-	MaxConn     int    `json:"maxConn" toml:"maxConn" yaml:"maxConn"`             // 最大连接数
-	MaxIdle     int    `json:"maxIdle" toml:"maxIdle" yaml:"maxIdle"`             // 最大空闲连接数
-	MaxIdleTime int    `json:"maxIdleTime" toml:"maxIdleTime" yaml:"maxIdleTime"` // 最大空闲时间, 单位毫秒
-	MaxLifetime int    `json:"maxLifetime" toml:"maxLifetime" yaml:"maxLifetime"` // 最长生命周期, 单位毫秒
-	Schema      string `json:"schema" toml:"schema" yaml:"schema"`                // 数据库schema
-}
-
-type WebRPC struct {
-	IP   string `json:"ip" toml:"ip" yaml:"ip"`       // ip地址
-	Port uint16 `json:"port" toml:"port" yaml:"port"` // 端口号
-}
-
 type MQItemObj struct {
-	MQType string      `json:"type" toml:"type" yaml:"type"` // 消息队列类型, 支持的类型: kafkamq, rabbitmq, redismq, rocketmq, mqtt3
-	Item   interface{} `json:"mq" toml:"mq" yaml:"mq"`       // 消息队列配置
+	MQType   string      `json:"type" toml:"type" yaml:"type"`                   // 消息队列类型, 支持的类型: kafkamq, rabbitmq, redismq, rocketmq, mqtt3, natscoremq natsjsmq
+	Compress bool        `json:"isCompress" toml:"isCompress" yaml:"isCompress"` // 是否压缩
+	Item     interface{} `json:"mq" toml:"mq" yaml:"mq"`                         // 消息队列配置
 	// mqConfig interface{} // 消息队列配置
 }
 
@@ -47,12 +34,12 @@ func (that *MQItemObj) MQConfig() interface{} {
 }
 
 type Configure struct {
-	Log       *Log         `json:"log" toml:"log" yaml:"log"`                   // 日志配置
-	RDB       *RDB         `json:"rdb" toml:"rdb" yaml:"rdb"`                   // 数据库配置
-	QueueSize int          `json:"queueSize" toml:"queueSize" yaml:"queueSize"` // 消息队列大小, 不超过cpu核心数的2倍
-	RPC       *WebRPC      `json:"rpc" toml:"rpc" yaml:"rpc"`                   // rpc配置
-	Source    []*MQItemObj `json:"source" toml:"source" yaml:"source"`          // 消息队列配置
-	Target    []*MQItemObj `json:"target" toml:"target" yaml:"target"`          // 消息队列配置
+	Type     string       `json:"type" toml:"type" yaml:"type"`             // 配置类型, 支持的类型: send recv
+	SyncTime uint64       `json:"syncTime" toml:"syncTime" yaml:"syncTime"` // 同步周期, 单位毫秒,不低于1000毫秒
+	SyncFile string       `json:"syncFile" toml:"syncFile" yaml:"syncFile"` // 同步文件路径, 同步偏移量缓存文件路径配置
+	Log      *Log         `json:"log" toml:"log" yaml:"log"`                // 日志配置
+	Source   []*MQItemObj `json:"source" toml:"source" yaml:"source"`       // 消息队列配置
+	Target   []*MQItemObj `json:"target" toml:"target" yaml:"target"`       // 消息队列配置
 }
 
 func ConfigInstance(filePath string) (*Configure, error) {
@@ -235,6 +222,7 @@ type RabbitConsumerConfig struct {
 	Exchange   string `json:"exchange" toml:"exchange" yaml:"exchange"`       // 交换机名称
 	KRouterKey string `json:"kRouterKey" toml:"kRouterKey" yaml:"kRouterKey"` // 路由键
 	WorkType   string `json:"workType" toml:"workType" yaml:"workType"`       // 工作模式
+	AutoCommit bool   `json:"autoCommit" toml:"autoCommit" yaml:"autoCommit"` // 是否自动提交
 }
 
 type RabbitProducerConfig struct {
@@ -279,6 +267,7 @@ type RocketCustomConfig struct {
 	Order               bool     `json:"order" toml:"order" yaml:"order"`                                           // 是否顺序消费, 默认为 false
 	MessageBatchMaxSize int      `json:"messageBatchMaxSize" toml:"messageBatchMaxSize" yaml:"messageBatchMaxSize"` // 批量消费消息的最大数量, 默认为 1
 	MaxReconsumeTimes   int      `json:"maxReconsumeTimes" toml:"maxReconsumeTimes" yaml:"maxReconsumeTimes"`       // 最大重消费次数, 默认为 -1
+	AutoCommit          bool     `json:"autoCommit" toml:"autoCommit" yaml:"autoCommit"`                            // 是否自动提交, 默认为 false
 	Interceptor         string   `json:"interceptor" toml:"interceptor" yaml:"interceptor"`                         // 消息拦截器, 默认为空
 }
 
@@ -366,10 +355,10 @@ type NatsJsConsumerConfig struct {
 	GroupId string `json:"groupId" toml:"groupId" yaml:"groupId"` // 持久化订阅名称，可以为空, 等同于消费者名称, 为空时表示临时消费组, 最后一个消费者断开连接时, 未处理消息被丢弃
 	MaxWait int    `json:"maxWait" toml:"maxWait" yaml:"maxWait"` // 最大等待时间，默认为 -1 (无限)
 
-	StartWithTimestamp int64 // 最后消费的时间戳, 精度为纳秒, 默认为 -1 (无效)
-
-	AckPolicy     string `json:"ackPolicy" toml:"ackPolicy" yaml:"ackPolicy"` // 确认策略，默认`none`: 自动ack; `all`: 确认一个序列号时，会隐式确认该序列号之前的所有消息; `explicit`: 每条需要单独确认
-	DeliverPolicy string // `json:"deliverPolicy" toml:"deliverPolicy" yaml:"deliverPolicy"` // 投递策略，固定为 `by_start_time`
+	StartWithTimestamp int64  // 最后消费的时间戳, 精度为纳秒, 默认为 -1 (无效)
+	AutoCommit         bool   `json:"autoCommit" toml:"autoCommit" yaml:"autoCommit"` // 是否自动提交消息，默认为 false
+	AckPolicy          string `json:"ackPolicy" toml:"ackPolicy" yaml:"ackPolicy"`    // 确认策略，默认`none`: 自动ack; `all`: 确认一个序列号时，会隐式确认该序列号之前的所有消息; `explicit`: 每条需要单独确认
+	DeliverPolicy      string // `json:"deliverPolicy" toml:"deliverPolicy" yaml:"deliverPolicy"` // 投递策略，固定为 `by_start_time`
 	// `all`, 从第一条开始消费;  与 new不同
 	// `last` 从最后一条开始消费;
 	// `new` 最新一条开始, 从创建消费开始的第一条;
@@ -404,7 +393,7 @@ type NatsJsConfig struct {
 	MaxConsumers       int                   `json:"maxConsumers" toml:"maxConsumers" yaml:"maxConsumers"`                   // 最大消费者数，默认为 -1 (无限)
 	MaxMsgs            int64                 `json:"maxMsgs" toml:"maxMsgs" yaml:"maxMsgs"`                                  // 最大消息数，默认为 -1 (无限)
 	MaxBytes           int64                 `json:"maxBytes" toml:"maxBytes" yaml:"maxBytes"`                               // 最大字节数，默认为 -1 (无限)
-	MaxAge             int64                 `json:"maxAge" toml:"maxAge" yaml:"maxAge"`                                     // 最大消息年龄，默认为 -1 (无限)
+	MaxAge             int64                 `json:"maxAge" toml:"maxAge" yaml:"maxAge"`                                     // 最大消息生命周期，默认为 -1 (无限)
 	MaxMsgsPerSubject  int64                 `json:"maxMsgsPerSubject" toml:"maxMsgsPerSubject" yaml:"maxMsgsPerSubject"`    // 每个主题的最大消息数，默认为 -1 (无限)
 	MaxMsgSize         int32                 `json:"maxMsgSize" toml:"maxMsgSize" yaml:"maxMsgSize"`                         // 最大消息大小，默认为 -1 (无限)
 	Duplicates         int64                 `json:"duplicates" toml:"duplicates" yaml:"duplicates"`                         // 多长时间内不允许消息重复, 单位MS, 默认为 -1 (无限)

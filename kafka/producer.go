@@ -227,8 +227,8 @@ func NewAsyncProducer(ctx *kcontext.ContextNode, chanSize uint, conf *Config, lo
 	config.Producer.CompressionLevel = conf.Producer.CompressionLevel  // 设置压缩级别
 	config.Producer.MaxMessageBytes = conf.Producer.MaxMessageBytes    // 发送限制
 	config.Producer.RequiredAcks = conf.Producer.GetRequiredAcks()     // 设置确认模式: 本地文件写入成功，并不代表已经通知服务器
-	config.Producer.Return.Errors = true                               //是否返回消费过程中遇到的错误, 默认为false
-	config.Producer.Return.Successes = true                            //是否返回消费完成, 默认为false
+	config.Producer.Return.Errors = true                               // 是否返回消费过程中遇到的错误, 默认为false
+	config.Producer.Return.Successes = true                            // 是否返回消费完成, 默认为false
 	config.Producer.Flush.Messages = conf.Producer.FlushMessages       // 设置刷新消息数量: 每100条刷新
 	config.Producer.Flush.Frequency = conf.Producer.FlushFrequency     // 缓存时间
 	config.Producer.Flush.MaxMessages = conf.Producer.FlushMaxMessages // 设置刷新最大消息数量: 10000条

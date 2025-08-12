@@ -84,6 +84,12 @@ func (that *KafkaMQ) Start() error {
 		SetFetch(that.conf.Consumer.Min, that.conf.Consumer.Max, that.conf.Consumer.Fetch).
 		SetAssignor(that.conf.Consumer.Assignor)
 
+	if that.conf.Consumer.AutoCommit {
+		kafkaConsumerConfig.EnableAutoCommit(time.Duration(that.conf.Consumer.AutoCommitInterval))
+	} else {
+		kafkaConsumerConfig.DisableAutoCommit()
+	}
+
 	// TODO 载入上次消费的offset
 	topics := make([]*kafka.Topic, 0, len(that.conf.Consumer.Topics))
 	for _, topic := range that.conf.Consumer.Topics {

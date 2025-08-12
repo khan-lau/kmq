@@ -8,7 +8,7 @@ go.sum
 *.gz
 
 
-cmd/**
-conf/**
+# cmd/**
+# conf/**
 dist/**
-Makefile
+# Makefile

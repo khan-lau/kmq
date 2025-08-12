@@ -1,0 +1,354 @@
+{
+  type: "send",  // 支持send recv 两种模式
+  syncTime: 5000,                 // 同步周期, 单位毫秒,不低于1000毫秒
+  syncFile: "conf/offset.json",   // 同步offset到文件的路径
+
+  log: {
+    // 日志等级, (DebugLevel=-1; InfoLevel=0, WarnLevel=1; ErrorLevel=2; DPanicLevel=3; PanicLevel=4; FatalLevel=5)
+    logLevel: -1,
+    colorful: false,  // 是否需要彩色
+    maxAge: 72,       // 日志最长保留时间, 单位 小时
+    rotationTime: 24, // 日志滚动周期, 单位 小时, 24小时滚动一个文件
+    console: true,    // 是否同时输出到控制台
+    logDir: "logs",   // 日志路径
+  },
+
+
+  source: [
+    // 采集数据源, 支持 kafkamq rabbitmq rocketmq redismq mqtt3 natscoremq natsjsmq 消息队列
+    {
+      tag : "", 
+      type: "natscoremq",
+      isCompress: false,
+      mq: {
+        clientId: "natscoremq_client01", // 客户端标识, 唯一
+        user: "nats_user",
+        password: "",
+        brokerList: ["nats://127.0.0.1:4222"],
+        allowReconnect: true,      // 是否自动重连
+        maxReconnect: 500,         // 最大重连次数
+        reconnectWait: 5000,       // 重连等待时间, 单位ms
+        reconnectBufSize: 8388608, // 重连时缓存的最大消息容量, 单位byte, 8M字节
+        connectTimeout: 5000,      // 连接超时时间, 单位ms
+        pingInterval: 60000,       // 心跳间隔, 单位ms
+        maxPingsOut: 3,            // 最大允许的连续无应答心跳次数
+        useTls: false,             // 是否使用tls链路
+
+        topics: ["nats.core.topic_001"], // 订阅的topic 列表
+        queueGroup: "core_queue",  // 消费组名称, 用于负载均衡, 允许空字符串, 为空时为广播模式, 非空时为负载均衡模式, core模式下 没有 类似kafka的通过key的hash实现的负载均衡模式
+        maxPending: 100000,        // 最大消息缓冲数量
+      }
+    },
+    {
+      type: "natsjsmq",
+      isCompress: false,
+      mq: {
+        clientId: "natsjsmq_client01", // 客户端标识, 唯一
+        user: "nats_user",
+        password: "",
+        brokerList:  ["nats://127.0.0.1:4222"],
+        allowReconnect: true,      // 是否自动重连
+        maxReconnect: 500,         // 最大重连次数
+        reconnectWait: 5000,       // 重连等待时间, 单位ms
+        reconnectBufSize: 8388608, // 重连时缓存的最大消息容量, 单位byte, 8M字节
+        connectTimeout: 5000,      // 连接超时时间, 单位ms
+        pingInterval: 60000,       // 心跳间隔, 单位ms
+        maxPingsOut: 3,            // 最大允许的连续无应答心跳次数
+        useTls: false,             // 是否使用tls链路
+
+        topics: ["ntas.js.topic_001"],
+        queueName: "js_queue01",    // 队列名称, jetstream名称, 必须不可为空, 命名不可包含 ` `, `.`, `*`, `>`, `\`, `/` 及非可见字符
+        storageType: "memory",      // 存储类型，默认为 "memory", 可选 "file"
+        storageCompression: "none", // 存储压缩，默认为 "none", 可选 "s2"
+        retentionPolicy: "limits",  // 保留策略，默认为 "limits", 可选 "interest" 或 "workqueue"
+        MaxConsumers: -1,           // 最大消费者数，默认为 -1 (无限)
+        maxMsgs: -1,                // 最大消息数，默认为 -1 (无限)
+        maxBytes: -1,               // 最大字节数，默认为 -1 (无限)
+        maxAge: -1,                 // 最大消息生命周期，默认为 -1 (无限)
+        MaxMsgsPerSubject: -1,      // 每个主题的最大消息数，默认为 -1 (无限)
+        maxMsgSize: -1,             // 最大消息大小，默认为 -1 (无限)
+        duplicates: -1,             // 多长时间内不允许消息重复, 单位MS, 默认为 -1 (无限)
+        discard: "old",             // 丢弃策略，默认为 "old", 可选 "new"
+        consumer: {
+          groupId: "js_groupId",  // 持久化订阅名称，可以为空, 等同于消费者名称, 为空时表示临时消费组, 最后一个消费者断开连接时, 未处理消息被丢弃
+          maxWait: -1,            // 最大等待时间，默认为 -1 (无限)
+          autoCommit: true,       // 是否自动提交消息，默认为 false
+          ackPolicy: "all",       // 确认策略，默认`none`: 自动ack; `all`: 确认一个序列号时，会隐式确认该序列号之前的所有消息; `explicit`: 每条需要单独确认
+        }
+      }
+    },
+    {
+      type: "kafkamq",
+      isCompress: true, // 是否为压缩数据
+      mq: {
+        version: "3.0.0.0",         // kafka版本, 指定协议支持
+        clientId: "sarama",         // clientID 必须在Kafka 集群中保证唯一，用于区分不同的客户端应用程序
+        groupId: "groupId",         // 负载均衡时使用, 多个client用同一个groupID分别消费不同内容, 多个client用不同groupId则分别消费相同内容
+        brokerList: ["10.50.145.34:19092"],
+        channelBufferSize: 10000,   // 通道缓冲区大小
+        net: {
+          maxOpenRequests: 5,       // 最大请求数
+          dialTimeout: 30000,       // 连接超时时长 单位ms
+          readTimeout: 120000,      // 读超时时长 单位ms
+          writeTimeout: 10000,      // 写超时时长 单位ms
+          resolveHost: false,       // 是否使用域名, 使用集群域名时设置为true
+        },
+        consumer: {
+          min: 1,                   // 每次从broker拉取的最小消息数
+          max: 3,                   // 每次从broker拉取的最大消息数
+          fetch: 1,                 // 每次从broker拉取的消息数
+          initialOffset: -1,        // 消费者偏移量, -1: 从最新的消息开始消费, -2: 重新开始消费
+          autoCommit: false,        // 是否自动commit
+          autoCommitInterval: 5000, // 自动commit的情况下, 多久定时commit一次, 单位ms
+          assignor: "range",        // 负载均衡策略, 可选范围[sticky|roundrobin|range], 默认为range, sticky: 粘性分配策略; roundrobin: 字典轮询分配策略; range: 范围分配策略
+          heartbeatInterval: 5000,  // 心跳间隔时间
+          rebalanceTimeout: 60000,  // 重均衡超时时间
+          sessionTimeout: 10000,    // session超时时间
+          topics: [
+            { topic: "test_saver", partition: 0, offset: -1 },
+            { topic: "test_saver02", partition: 0, offset: 32 },
+          ],
+        },
+      },
+    },
+    {
+      type: "rabbitmq",
+      isCompress: true, // 是否为压缩数据
+      mq: {
+        host: "10.50.145.34",
+        port: 5672,
+        user: "admin",
+        password: "datangxianyi@2024",
+
+        vHost: "/rabbit_VHOST",    // 虚拟主机名称
+        consumer: {
+          exchange: "exange_001",  // 交换规则名称
+          queueName: "test001",    // 队列名
+          kRouterKey: "test001.#", // 路由规则名称, 消费端可以不需要
+          workType: "topic",       // 工作类型 direct, fanout, topic, headers
+          autoCommit: false,       // true 自动ack, false 开发者手工ack
+        },
+      },
+    },
+    {
+      type: "rocketmq",
+      isCompress: true, // 是否为压缩数据
+      mq: {
+        nsResolver: false,                // 代理模式还是集群模式
+        servers: ["10.50.145.36:7689"],   //
+        groupName: "group",               // 消费组名, 用于负载均衡, 相同则分别消费不同数据, 不同则分别消费相同数据
+        clientID: "client_01",            // instance 名, 同一个消费组内，clientID 必须唯一
+        nameSpace: "prod",                // 名空间, 用于隔离开发环境 生产环境 测试环境等等
+        accessKey: "user",
+        secretKey: "password",
+        consumer: {
+          topics: ["aa", "bb"],
+          mode: "Clustering",             // BroadCasting 广播模式;  Clustering 集群模式; 默认为 Clustering
+          offset: "ConsumeFromTimestamp", // ConsumeFromFirstOffset 最新消息;  ConsumeFromLastOffset  最旧消息; ConsumeFromTimestamp 指定时间戳开始消费
+          timestamp: "20131223171201",    // 指定时间戳开始消费, 格式 "20131223171201"
+          messageBatchMaxSize: 1,         // 批量消费消息的最大数量
+          maxReconsumeTimes: 1,           // 最大重消费次数
+          autoCommit: false,              // 自动ack
+        },
+      },
+    },
+    {
+      type: "redismq",
+      isCompress: true, // 是否压缩
+      mq: {
+        host: "10.50.145.34",
+        port: 16379,
+        retry: 500,                   // 连接失败时重试次数, 若retry值为-1, 则无限重试
+        password: "WuTz@DtXyTeCh.com",
+
+        dbNum: 0,                     // redis数据库编号
+        subscribeFlag: 1,             // 订阅标记 0: 不订阅; 1: 使用 `channels`列表订阅指定channel; 2: 订阅全部频道; 0或2时 忽略 `channels` 字段
+        topics: ["alarm_target_01"],  // 需要同步的频道编号
+      },
+    },
+    {
+      type: "mqtt3",
+      isCompress: true, // 是否压缩
+      mq: {
+        broker: "broker.emqx.io:1883", // Broker 地址，例如 "127.0.0.1:1883"
+        clientId: "source_01",         // 客户端ID，用于唯一标识一个MQTT连接, 1-23个英文字符
+        userName: "",                  // 用户名，用于连接MQTT服务器时进行身份验证
+        password: "",                  // 密码，用于连接MQTT服务器时进行身份验证
+        keepAlive: 60000,              // 心跳间隔，单位为毫秒。客户端和服务器之间保持连接的心跳时间
+        cleanSession: false,           // 是否清除会话，如果为true，则断开连接后之前的订阅和消息都会被清空
+        qos: 1,                        // 消息服务质量等级，0表示最多一次，1表示至少一次，2表示恰好一次
+        version: 4,                    // 协议版本 3: 3.1; 4: 3.1.1; (5: 5.0 暂不支持)
+        willTopic: "/kmq/will",        // 遗嘱消息的主题，当客户端意外断开连接时，服务器会发布此主题的消息
+        willPayload: "source_01 will leave", // 遗嘱消息的内容，当客户端意外断开连接时，服务器会发布此内容的消息
+        willQos: 1,                    // 遗嘱消息的服务质量等级，0表示最多一次，1表示至少一次，2表示恰好一次
+        willRetain: true,              // 遗嘱消息是否保留，如果为true，则服务器会将此消息保存到持久存储中
+        timeout: 5000,                 // 通信超时时间，单位为毫秒
+        topics: ["/kmq/test"],         // 订阅的主题列表
+        useTLS: false,                 // 是否启用 TLS
+        caCertPath: "",                // CA 证书路径, 仅当 useTLS 为 true 时有效
+      },
+    },
+  ],
+
+  target: [
+    // 告警推送目标, 支持 kafkamq rabbitmq rocketmq redismq mqtt3 natscoremq natsjsmq消息队列
+    {
+      type: "natscoremq",
+      isCompress: false, // 是否压缩
+      mq: {
+        clientId: "natscoremq_client01", // 客户端标识, 唯一
+        user: "nats_user",
+        password: "",
+        brokerList: ["nats://127.0.0.1:4222"],
+        allowReconnect: true,      // 是否自动重连
+        maxReconnect: 500,         // 最大重连次数
+        reconnectWait: 5000,       // 重连等待时间, 单位ms
+        reconnectBufSize: 8388608, // 重连时缓存的最大消息容量, 单位byte, 8M字节
+        connectTimeout: 5000,      // 连接超时时间, 单位ms
+        pingInterval: 60000,       // 心跳间隔, 单位ms
+        maxPingsOut: 3,            // 最大允许的连续无应答心跳次数
+        useTls: false,             // 是否使用tls链路
+
+        topics: ["nats.core.topic_001"], // 订阅的topic 列表
+        queueGroup: "core_queue",  // 消费组名称, 用于负载均衡, 允许空字符串, 为空时为广播模式, 非空时为负载均衡模式, core模式下 没有 类似kafka的通过key的hash实现的负载均衡模式
+        maxPending: 100000,        // 最大消息缓冲数量
+      }
+    },
+    {
+      type: "natsjsmq",
+      isCompress: false, // 是否压缩
+      mq: {
+        clientId: "natsjsmq_client01", // 客户端标识, 唯一
+        user: "nats_user",
+        password: "",
+        brokerList:  ["nats://127.0.0.1:4222"],
+        allowReconnect: true,      // 是否自动重连
+        maxReconnect: 500,         // 最大重连次数
+        reconnectWait: 5000,       // 重连等待时间, 单位ms
+        reconnectBufSize: 8388608, // 重连时缓存的最大消息容量, 单位byte, 8M字节
+        connectTimeout: 5000,      // 连接超时时间, 单位ms
+        pingInterval: 60000,       // 心跳间隔, 单位ms
+        maxPingsOut: 3,            // 最大允许的连续无应答心跳次数
+        useTls: false,             // 是否使用tls链路
+
+        topics: ["ntas.js.topic_001"],
+        queueName: "js_queue01",    // 队列名称, jetstream名称, 必须不可为空, 命名不可包含 ` `, `.`, `*`, `>`, `\`, `/` 及非可见字符
+        storageType: "memory",      // 存储类型，默认为 "memory", 可选 "file"
+        storageCompression: "none", // 存储压缩，默认为 "none", 可选 "s2"
+        retentionPolicy: "limits",  // 保留策略，默认为 "limits", 可选 "interest" 或 "workqueue"
+        MaxConsumers: -1,           // 最大消费者数，默认为 -1 (无限)
+        maxMsgs: -1,                // 最大消息数，默认为 -1 (无限)
+        maxBytes: -1,               // 最大字节数，默认为 -1 (无限)
+        maxAge: -1,                 // 最大消息生命周期，默认为 -1 (无限)
+        MaxMsgsPerSubject: -1,      // 每个主题的最大消息数，默认为 -1 (无限)
+        maxMsgSize: -1,             // 最大消息大小，默认为 -1 (无限)
+        duplicates: -1,             // 多长时间内不允许消息重复, 单位MS, 默认为 -1 (无限)
+        discard: "old",             // 丢弃策略，默认为 "old", 可选 "new"
+      }
+    },
+    {
+      type: "kafkamq",
+      isCompress: true, // 是否压缩
+      mq: {
+        version: "3.0.0.0",         // kafka版本, 指定协议支持
+        clientId: "sarama",         // clientID 必须在Kafka 集群中保证唯一，用于区分不同的客户端应用程序
+        groupId: "groupId",         // 负载均衡时使用, 多个client用同一个groupID分别消费不同内容, 多个client用不同groupId则分别消费相同内容
+        brokerList: ["10.50.145.34:9092"],
+        channelBufferSize: 10000,   // 通道缓冲区大小
+        net: {
+          maxOpenRequests: 5,       // 最大请求数
+          dialTimeout: 30000,       // 连接超时时长 单位ms
+          readTimeout: 120000,      // 读超时时长 单位ms
+          writeTimeout: 10000,      // 写超时时长 单位ms
+          resolveHost: false,       // 是否使用域名, 使用集群域名时设置为true
+        },
+        producer: {
+          compression: "snappy",       // 压缩方式: 默认snappy , 可选[none, gzip, snappy, lz4, zstd]
+          CompressionLevel: -1000,     // 压缩级别
+          maxMessageBytes: 1048576000, // 每条消息最大容量, 单位 字节
+          requiredAcks: "local",       // 发送确认: 默认 none, 可选[none, local, all]
+          flushMessages: 100,          // 刷新消息数量, 每10条刷新一次
+          flushFrequency: 1000,        // 刷新时间, 单位ms
+          flushMaxMessages: 10000,     // 最大刷新消息数量
+          retryMax: 3,                 // 重试次数: 最多重试3次
+          timeout: 10000,              // 超时时间 单位ms
+          topics: [
+            { topic: "test_saver", partition: 0 },
+            { topic: "test_saver02", partition: 0 },
+          ],
+        },
+      },
+    },
+    {
+      type: "rabbitmq",
+      isCompress: true, // 是否压缩
+      mq: {
+        host: "10.50.145.34",
+        port: 5672,
+        user: "admin",
+        password: "datangxianyi@2024",
+
+        vHost: "/rabbit_VHOST",   // 虚拟主机名
+        producer: {
+          exchange: "exange_001", // 交换规则名
+          router: "test001.#",    // 路由名称, rabbit的多通道发送由其支持的router完成, 可以把router配置为发送到多个queue
+          workType: "topic",      // direct, fanout, topic, headers
+        },
+      },
+    },
+    {
+      type: "rocketmq",
+      isCompress: true, // 是否压缩
+      mq: {
+        nsResolver: false,                // 代理模式还是集群模式
+        servers: ["10.50.145.36:7689"],   //
+        groupName: "group",               // 消费组名, 用于负载均衡, 相同则分别消费不同数据, 不同则分别消费相同数据
+        clientID: "client_01",            // instance 名, 同一个消费组内，clientID 必须唯一
+        nameSpace: "prod",                // 名空间, 用于隔离开发环境 生产环境 测试环境等等
+        accessKey: "user",
+        secretKey: "password",
+        producer: {
+          topics: ["aa", "bb"],
+          timeout: 50,                              // 发送超时时间, 单位ms
+          retry: 3,                                 // 重发次数
+          queueSelector: "RoundRobinQueueSelector", // 消息队列选择策略, RandomQueueSelector 随机选择队列; RoundRobinQueueSelector 按照轮训方式选择队列; ManualQueueSelector 直接选择消息中配置的队列
+          asyncSend: true,
+        },
+      },
+    },
+    {
+      type: "redismq",
+      isCompress: true, // 是否压缩
+      mq: {
+        host: "10.50.145.34",
+        port: 16379,
+        retry: 500,                    // 连接失败时重试次数, 若retry值为-1, 则无限重试
+        password: "WuTz@DtXyTeCh.com",
+        dbNum: 0,                      // redis数据库编号
+        topics: ["alarm_dispatch_01"], // 需要发布的频道号
+      },
+    },
+    {
+      type: "mqtt3",
+      isCompress: true, // 是否压缩
+      mq: {
+        broker: "broker.emqx.io:1883", // Broker 地址，例如 "127.0.0.1:1883"
+        clientId: "target_01",         // 客户端ID，用于唯一标识一个MQTT连接, 1-23个英文字符
+        userName: "",                  // 用户名，用于连接MQTT服务器时进行身份验证
+        password: "",                  // 密码，用于连接MQTT服务器时进行身份验证
+        keepAlive: 60000,              // 心跳间隔，单位为毫秒。客户端和服务器之间保持连接的心跳时间
+        cleanSession: false,           // 是否清除会话，如果为true，则断开连接后之前的订阅和消息都会被清空
+        qos: 1,                        // 消息服务质量等级，0表示最多一次，1表示至少一次，2表示恰好一次
+        version: 4,                    // 协议版本 3: 3.1; 4: 3.1.1; (5: 5.0 暂不支持)
+        willTopic: "/kmq/will",        // 遗嘱消息的主题，当客户端意外断开连接时，服务器会发布此主题的消息
+        willPayload: "target_01 will leave", // 遗嘱消息的内容，当客户端意外断开连接时，服务器会发布此内容的消息
+        willQos: 1,                    // 遗嘱消息的服务质量等级，0表示最多一次，1表示至少一次，2表示恰好一次
+        willRetain: true,              // 遗嘱消息是否保留，如果为true，则服务器会将此消息保存到持久存储中
+        timeout: 5000,                 // 通信超时时间，单位为毫秒
+        topics: ["/kmq/target_01"],    // 订阅的主题列表
+        useTLS: false,                 // 是否启用 TLS
+        caCertPath: "",                // CA 证书路径, 仅当 useTLS 为 true 时有效
+      },
+    },
+  ],
+}

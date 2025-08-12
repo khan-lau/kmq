@@ -280,10 +280,9 @@ func (that *NatsJetStreamMQ) Start() error {
 
 	// nats连接配置
 	natsConf := nats.NewNatsClientConfig().SetNats(nats.NewNatsConnConfig(that.conf.ClientID)).SetJetStream(nats.NewJetStreamConfig(that.conf.QueueName))
-	natsConf.Nats().AddServers(that.conf.BrokerList...)
-
-	natsConf.Nats().SetPing(that.conf.PingInterval, that.conf.MaxPingsOut)
-	natsConf.Nats().SetUserPassword(that.conf.User, that.conf.Password)
+	natsConf.Nats().AddServers(that.conf.BrokerList...).
+		SetPing(that.conf.PingInterval, that.conf.MaxPingsOut).
+		SetUserPassword(that.conf.User, that.conf.Password)
 
 	if that.conf.AllowReconnect {
 		natsConf.Nats().EnableReconnect(that.conf.MaxReconnect, that.conf.ReconnectBufSize, that.conf.ConnectTimeout, that.conf.ReconnectWait)
@@ -298,20 +297,22 @@ func (that *NatsJetStreamMQ) Start() error {
 
 	// jetstream配置
 	jsConf := natsConf.JetStream()
-	jsConf.SetStorageType(jsConf.StorageTypeFromStr(that.conf.StorageType))
-	jsConf.SetCompression(jsConf.StorageCompressionFromStr(that.conf.StorageCompression))
-	jsConf.SetDiscard(jsConf.DiscardFromStr(that.conf.Discard))
-	jsConf.SetMaxConsumers(that.conf.MaxConsumers).SetRetentionLimits(that.conf.MaxMsgs, that.conf.MaxBytes, that.conf.MaxAge, that.conf.MaxMsgsPerSubject)
-	jsConf.SetRetentionPolicy(jsConf.RetentionPolicyFromStr(that.conf.RetentionPolicy))
-	jsConf.SetMaxMsgSize(that.conf.MaxMsgSize).SetDuplicates(that.conf.Duplicates)
-	jsConf.AddTopic(that.conf.Topics...)
+	jsConf.SetStorageType(jsConf.StorageTypeFromStr(that.conf.StorageType)).
+		SetCompression(jsConf.StorageCompressionFromStr(that.conf.StorageCompression)).
+		SetDiscard(jsConf.DiscardFromStr(that.conf.Discard)).
+		SetMaxConsumers(that.conf.MaxConsumers).
+		SetRetentionLimits(that.conf.MaxMsgs, that.conf.MaxBytes, that.conf.MaxAge, that.conf.MaxMsgsPerSubject).
+		SetRetentionPolicy(jsConf.RetentionPolicyFromStr(that.conf.RetentionPolicy)).
+		SetMaxMsgSize(that.conf.MaxMsgSize).SetDuplicates(that.conf.Duplicates).
+		AddTopic(that.conf.Topics...).
+		// 消费者配置
+		SetConsumer(nats.NewJetStreamConsumerConfig(that.conf.ConsumerConfig.GroupId))
 
-	// 消费者配置
-	jsConf.SetConsumer(nats.NewJetStreamConsumerConfig(that.conf.ConsumerConfig.GroupId))
 	consumerConf := jsConf.Consumer()
-	consumerConf.SetMaxWait(that.conf.ConsumerConfig.MaxWait)
-	consumerConf.SetAckPolicy(consumerConf.AckPolicyFromStr(that.conf.ConsumerConfig.AckPolicy))
-	consumerConf.SetDeliverPolicy(consumerConf.DeliverPolicyFromStr(that.conf.ConsumerConfig.DeliverPolicy))
+	consumerConf.SetMaxWait(that.conf.ConsumerConfig.MaxWait).
+		SetAckPolicy(consumerConf.AckPolicyFromStr(that.conf.ConsumerConfig.AckPolicy)).
+		SetDeliverPolicy(consumerConf.DeliverPolicyFromStr(that.conf.ConsumerConfig.DeliverPolicy)).
+		SetAutoCommit(that.conf.ConsumerConfig.AutoCommit)
 
 	// 设置消费offset 时间戳
 	startWithTimestamp := condexpr.CondExpr(that.conf.ConsumerConfig.StartWithTimestamp > -1, that.conf.ConsumerConfig.StartWithTimestamp, -1)
