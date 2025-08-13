@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strings"
@@ -14,8 +15,10 @@ import (
 
 	"github.com/khan-lau/kmq/example/bean/config"
 	"github.com/khan-lau/kmq/example/bean/mq"
+	"github.com/khan-lau/kmq/example/service/dispatch"
 	"github.com/khan-lau/kmq/example/service/idl"
 	"github.com/khan-lau/kutils/container/kcontext"
+	"github.com/khan-lau/kutils/container/klists"
 	"github.com/khan-lau/kutils/container/kstrings"
 	"github.com/khan-lau/kutils/filesystem"
 	klog "github.com/khan-lau/kutils/klogger"
@@ -38,7 +41,9 @@ var ( // 全局变量
 	glog             *klog.Logger                    // 日志
 	gMqSourceManager map[string]idl.ServiceInterface // 消息队列来源服务
 	gMqTargetManager map[string]idl.ServiceInterface // 消息队列分发服务
+	gDispatcher      *dispatch.DispatchService       // 消息分发服务
 	gOffsetSync      *mq.OffsetSync                  // topic offset同步服务, 用于记录topic offset, 以便重启时恢复offset
+
 )
 
 // 配置命令行参数
@@ -101,10 +106,17 @@ func main() {
 		}
 	}()
 
-	// TODO 各种资源初始化
-
+	//  各种资源初始化
 	rootContext := kcontext.NewContextTree("rootContext")
 	mainCtx := rootContext.GetRoot()
+
+	confDir, _ := filepath.Split(confPath)
+	replayDataPath := confDir + "test.message"
+	workReplayDataPath := filepath.Join(workDir, confDir, "test.message")
+	if conf.SendFile != "" { // 如果指定了重放文件, 则读取重放记录
+		workReplayDataPath = conf.SendFile
+		replayDataPath = conf.SendFile
+	}
 
 	// 如果存在offset记录, 则修改conf中的topic offset
 	gOffsetSync = loadOffsetCache(conf)
@@ -135,8 +147,72 @@ func main() {
 			startMqTarget(ctx, conf.Target, LogFunc)
 		}(mainCtx)
 
-		//  TODO 此处添加一个生产数据的服务
+		//  此处添加一个生产数据的服务
+		waitGroup.Add(1)
+		go func(ctx *kcontext.ContextNode) {
+			defer waitGroup.Done()
+			gDispatcher := dispatch.NewDispatchService(ctx, 0, 1, "dispatch", gMqTargetManager, LogFunc)
 
+			var messages *klists.KList[*dispatch.GenericMessage] = nil
+			if filesystem.IsFileExists(replayDataPath) { // 如果存在重放文件, 则读取重放记录
+				fmt.Printf("founded test file : %s\n", replayDataPath)
+				messages = getReplayData(replayDataPath)
+			} else if filesystem.IsFileExists(workReplayDataPath) { // 如果存在重放文件, 则读取重放记录
+				fmt.Printf("founded test file : %s\n", workReplayDataPath)
+				messages = getReplayData(workReplayDataPath)
+			} else {
+				// fmt.Printf("not found test file : %s or %s \n", replayDataPath, workReplayDataPath)
+				glog.E("error: not found replay file : {} or {}", replayDataPath, workReplayDataPath)
+				mainCtx.Cancel()
+				return
+			}
+
+			gDispatcher.StartAsync()
+
+			msgArr := make([]*dispatch.GenericMessage, 0)
+			if messages != nil {
+				msgArr = klists.ToKSlice(messages)
+			}
+			sendCtx := mainCtx.NewChild("sendCtx")
+			go func(ctx *kcontext.ContextNode, sendInterval uint32, messages []*dispatch.GenericMessage) {
+				// 创建一个定时器，每隔`ScanInterval`秒执行一次
+				index := 0
+				timer := time.NewTimer(time.Duration(sendInterval) * time.Millisecond)
+				defer timer.Stop()
+			EndScanLoop:
+				for {
+					select {
+					case <-timer.C:
+						if len(messages) > 0 {
+							if len(messages) > 0 {
+								if index >= len(messages) {
+									index = 0
+								}
+								message := messages[index]
+								if message.Topic == "quit" && len(message.Message) == 0 {
+									timer.Stop()
+									err := fmt.Errorf("%s", "Quit send goroutine")
+									glog.E("{}", err)
+									break EndScanLoop
+								}
+								index++
+								generalMessage(gDispatcher, conf.ResetTimestamp, message)
+							}
+						} else {
+							glog.D("{}", "replay data is empty")
+						}
+
+						timer.Reset(time.Duration(sendInterval) * time.Millisecond) // 重置定时器
+					case <-ctx.Context().Done(): // 如果 context 被取消，退出循环
+						glog.I("{}", "Publisher send goroutine done")
+						break EndScanLoop
+					}
+				}
+				glog.I("{}", "Publisher send goroutine finish")
+
+			}(sendCtx, conf.SendInterval, msgArr)
+			glog.I("replay data is finished")
+		}(mainCtx)
 	} else {
 
 		// MQ offset sync服务, 该服务用于定时将当前offset记录到文件中, 以便重启时恢复offset
@@ -187,102 +263,3 @@ func main() {
 	mainCtx.Remove() // 清理主上下文
 	glog.I("{} is finished", BuildName)
 }
-
-// func main() {
-// 	root := kcontext.NewContextTree("kmq")
-// 	mainCtx := root.GetRoot()
-
-// 	// 监听ctrl+c信号，优雅退出
-// 	sigChan := make(chan os.Signal, 1)                    // 创建一个信号通道
-// 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM) // 注册要捕获的信号
-
-// 	// 监听信号
-// 	go func() {
-// 		sig := <-sigChan // 阻塞等待信号
-// 		glog.I("Get a signal: {} - {}", sig, sig.String())
-// 		mainCtx.Cancel()
-// 	}()
-
-// 	workgroup := &sync.WaitGroup{}
-// 	// 启动MQTT 消费端
-// 	workgroup.Add(1)
-// 	go func() {
-// 		defer workgroup.Done()
-// 		// 消费端逻辑
-// 		subCtx := mainCtx.NewChild("gSubscriber")
-// 		conf := genMqttConfig()
-// 		var err error
-// 		conf.ClientID = "gSubscriber_01"
-// 		gSubscriber, err = source.NewMqttMQ(subCtx, "gSubscriber", conf, LogFunc)
-// 		if err != nil {
-// 			glog.E("NewMqttMQ Subscriber error: {}", err)
-// 			mainCtx.Cancel()
-// 			return
-// 		}
-// 		gSubscriber.SetOnRecivedCallback(func(origin interface{}, name, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-// 			glog.I("收到消息: {} - {}", topic, string(message)) // 收到的消息
-
-// 			switch t := origin.(type) {
-// 			case *rabbitmq.Message:
-// 				t.Ack(false) // false: 只确认当前这条消息; true: 批量确认 DeliveryTag <= current DeliveryTag 的所有消息
-// 			case *rocketmq.Message:
-// 				t.Ack() // 批量确认
-// 			case *nats.NatsMessage:
-// 				t.Ack() // 如果想批量确认 需要将 AckPolicy设置为 `AckAllPolicy`
-// 			case *kafka.KafkaMessage:
-// 				t.Ack() // 确认当前消息seq之前的所有消息
-// 			case nil:
-// 				// 不支持ack的MQ 直接忽略
-// 			default:
-// 				// 其他
-// 			}
-// 		})
-// 		gSubscriber.StartAsync()
-// 	}()
-
-// 	// 启动MQTT 生产端
-// 	workgroup.Add(1)
-// 	go func() {
-// 		defer workgroup.Done()
-// 		// 生产端逻辑
-// 		subCtx := mainCtx.NewChild("gPublisher")
-// 		conf := genMqttConfig()
-// 		conf.ClientID = "gPublisher_01"
-// 		conf.Topics = []string{}
-// 		var err error
-// 		gPublisher, err = target.NewMqttMQ(subCtx, "gPublisher", conf, LogFunc)
-// 		if err != nil {
-// 			glog.E("NewMqttMQ Publisher error: {}", err)
-// 			mainCtx.Cancel()
-// 			return
-// 		}
-
-// 		gPublisher.StartAsync()
-
-// 		// 定时发送测试消息
-// 		subSendCtx := subCtx.NewChild("gPublisher_send")
-// 		timer := time.NewTimer(time.Millisecond * 5000)
-// 		go func(ctx *kcontext.ContextNode, timer *time.Timer) {
-// 			time.Sleep(10 * time.Second)
-// 		END_LOOP:
-// 			for {
-// 				select {
-// 				case <-ctx.Context().Done():
-// 					break END_LOOP
-// 				case <-timer.C:
-// 					if gPublisher != nil {
-// 						_ = gPublisher.Publish("kmq/test", []byte(kstrings.FormatString("test message at {}", time.Now().Format(datetime.DATETIME_FORMATTER_Mill))), map[string]string{}) // 发送消息
-// 					}
-// 					timer.Reset(time.Millisecond * 5000)
-// 				}
-// 			}
-
-// 			glog.D("gPublisher_send exit")
-// 		}(subSendCtx, timer)
-// 	}()
-
-// 	workgroup.Wait()
-// 	<-mainCtx.Context().Done()
-
-// 	glog.I("main exit")
-// }

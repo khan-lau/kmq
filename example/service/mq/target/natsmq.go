@@ -140,7 +140,9 @@ func (that *NatsCoreMQ) Restart() error {
 
 func (that *NatsCoreMQ) Stop() error {
 	that.ctx.Cancel()
-	that.publisher.Close()
+	if that.publisher != nil {
+		that.publisher.Close()
+	}
 	that.status = idl.ServiceStatusStopped // 设置服务状态为停止状态
 	that.publisher = nil
 	time.Sleep(500 * time.Millisecond)
@@ -232,20 +234,22 @@ func NewNatsJetStreamMQ(ctx *kcontext.ContextNode, name string, conf *config.Nat
 			conf.Discard = "old"
 		}
 
-		if conf.ConsumerConfig == nil {
-			return nil, kstrings.Errorf("consumer config is empty")
-		}
+		// if conf.ConsumerConfig == nil {
+		// 	return nil, kstrings.Errorf("consumer config is empty")
+		// }
 
-		// 默认应答策略为none
-		if !kslices.Contains([]string{"none", "all", "explicit"}, conf.ConsumerConfig.AckPolicy) {
-			conf.ConsumerConfig.AckPolicy = "none"
-		}
+		// if conf.ConsumerConfig != nil {
+		// 	// 默认应答策略为none
+		// 	if !kslices.Contains([]string{"none", "all", "explicit"}, conf.ConsumerConfig.AckPolicy) {
+		// 		conf.ConsumerConfig.AckPolicy = "none"
+		// 	}
 
-		// 默认投递策略为by_start_time
-		// if !kslices.Contains([]string{"all", "last", "new", "by_start_sequence", "by_start_time", "last_per_subject"}, conf.ConsumerConfig.DeliverPolicy) {
-		if !kslices.Contains([]string{"by_start_time"}, conf.ConsumerConfig.DeliverPolicy) {
-			conf.ConsumerConfig.DeliverPolicy = "by_start_time"
-		}
+		// 	// 默认投递策略为by_start_time
+		// 	// if !kslices.Contains([]string{"all", "last", "new", "by_start_sequence", "by_start_time", "last_per_subject"}, conf.ConsumerConfig.DeliverPolicy) {
+		// 	if !kslices.Contains([]string{"by_start_time"}, conf.ConsumerConfig.DeliverPolicy) {
+		// 		conf.ConsumerConfig.DeliverPolicy = "by_start_time"
+		// 	}
+		// }
 	}
 
 	natsJSMq := &NatsJetStreamMQ{
@@ -354,7 +358,10 @@ func (that *NatsJetStreamMQ) Restart() error {
 
 func (that *NatsJetStreamMQ) Stop() error {
 	that.ctx.Cancel()
-	that.publisher.Close()
+	if that.publisher != nil {
+		that.publisher.Close()
+	}
+
 	that.status = idl.ServiceStatusStopped // 设置服务状态为停止状态
 	that.publisher = nil
 	time.Sleep(500 * time.Millisecond)

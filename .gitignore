@@ -12,3 +12,4 @@ go.sum
 # conf/**
 dist/**
 # Makefile
+.vscode/**

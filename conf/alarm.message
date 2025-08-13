@@ -1,0 +1,9 @@
+test.message, 1.0, redis
+
+
+PHONE "{\"calltype\": \"start\", \"callid\": \"1697640892.247076\", \"from\": \"\\u5185\\u7ebf\", \"inout\": \"out\", \"to\": \"\\u9ad8\\u6905 8401\"}"
+PHONE "{\"calltype\": \"bye\", \"callid\": \"1697640893.247078\"}"
+PHONE "{\"calltype\": \"answer\", \"callid\": \"1697640892.247076\"}"
+PHONE "{\"calltype\": \"bye\", \"callid\": \"1697640892.247076\"}"
+PHONE "{\"calltype\": \"bye\", \"callid\": \"1697640892.247076\"}"
+PHONE "{\"calltype\": \"stop\", \"callid\": \"1697640892.247076\"}"

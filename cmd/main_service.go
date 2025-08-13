@@ -1,14 +1,18 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/khan-lau/kmq/example/bean/config"
 	"github.com/khan-lau/kmq/example/bean/mq"
+	"github.com/khan-lau/kmq/example/service/dispatch"
 	"github.com/khan-lau/kmq/example/service/mq/source"
 	"github.com/khan-lau/kmq/example/service/mq/target"
 	"github.com/khan-lau/kmq/kafka"
@@ -16,6 +20,7 @@ import (
 	"github.com/khan-lau/kmq/rabbitmq"
 	"github.com/khan-lau/kmq/rocketmq"
 	"github.com/khan-lau/kutils/container/kcontext"
+	"github.com/khan-lau/kutils/container/klists"
 	"github.com/khan-lau/kutils/container/kstrings"
 	"github.com/khan-lau/kutils/data"
 	"github.com/khan-lau/kutils/filesystem"
@@ -322,6 +327,7 @@ func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, l
 
 				} else {
 					if logf != nil {
+						// logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "nats jetstream target config is invalid, %#v", item.Item)
 						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "nats jetstream target config is invalid")
 					}
 				}
@@ -478,6 +484,178 @@ func loadOffsetCache(conf *config.Configure) *mq.OffsetSync {
 	}
 	return offsetSync
 }
+
+///////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////////////
+
+// type GenericMessage struct {
+// 	Topic   string
+// 	Message string
+// }
+
+/* 解析重放消息文件 */
+func getReplayData(path string) *klists.KList[*dispatch.GenericMessage] {
+	messages := klists.New[*dispatch.GenericMessage]()
+
+	glog.Info("Server parse file: %s", path)
+	file, err := os.Open(path)
+	if err != nil {
+		glog.Error("Open file: %s error: %s", path, err)
+		return nil
+	}
+	defer file.Close()
+
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		glog.Error("file %s not found", path)
+		return nil
+	}
+
+	length := fileInfo.Size()
+	// reader := bufio.NewReaderSize(file, 5*1024*1024) // 缓冲区
+	reader := bufio.NewReaderSize(file, 64*1024) // 缓冲区
+
+	if length < 1 {
+		glog.Error("parse test.message error, document is empty")
+		return nil
+	}
+
+	var firstErr error = nil
+	var header string = ""
+	record_count := int64(0)
+	auto_exit := false
+
+	for {
+		firstErr = nil
+		line, err := reader.ReadString('\n')
+		if nil != err && len(line) == 0 {
+			// firstErr = err
+			break
+		}
+
+		line = strings.TrimSpace(line)
+		//忽略行注释 与 空行
+		if strings.HasPrefix(line, "//") || strings.HasPrefix(line, "#") || len(line) == 0 {
+			continue
+		}
+
+		// 处理 header
+		if strings.HasPrefix(line, "test.message") {
+			// 一个document只允许一个 header
+			if header == "" {
+				header = line
+				continue
+			} else {
+				firstErr = fmt.Errorf("parse test.message error, document has many header")
+				break
+			}
+		}
+
+		if header == "" {
+			firstErr = fmt.Errorf("parse test.message error error, document header not at first")
+			break
+		}
+
+		// element 开始
+		pos := strings.Index(line, " ")
+		message := ""
+		topic := ""
+		if pos > -1 {
+			topic = line[:pos]
+
+			rawMessage := line[pos+1:]
+			trimMessage := strings.TrimSpace(rawMessage)
+			msgLength := len(trimMessage)
+			if trimMessage[msgLength-1] != '"' && trimMessage[msgLength-1] != '\'' {
+				// 如果行尾包含注释, 则去掉注释部分
+				commentPos := strings.LastIndex(trimMessage, "#")
+				if commentPos > -1 {
+					trimMessage = trimMessage[:commentPos]
+				}
+				commentPos = strings.LastIndex(trimMessage, "//")
+				if commentPos > -1 {
+					trimMessage = trimMessage[:commentPos]
+				}
+			}
+
+			message = strings.TrimFunc(trimMessage, func(r rune) bool {
+				return r == '\'' || r == '"'
+			})
+			message = strings.Replace(message, "\\\"", "\"", -1)
+			message = strings.Replace(message, "\\\\u", "\\u", -1)
+			arr := strings.Split(message, ",")
+			record_count += int64(len(arr))
+			messages.PushBack(&dispatch.GenericMessage{Topic: topic, Message: []byte(message)})
+		} else {
+			if line == "quit" || line == "exit" || line == "stop" || line == "QUIT" || line == "EXIT" || line == "STOP" {
+				messages.PushBack(&dispatch.GenericMessage{Topic: "quit", Message: []byte("")})
+				auto_exit = true
+			} else {
+				glog.Error("Error data: %s", line)
+				continue
+			}
+		}
+	}
+
+	if nil != firstErr {
+		glog.Error("Error: %s", firstErr.Error())
+		return nil
+	}
+
+	if messages.Len() > 0 {
+		if auto_exit {
+			glog.Info("parse %s success, message count: %d, records: %d", path, messages.Len()-1, record_count)
+		} else {
+			glog.Info("parse %s success, message count: %d, records: %d", path, messages.Len(), record_count)
+		}
+	}
+
+	return messages
+}
+
+func generalMessage(handler *dispatch.DispatchService, resetTimestamp bool, message *dispatch.GenericMessage) {
+	content := string(message.Message)
+	if resetTimestamp {
+		// 不是JSON
+		if !strings.HasPrefix(content, "{") && !strings.HasPrefix(content, "[") {
+			// 一条消息中包含多条记录, 每条记录都需要重置时间戳
+			records := strings.Split(content, ",")
+			if len(records) > 0 {
+				distRecord := make([]string, 0, len(records))
+				for _, record := range records {
+					record := kstrings.TrimSpace(record)
+					tmpArr := strings.Split(record, "@")
+					if len(tmpArr) == 2 {
+						pointName := tmpArr[0]
+						originData := tmpArr[1]
+						tmpArr2 := strings.Split(originData, ":")
+						if len(tmpArr2) >= 3 {
+
+							timestamp, _ := strconv.ParseInt(tmpArr2[2], 10, 64)
+							newTimestamp := time.Now().Unix()
+							if timestamp > 9999999999 { // 根据原来记录中的时间戳的精度确定新的时间戳用秒还是毫秒
+								newTimestamp = time.Now().UnixMilli()
+							}
+							tmpArr2[2] = fmt.Sprintf("%d", newTimestamp)
+							dataStr := strings.Join(tmpArr2, ":")
+							record = fmt.Sprintf("%s@%s", pointName, dataStr)
+							distRecord = append(distRecord, record)
+						}
+					}
+				}
+				content = strings.Join(distRecord, ",")
+			}
+		}
+	}
+
+	if len(message.Message) < 1 || len(message.Topic) < 1 {
+		glog.W("{}", "Message or topic is empty")
+	}
+	handler.DoSend(&dispatch.GenericMessage{Topic: message.Topic, Message: []byte(content)})
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////////////
 

@@ -636,9 +636,9 @@ func (that *NatsJetStreamClient) doConnect() error {
 	// Connect to a server
 	conn, err := nats.Connect(strings.Join(that.conf.nats.Servers(), ","), opts...) // 连接NATS服务器, 允许同时连接多个服务器地址, 逗号分隔
 	if err != nil {
-		if that.logf != nil {
-			that.logf(klog.WarnLevel, natsmq_tag, "Connect error: {}", err)
-		}
+		// if that.logf != nil {
+		// 	that.logf(klog.WarnLevel, natsmq_tag, "Connect error: {}", err)
+		// }
 		if that.conf.OnError() != nil {
 			that.conf.OnError()(err)
 		}

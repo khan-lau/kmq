@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	toml "github.com/BurntSushi/toml"
+	"github.com/khan-lau/kutils/container/kstrings"
 	"github.com/khan-lau/mapstructure"
 	json5 "github.com/titanous/json5"
 	yaml3 "gopkg.in/yaml.v3"
@@ -34,12 +35,15 @@ func (that *MQItemObj) MQConfig() interface{} {
 }
 
 type Configure struct {
-	Type     string       `json:"type" toml:"type" yaml:"type"`             // 配置类型, 支持的类型: send recv
-	SyncTime uint64       `json:"syncTime" toml:"syncTime" yaml:"syncTime"` // 同步周期, 单位毫秒,不低于1000毫秒
-	SyncFile string       `json:"syncFile" toml:"syncFile" yaml:"syncFile"` // 同步文件路径, 同步偏移量缓存文件路径配置
-	Log      *Log         `json:"log" toml:"log" yaml:"log"`                // 日志配置
-	Source   []*MQItemObj `json:"source" toml:"source" yaml:"source"`       // 消息队列配置
-	Target   []*MQItemObj `json:"target" toml:"target" yaml:"target"`       // 消息队列配置
+	Type           string       `json:"type" toml:"type" yaml:"type"`                               // 配置类型, 支持的类型: send recv
+	SyncTime       uint64       `json:"syncTime" toml:"syncTime" yaml:"syncTime"`                   // 同步周期, 单位毫秒,不低于1000毫秒
+	SyncFile       string       `json:"syncFile" toml:"syncFile" yaml:"syncFile"`                   // 同步文件路径, 同步偏移量缓存文件路径配置
+	SendInterval   uint32       `json:"sendInterval" toml:"sendInterval" yaml:"sendInterval"`       // 发送间隔, 单位毫秒
+	SendFile       string       `json:"sendFile" toml:"sendFile" yaml:"sendFile"`                   // 发送文件路径
+	ResetTimestamp bool         `json:"resetTimestamp" toml:"resetTimestamp" yaml:"resetTimestamp"` // 是否重置时间戳
+	Log            *Log         `json:"log" toml:"log" yaml:"log"`                                  // 日志配置
+	Source         []*MQItemObj `json:"source" toml:"source" yaml:"source"`                         // 消息队列配置
+	Target         []*MQItemObj `json:"target" toml:"target" yaml:"target"`                         // 消息队列配置
 }
 
 func ConfigInstance(filePath string) (*Configure, error) {
@@ -76,6 +80,44 @@ func (that *Configure) process() {
 	for _, item := range that.Source {
 		if nil != item && nil != item.Item {
 			switch item.MQType {
+			case "natscoremq":
+				{
+					if anyMap, ok := item.Item.(map[string]interface{}); ok {
+						var natscoreConf NatsCoreConfig
+						_ = mapstructure.Decode(anyMap, &natscoreConf)
+						item.Item = &natscoreConf
+					}
+				}
+			case "natsjsmq":
+				{
+					if anyMap, ok := item.Item.(map[string]interface{}); ok {
+						var natsjsConf NatsJsConfig
+						_ = mapstructure.Decode(anyMap, &natsjsConf)
+						item.Item = &natsjsConf
+
+						// decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+						// 	TagName: "json",
+						// 	Result:  &natsjsConf,
+						// 	// WeaklyTypedInput: true, // 允许宽松类型转换（例如 float64 到 int）
+						// 	// WeaklyTypedInput: false, // 禁用宽松类型转换
+						// 	// ErrorUnset:       true,
+						// 	// ErrorUnused: true, // 报告未使用的 JSON 字段
+						// 	// MatchName: func(mapKey, fieldName string) bool {
+						// 	// 	return strings.EqualFold(mapKey, fieldName) // 保留大小写不敏感l
+						// 	// },
+						// })
+
+						// // _ = decoder.Decode(anyMap)
+						// err := decoder.Decode(anyMap)
+						// if err != nil {
+						// 	kstrings.Debugf("natsjs config mapstructure err: {}\n", err)
+						// }
+						// str := kobjs.ObjectToJson5WithoutFunc(natsjsConf)
+						// kstrings.Debugf("{}\n", str)
+
+						item.Item = &natsjsConf
+					}
+				}
 			case "kafkamq":
 				{
 					if anyMap, ok := item.Item.(map[string]interface{}); ok {
@@ -114,6 +156,18 @@ func (that *Configure) process() {
 					}
 
 				}
+			case "mqtt3":
+				{
+					if anyMap, ok := item.Item.(map[string]interface{}); ok {
+						var mqttConf MqttConfig
+						_ = mapstructure.Decode(anyMap, &mqttConf)
+						item.Item = &mqttConf
+					}
+				}
+			default:
+				{
+					kstrings.Debugf("mq source type {} not support", item.MQType)
+				}
 			}
 
 		}
@@ -122,6 +176,22 @@ func (that *Configure) process() {
 	for _, item := range that.Target {
 		if nil != item && nil != item.Item {
 			switch item.MQType {
+			case "natscoremq":
+				{
+					if anyMap, ok := item.Item.(map[string]interface{}); ok {
+						var natscoreConf NatsCoreConfig
+						_ = mapstructure.Decode(anyMap, &natscoreConf)
+						item.Item = &natscoreConf
+					}
+				}
+			case "natsjsmq":
+				{
+					if anyMap, ok := item.Item.(map[string]interface{}); ok {
+						var natsjsConf NatsJsConfig
+						_ = mapstructure.Decode(anyMap, &natsjsConf)
+						item.Item = &natsjsConf
+					}
+				}
 			case "kafkamq":
 				{
 					if anyMap, ok := item.Item.(map[string]interface{}); ok {
@@ -154,7 +224,20 @@ func (that *Configure) process() {
 						item.Item = &redisConf
 					}
 				}
+			case "mqtt3":
+				{
+					if anyMap, ok := item.Item.(map[string]interface{}); ok {
+						var mqttConf MqttConfig
+						_ = mapstructure.Decode(anyMap, &mqttConf)
+						item.Item = &mqttConf
+					}
+				}
+			default:
+				{
+					kstrings.Debugf("mq target type {} not support", item.MQType)
+				}
 			}
+
 		}
 	}
 }
@@ -208,9 +291,9 @@ type KafkaConfig struct {
 	GroupID           string    `json:"groupId" toml:"groupId" yaml:"groupId"`
 	BrokerList        []string  `json:"brokerList" toml:"brokerList" yaml:"brokerList"`
 	ChannelBufferSize int       `json:"channelBufferSize" toml:"channelBufferSize" yaml:"channelBufferSize"`
-	Net               *Net      `json:"net" toml:"net" yaml:"net"`
-	Consumer          *Consumer `json:"consumer" toml:"consumer" yaml:"consumer"`
-	Producer          *Producer `json:"producer" toml:"producer" yaml:"producer"`
+	Net               *Net      `mapstructure:"net" json:"net" toml:"net" yaml:"net"`
+	Consumer          *Consumer `mapstructure:"consumer" json:"consumer" toml:"consumer" yaml:"consumer"`
+	Producer          *Producer `mapstructure:"producer" json:"producer" toml:"producer" yaml:"producer"`
 }
 
 ///////////////////////////////////////////////////////////
@@ -238,8 +321,8 @@ type RabbitConfig struct {
 	Password string `json:"password" toml:"password" yaml:"password"`
 	VHost    string `json:"vhost" toml:"vhost" yaml:"vhost"`
 
-	Consumer *RabbitConsumerConfig `json:"consumer" toml:"consumer" yaml:"consumer"` // 设置消费配置
-	Producer *RabbitProducerConfig `json:"producer" toml:"producer" yaml:"producer"` // 设置生产配置
+	Consumer *RabbitConsumerConfig `mapstructure:"consumer" json:"consumer" toml:"consumer" yaml:"consumer"` // 设置消费配置
+	Producer *RabbitProducerConfig `mapstructure:"producer" json:"producer" toml:"producer" yaml:"producer"` // 设置生产配置
 }
 
 ///////////////////////////////////////////////////////////
@@ -290,8 +373,8 @@ type RocketConfig struct {
 	AccessKey string `json:"accessKey" toml:"accessKey" yaml:"accessKey"`
 	SecretKey string `json:"secretKey" toml:"secretKey" yaml:"secretKey"`
 
-	Consumer *RocketCustomConfig   `json:"consumer" toml:"consumer" yaml:"consumer"`
-	Producer *RocketProducerConfig `json:"producer" toml:"producer" yaml:"producer"`
+	Consumer *RocketCustomConfig   `mapstructure:"consumer" json:"consumer" toml:"consumer" yaml:"consumer"`
+	Producer *RocketProducerConfig `mapstructure:"producer" json:"producer" toml:"producer" yaml:"producer"`
 }
 
 ///////////////////////////////////////////////////////////
@@ -352,13 +435,12 @@ type NatsCoreConfig struct {
 ///////////////////////////////////////////////////////////
 
 type NatsJsConsumerConfig struct {
-	GroupId string `json:"groupId" toml:"groupId" yaml:"groupId"` // 持久化订阅名称，可以为空, 等同于消费者名称, 为空时表示临时消费组, 最后一个消费者断开连接时, 未处理消息被丢弃
-	MaxWait int    `json:"maxWait" toml:"maxWait" yaml:"maxWait"` // 最大等待时间，默认为 -1 (无限)
-
-	StartWithTimestamp int64  // 最后消费的时间戳, 精度为纳秒, 默认为 -1 (无效)
+	GroupId            string `json:"groupId" toml:"groupId" yaml:"groupId"`          // 持久化订阅名称，可以为空, 等同于消费者名称, 为空时表示临时消费组, 最后一个消费者断开连接时, 未处理消息被丢弃
+	MaxWait            int    `json:"maxWait" toml:"maxWait" yaml:"maxWait"`          // 最大等待时间，默认为 -1 (无限)
+	StartWithTimestamp int64  `mapstructure:"-" json:"-"`                             // 最后消费的时间戳, 精度为纳秒, 默认为 -1 (无效)
 	AutoCommit         bool   `json:"autoCommit" toml:"autoCommit" yaml:"autoCommit"` // 是否自动提交消息，默认为 false
 	AckPolicy          string `json:"ackPolicy" toml:"ackPolicy" yaml:"ackPolicy"`    // 确认策略，默认`none`: 自动ack; `all`: 确认一个序列号时，会隐式确认该序列号之前的所有消息; `explicit`: 每条需要单独确认
-	DeliverPolicy      string // `json:"deliverPolicy" toml:"deliverPolicy" yaml:"deliverPolicy"` // 投递策略，固定为 `by_start_time`
+	DeliverPolicy      string `mapstructure:"-" json:"-"`                             // `json:"deliverPolicy" toml:"deliverPolicy" yaml:"deliverPolicy"` // 投递策略，固定为 `by_start_time`
 	// `all`, 从第一条开始消费;  与 new不同
 	// `last` 从最后一条开始消费;
 	// `new` 最新一条开始, 从创建消费开始的第一条;
@@ -399,5 +481,5 @@ type NatsJsConfig struct {
 	Duplicates         int64                 `json:"duplicates" toml:"duplicates" yaml:"duplicates"`                         // 多长时间内不允许消息重复, 单位MS, 默认为 -1 (无限)
 	Discard            string                `json:"discard" toml:"discard" yaml:"discard"`                                  // 丢弃策略，默认为 "old", 可选 "new"
 	Topics             []string              `json:"topics" toml:"topics" yaml:"topics"`                                     // 主题列表，默认为空, nats支持一个stream对多个consmer, 但此处只实现了一个stream对应一个consumer
-	ConsumerConfig     *NatsJsConsumerConfig `json:"consumer" toml:"consumer" yaml:"consumer"`                               // 消费者配置
+	ConsumerConfig     *NatsJsConsumerConfig `mapstructure:"consumer" json:"consumer" toml:"consumer" yaml:"consumer"`       // 消费者配置
 }

@@ -146,7 +146,9 @@ func (that *KafkaMQ) Restart() error {
 
 func (that *KafkaMQ) Stop() error {
 	that.ctx.Cancel()
-	that.subscriber.Close()
+	if that.subscriber != nil {
+		that.subscriber.Close()
+	}
 	that.status = idl.ServiceStatusStopped // 设置服务状态为停止状态
 	that.subscriber = nil
 	time.Sleep(500 * time.Millisecond)

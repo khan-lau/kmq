@@ -120,7 +120,9 @@ func (that *RabbitMQ) Restart() error {
 
 func (that *RabbitMQ) Stop() error {
 	that.ctx.Cancel()
-	that.publisher.Close()
+	if that.publisher != nil {
+		that.publisher.Close()
+	}
 	that.status = idl.ServiceStatusStopped // 设置服务状态为停止状态
 	that.publisher = nil
 	time.Sleep(500 * time.Millisecond)

@@ -56,7 +56,7 @@ const (
 const (
 	defaultMaxConsumers = -1
 	defaultMaxMsgSize   = -1
-	defaultDuplicates   = 0
+	defaultDuplicates   = -1
 )
 
 //////////////////////////////////////////////////////////////
