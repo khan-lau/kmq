@@ -13,3 +13,4 @@ go.sum
 dist/**
 # Makefile
 .vscode/**
+logs*/**
