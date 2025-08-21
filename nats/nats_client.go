@@ -84,8 +84,13 @@ func (that *NatsCoreClient) SyncSubscribe(voidObj interface{}, callback Subscrib
 					that.logf(klog.WarnLevel, natsmq_tag, "QueueSubscribe topic: {}, error: {}", topic, err)
 				}
 			} else {
-				sub.SetPendingLimits(that.conf.CoreNats().maxPending, -1) // 设置消息队列大小限制, 字节数无限制
-				that.subs[topic] = sub
+				if err := sub.SetPendingLimits(that.conf.CoreNats().maxPending, -1); err == nil { // 设置消息队列大小限制, 字节数无限制
+					that.subs[topic] = sub
+				} else {
+					if that.logf != nil {
+						that.logf(klog.WarnLevel, natsmq_tag, "SetPendingLimits error: {}", err)
+					}
+				}
 			}
 		}
 	} else {
@@ -101,8 +106,13 @@ func (that *NatsCoreClient) SyncSubscribe(voidObj interface{}, callback Subscrib
 					that.logf(klog.WarnLevel, natsmq_tag, "QueueSubscribe topic: {}, error: {}", topic, err)
 				}
 			} else {
-				sub.SetPendingLimits(that.conf.CoreNats().maxPending, -1) // 设置消息队列大小限制, 字节数无限制
-				that.subs[topic] = sub
+				if err := sub.SetPendingLimits(that.conf.CoreNats().maxPending, -1); err == nil { // 设置消息队列大小限制, 字节数无限制
+					that.subs[topic] = sub
+				} else {
+					if that.logf != nil {
+						that.logf(klog.WarnLevel, natsmq_tag, "SetPendingLimits error: {}", err)
+					}
+				}
 			}
 		}
 	}
@@ -247,12 +257,12 @@ func (that *NatsCoreClient) doConnect() error {
 func (that *NatsCoreClient) stop() {
 	for _, sub := range that.subs {
 		if sub != nil {
-			sub.Drain() // 确保所有已投递但尚未处理的消息都能得到处理，这对于需要高可靠性、不能丢失任何消息的应用程序至关重要
+			_ = sub.Drain() // 确保所有已投递但尚未处理的消息都能得到处理，这对于需要高可靠性、不能丢失任何消息的应用程序至关重要
 			// sub.Unsubscribe() // 立即断开订阅，而不会等待任何队列中未处理的消息。这可能导致这些消息永远无法被你的程序处理
 		}
 	}
 	if that.conn != nil {
-		that.conn.Drain() // 优雅地关闭连接，它会确保所有正在进行的订阅和发布操作都得到妥善处理, 阻塞操作
+		_ = that.conn.Drain() // 优雅地关闭连接，它会确保所有正在进行的订阅和发布操作都得到妥善处理, 阻塞操作
 		// that.conn.Close() // 立即关闭客户端与 NATS 服务器的连接, 所有待发送的消息都会被刷新并发送给服务器, 不会等待任何订阅者处理完消息
 	}
 	// that.connected.Store(false)
@@ -470,7 +480,11 @@ func (that *NatsJetStreamClient) SyncSubscribe(voidObj interface{}, callback Sub
 			if callback != nil {
 				callback(voidObj, &NatsMessage{Seq: meta.Timestamp.UnixNano(), Topic: msg.Subject, Reply: msg.Reply, Header: msg.Header, Payload: msg.Data, origin: msg})
 			}
-			msg.Ack()
+			if err := msg.Ack(); err != nil {
+				if that.logf != nil {
+					that.logf(klog.ErrorLevel, natsmq_tag, "Failed to ack topic: {}, message: {}", msg.Subject, err)
+				}
+			}
 		})
 		if err != nil {
 			if that.logf != nil {
@@ -669,11 +683,11 @@ func (that *NatsJetStreamClient) doConnect() error {
 
 func (that *NatsJetStreamClient) stop() {
 	if that.sub != nil {
-		that.sub.Drain() // 确保所有已投递但尚未处理的消息都能得到处理，这对于需要高可靠性、不能丢失任何消息的应用程序至关重要
+		_ = that.sub.Drain() // 确保所有已投递但尚未处理的消息都能得到处理，这对于需要高可靠性、不能丢失任何消息的应用程序至关重要
 		// sub.Unsubscribe() // 立即断开订阅，而不会等待任何队列中未处理的消息。这可能导致这些消息永远无法被你的程序处理
 	}
 	if that.conn != nil {
-		that.conn.Drain() // 优雅地关闭连接，它会确保所有正在进行的订阅和发布操作都得到妥善处理, 阻塞操作
+		_ = that.conn.Drain() // 优雅地关闭连接，它会确保所有正在进行的订阅和发布操作都得到妥善处理, 阻塞操作
 		// that.conn.Close() // 立即关闭客户端与 NATS 服务器的连接, 所有待发送的消息都会被刷新并发送给服务器, 不会等待任何订阅者处理完消息
 	}
 	// that.connected.Store(false)

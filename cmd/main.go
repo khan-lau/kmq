@@ -153,7 +153,7 @@ func main() {
 			defer waitGroup.Done()
 			gDispatcher = dispatch.NewDispatchService(ctx, 0, 1, "dispatch", gMqTargetManager, LogFunc)
 
-			var messages *klists.KList[*dispatch.GenericMessage] = nil
+			var messages *klists.KList[*dispatch.GenericMessage]
 			if filesystem.IsFileExists(replayDataPath) { // 如果存在重放文件, 则读取重放记录
 				fmt.Printf("founded test file : %s\n", replayDataPath)
 				messages = getReplayData(replayDataPath)

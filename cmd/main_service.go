@@ -692,27 +692,32 @@ func onRecved(origin any, name string, topic string, partition int, offset int64
 	// 	glog.E("onRecived: name={}, topic={}, partition={}, offset={}, publish error= {}", name, topic, partition, offset, "sent to target faulted")
 	// }
 
+	var err error
 	switch t := origin.(type) {
 	case *rabbitmq.Message:
-		t.Ack(false) // false: 只确认当前这条消息; true: 批量确认 DeliveryTag <= current DeliveryTag 的所有消息
+		err = t.Ack(false) // false: 只确认当前这条消息; true: 批量确认 DeliveryTag <= current DeliveryTag 的所有消息
 	case *rocketmq.Message:
-		t.Ack() // 批量确认
+		err = t.Ack() // 批量确认
 	case *nats.NatsMessage:
-		t.Ack() // 如果想批量确认 需要将 AckPolicy设置为 `AckAllPolicy`
+		err = t.Ack() // 如果想批量确认 需要将 AckPolicy设置为 `AckAllPolicy`
 	case *kafka.KafkaMessage:
-		t.Ack() // 确认当前消息seq之前的所有消息
+		err = t.Ack() // 确认当前消息seq之前的所有消息
 	case nil:
 		// 不支持ack的MQ 直接忽略
 	default:
 		// 其他
 	}
 
-	switch name {
-	case "KafkaSource":
-		gOffsetSync.Set("kafkamq", topic, strconv.Itoa(partition), offset)
-	case "RocketSource":
-		gOffsetSync.Set("rocketmq", topic, strconv.Itoa(partition), offset)
-	case "natsjsmq":
-		gOffsetSync.Set("natsjsmq", topic, strconv.Itoa(partition), offset)
+	if err == nil {
+		switch name {
+		case "KafkaSource":
+			gOffsetSync.Set("kafkamq", topic, strconv.Itoa(partition), offset)
+		case "RocketSource":
+			gOffsetSync.Set("rocketmq", topic, strconv.Itoa(partition), offset)
+		case "natsjsmq":
+			gOffsetSync.Set("natsjsmq", topic, strconv.Itoa(partition), offset)
+		}
+	} else {
+		glog.E("onRecived: name={}, topic={}, partition={}, offset={}, ack return error={}", name, topic, partition, offset, err)
 	}
 }
