@@ -151,7 +151,7 @@ func main() {
 		waitGroup.Add(1)
 		go func(ctx *kcontext.ContextNode) {
 			defer waitGroup.Done()
-			gDispatcher := dispatch.NewDispatchService(ctx, 0, 1, "dispatch", gMqTargetManager, LogFunc)
+			gDispatcher = dispatch.NewDispatchService(ctx, 0, 1, "dispatch", gMqTargetManager, LogFunc)
 
 			var messages *klists.KList[*dispatch.GenericMessage] = nil
 			if filesystem.IsFileExists(replayDataPath) { // 如果存在重放文件, 则读取重放记录
