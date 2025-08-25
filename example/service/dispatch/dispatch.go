@@ -276,6 +276,10 @@ func (that *DispatchService) publish(topic string, message []byte, properties ma
 			flag = mtCtl.PublishMessage(topic, string(message))
 		case *target.RabbitMQ:
 			flag = mtCtl.Publish(topic, message, properties)
+		case *target.NatsCoreMQ:
+			flag = mtCtl.Publish(topic, message, properties)
+		case *target.NatsJetStreamMQ:
+			flag = mtCtl.Publish(topic, message, properties)
 		default:
 
 		}

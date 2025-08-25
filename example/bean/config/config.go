@@ -93,6 +93,7 @@ func (that *Configure) process() {
 					if anyMap, ok := item.Item.(map[string]interface{}); ok {
 						var natsjsConf NatsJsConfig
 						_ = mapstructure.Decode(anyMap, &natsjsConf)
+						natsjsConf.ConsumerConfig.StartWithTimestamp = -1 // 默认值设置为-1, 防御
 						item.Item = &natsjsConf
 
 						// decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{

@@ -56,7 +56,8 @@ const (
 const (
 	defaultMaxConsumers = -1
 	defaultMaxMsgSize   = -1
-	defaultDuplicates   = -1
+	defaultDuplicates   = 120000 //多长时间内不允许消息重复, 单位MS, 默认为 120000 (默认 2 minutes)
+
 )
 
 //////////////////////////////////////////////////////////////

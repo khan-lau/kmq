@@ -20,9 +20,9 @@
       type: "natsjsmq",
       isCompress: false,
       mq: {
-        clientId: "natsjsmq_client01", // 客户端标识, 唯一
-        user: "nats_user",
-        password: "",
+        clientId: "natsjsmq_client01r", // 客户端标识, 唯一
+        user: "alice",
+        password: "abcd1234",
         brokerList:  ["nats://127.0.0.1:4222"],
         allowReconnect: true,      // 是否自动重连
         maxReconnect: 500,         // 最大重连次数
@@ -38,13 +38,13 @@
         storageType: "memory",      // 存储类型，默认为 "memory", 可选 "file"
         storageCompression: "none", // 存储压缩，默认为 "none", 可选 "s2"
         retentionPolicy: "limits",  // 保留策略，默认为 "limits", 可选 "interest" 或 "workqueue"
-        MaxConsumers: -1,           // 最大消费者数，默认为 -1 (无限)
+        MaxConsumers: 10,           // 最大消费者数
         maxMsgs: -1,                // 最大消息数，默认为 -1 (无限)
         maxBytes: -1,               // 最大字节数，默认为 -1 (无限)
-        maxAge: -1,                 // 最大消息生命周期，默认为 -1 (无限)
-        MaxMsgsPerSubject: -1,      // 每个主题的最大消息数，默认为 -1 (无限)
-        maxMsgSize: -1,             // 最大消息大小，默认为 -1 (无限)
-        duplicates: -1,             // 多长时间内不允许消息重复, 单位MS, 默认为 -1 (无限)
+        maxAge: 300000,             // 最大消息生命周期，不得小于 duplicates 字段
+        MaxMsgsPerSubject: 2000000, // 每个主题的最大消息数
+        maxMsgSize: 16777216,       // 最大消息大小, 16M
+        duplicates: 120000,         // 多长时间内不允许消息重复, 单位MS, 默认为 120000 (默认 2 minutes)
         discard: "old",             // 丢弃策略，默认为 "old", 可选 "new"
         consumer: {
           groupId: "js_groupId",  // 持久化订阅名称，可以为空, 等同于消费者名称, 为空时表示临时消费组, 最后一个消费者断开连接时, 未处理消息被丢弃

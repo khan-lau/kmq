@@ -420,7 +420,7 @@ func (that *NatsJetStreamClient) SyncSubscribe(voidObj interface{}, callback Sub
 	// that.connected.Store(true)
 
 	if that.logf != nil {
-		that.logf(klog.InfoLevel, natsmq_tag, "Stream: {}", that.stream.Config)
+		that.logf(klog.DebugLevel, natsmq_tag, "Stream: {}", that.stream.Config)
 	}
 
 	consumer, err := that.upsertConsumer(that.js)
@@ -537,10 +537,17 @@ func (that *NatsJetStreamClient) upsertJetstream(js nats.JetStreamContext) (*nat
 			// 如果jetstream存在, 则更新配置
 			stream, err = js.UpdateStream(jsCfg)
 			if err != nil {
-				// if that.logf != nil {
-				// 	that.logf(klog.WarnLevel, natsmq_tag, "AddStream error: {}", err)
-				// }
-				return nil, err
+				if strings.Contains(err.Error(), "stream configuration update can not change MaxConsumers") {
+					if that.logf != nil {
+						that.logf(klog.WarnLevel, natsmq_tag, "Ignoring MaxConsumers update error: %v", err)
+					}
+				} else {
+					// if that.logf != nil {
+					// 	that.logf(klog.WarnLevel, natsmq_tag, "AddStream error: {}", err)
+					// }
+					// return nil, err
+				}
+
 			}
 		}
 	}
@@ -548,21 +555,26 @@ func (that *NatsJetStreamClient) upsertJetstream(js nats.JetStreamContext) (*nat
 }
 
 func (that *NatsJetStreamClient) upsertConsumer(js nats.JetStreamContext) (*nats.ConsumerInfo, error) {
-	startTime := time.Unix(0, that.timestamp)
+
+	filterSubject := that.conf.JetStream().Consumer().FilterSubject()
+	if len(filterSubject) == 0 { // 如果没有指定过滤主题, 则订阅所有主题, `>`为通配符
+		filterSubject = ">"
+	}
 	consumerCfg := &nats.ConsumerConfig{
-		FilterSubject: that.conf.JetStream().Consumer().FilterSubject(),
+		FilterSubject: filterSubject,
 		MaxWaiting:    int(that.conf.JetStream().Consumer().MaxWait()),
 		AckPolicy:     that.conf.JetStream().Consumer().AckPolicy(),
 		DeliverPolicy: that.conf.JetStream().Consumer().DeliverPolicy(),
 	}
 
 	if that.timestamp >= 0 {
+		startTime := time.Unix(0, that.timestamp)
 		consumerCfg.OptStartTime = &startTime // 断点续传
 	} else {
 		consumerCfg.OptStartTime = nil
 	}
 
-	consumer, err := js.AddConsumer(that.conf.JetStream().Consumer().Name(), consumerCfg)
+	consumer, err := js.AddConsumer(that.conf.JetStream().Name(), consumerCfg)
 	if err != nil {
 		if !errors.Is(err, nats.ErrConsumerNameAlreadyInUse) {
 			// if that.logf != nil {
@@ -729,6 +741,31 @@ func (that *NatsJetStreamClient) PublishData(msg *NatsMessage, msgId string) {
 	if len(msgId) > 0 {
 		pubOpts = append(pubOpts, nats.MsgId(msgId))
 	}
+
+	// // 异步发送消息, 例子见 https://docs.nats.io/using-nats/developer/develop_jetstream/publish
+	// ackFuture, err := that.js.PublishMsgAsync(msgWithKey, pubOpts...)
+	// if err != nil {
+	// 	if that.logf != nil {
+	// 		that.logf(klog.WarnLevel, natsmq_tag, "Publish error: {}", err)
+	// 	}
+
+	// 	if that.conf.OnError() != nil {
+	// 		that.conf.OnError()(err)
+	// 	}
+	// 	return
+	// }
+	// select {
+	// case <-ackFuture.Ok():
+	// 	if that.logf != nil {
+	// 		that.logf(klog.WarnLevel, natsmq_tag, "Publish ok: {}", ackFuture)
+	// 	}
+	// case err := <-ackFuture.Err():
+	// 	if that.logf != nil {
+	// 		that.logf(klog.WarnLevel, natsmq_tag, "Publish error: {}", err)
+	// 	}
+	// }
+
+	// 同步发送消息
 	ack, err := that.js.PublishMsg(msgWithKey, pubOpts...)
 	if err != nil {
 		if that.logf != nil {
