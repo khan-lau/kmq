@@ -581,35 +581,30 @@ func (that *NatsJetStreamClient) upsertConsumer(js nats.JetStreamContext) (*nats
 
 	if that.timestamp >= 0 {
 		startTime := time.Unix(0, that.timestamp)
-		consumerCfg.OptStartTime = &startTime // 断点续传
+		consumerCfg.OptStartTime = &startTime                     // 断点续传
+		consumerCfg.DeliverPolicy = nats.DeliverByStartTimePolicy // 从指定时间开始消费
 	} else {
 		consumerCfg.OptStartTime = nil
 	}
 
-	consumer, err := js.AddConsumer(that.conf.JetStream().Name(), consumerCfg)
+	consumer, err := js.ConsumerInfo(that.conf.JetStream().Name(), that.conf.JetStream().Consumer().Name())
 	if err != nil {
-		if !errors.Is(err, nats.ErrConsumerNameAlreadyInUse) {
+		if errors.Is(err, nats.ErrConsumerNotFound) {
+			consumer, err = js.AddConsumer(that.conf.JetStream().Name(), consumerCfg)
+			if err != nil {
+				if that.logf != nil {
+					that.logf(klog.WarnLevel, natsmq_tag, "Create Consumer error: {}", err)
+				}
+				return nil, err
+			}
+		} else {
 			if that.logf != nil {
-				that.logf(klog.WarnLevel, natsmq_tag, "Consumer error: {}", err)
+				that.logf(klog.WarnLevel, natsmq_tag, "Get Consumer error: {}", err)
 			}
 			return nil, err
-		} else {
-			consumer, err = js.ConsumerInfo(that.conf.JetStream().Name(), that.conf.JetStream().Consumer().Name())
-			// consumer, err = js.UpdateConsumer(that.conf.JetStream().Name(), consumerCfg)
-			if err != nil {
-				if strings.Contains(err.Error(), "ack policy can not be updated") {
-					if that.logf != nil {
-						that.logf(klog.WarnLevel, natsmq_tag, "Ignoring AckPolicy update error: {}", err)
-					}
-				} else {
-					if that.logf != nil {
-						that.logf(klog.WarnLevel, natsmq_tag, "UpdateConsumer error: {}", err)
-					}
-					return nil, err
-				}
-			}
 		}
 	}
+
 	return consumer, nil
 }
 
