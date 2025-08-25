@@ -139,18 +139,15 @@ func main() {
 	waitGroup := &sync.WaitGroup{}
 
 	if conf.Type == "send" {
-		// 消息队列target服务
-		waitGroup.Add(1)
-		go func(ctx *kcontext.ContextNode) {
-			defer waitGroup.Done()
-			glog.I("start manager mq target service")
-			startMqTarget(ctx, conf.Target, LogFunc)
-		}(mainCtx)
-
 		//  此处添加一个生产数据的服务
 		waitGroup.Add(1)
 		go func(ctx *kcontext.ContextNode) {
 			defer waitGroup.Done()
+
+			// 消息队列target服务
+			glog.I("start manager mq target service")
+			startMqTarget(ctx, conf.Target, LogFunc)
+
 			gDispatcher = dispatch.NewDispatchService(ctx, 0, 1, "dispatch", gMqTargetManager, LogFunc)
 
 			var messages *klists.KList[*dispatch.GenericMessage]

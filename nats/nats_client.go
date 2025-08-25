@@ -75,6 +75,7 @@ func (that *NatsCoreClient) SyncSubscribe(voidObj interface{}, callback Subscrib
 		// TODO 异步模式, 负载均衡模式
 		for _, topic := range topics {
 			sub, err := that.conn.QueueSubscribe(topic, that.conf.CoreNats().QueueGroup(), func(msg *nats.Msg) {
+				// that.logf(klog.DebugLevel, natsmq_tag, "QueueSubscribe topic: {}, msg: {}", topic, string(msg.Data))
 				if callback != nil {
 					callback(voidObj, &NatsMessage{Topic: msg.Subject, Reply: msg.Reply, Header: msg.Header, Payload: msg.Data})
 				}
@@ -97,6 +98,7 @@ func (that *NatsCoreClient) SyncSubscribe(voidObj interface{}, callback Subscrib
 		// TODO 异步模式, 非负载均衡模式
 		for _, topic := range topics {
 			sub, err := that.conn.Subscribe(topic, func(msg *nats.Msg) {
+				// that.logf(klog.DebugLevel, natsmq_tag, "QueueSubscribe topic: {}, msg: {}", topic, string(msg.Data))
 				if callback != nil {
 					callback(voidObj, &NatsMessage{Topic: msg.Subject, Reply: msg.Reply, Header: msg.Header, Payload: msg.Data})
 				}
@@ -300,6 +302,8 @@ func (that *NatsCoreClient) PublishData(msg *NatsMessage) {
 	msgWithKey.Reply = msg.Reply
 	msgWithKey.Data = msg.Payload
 	msgWithKey.Header = msg.Header
+
+	// that.logf(klog.DebugLevel, natsmq_tag, "topic {}, PublishData: {}", msg.Topic, string(msg.Payload))
 
 	err := that.conn.PublishMsg(msgWithKey)
 	if err != nil {

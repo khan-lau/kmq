@@ -62,7 +62,7 @@
 
         topics: ["ntas.js.topic_001"],
         queueName: "js_queue01",    // 队列名称, jetstream名称, 必须不可为空, 命名不可包含 ` `, `.`, `*`, `>`, `\`, `/` 及非可见字符
-        storageType: "memory",      // 存储类型，默认为 "memory", 可选 "file"
+        storageType: "memory",      // 存储类型，默认为 "memory", 可选 "file", 与管理员确认类型
         storageCompression: "none", // 存储压缩，默认为 "none", 可选 "s2"
         retentionPolicy: "limits",  // 保留策略，默认为 "limits", 可选 "interest" 或 "workqueue"
         MaxConsumers: 10,           // 最大消费者数，默认为 -1 (无限)
