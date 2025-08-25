@@ -326,12 +326,12 @@ type NatsJetStreamClient struct {
 	conf      *NatsClientConfig
 	conn      *nats.Conn
 	connected *katomic.Bool
-	timestamp int64                 // 上次消费的纳秒时间戳, 用于断点消费, -1 为无效值
-	sub       *nats.Subscription    // 持有的订阅对象
-	js        nats.JetStreamContext // JetStream 上下文
-	stream    *nats.StreamInfo      // Stream 信息
-	queue     chan *NatsMessage     // 消息队列
-	chanSize  uint                  // 队列大小
+	timestamp int64                         // 上次消费的纳秒时间戳, 用于断点消费, -1 为无效值
+	sub       map[string]*nats.Subscription // 持有的订阅对象
+	js        nats.JetStreamContext         // JetStream 上下文
+	stream    *nats.StreamInfo              // Stream 信息
+	queue     chan *NatsMessage             // 消息队列
+	chanSize  uint                          // 队列大小
 	logf      klog.AppLogFuncWithTag
 }
 
@@ -347,7 +347,7 @@ func NewNatsJetStreamClient(ctx *kcontext.ContextNode, chanSize uint, timestamp 
 		conn:      nil,
 		connected: katomic.NewBool(false),
 		timestamp: timestamp, // 上次消费的纳秒时间戳, 用于断点消费, -1 为无效值
-		sub:       nil,
+		sub:       make(map[string]*nats.Subscription),
 		js:        nil,
 		stream:    nil,
 		queue:     nil,
@@ -440,63 +440,69 @@ func (that *NatsJetStreamClient) SyncSubscribe(voidObj interface{}, callback Sub
 	}
 
 	if len(that.conf.JetStream().Consumer().Name()) > 0 {
-		// 群组订阅
-		sub, err := that.js.QueueSubscribe(">", that.conf.JetStream().Consumer().Name(), func(msg *nats.Msg) {
-			// 1. 从消息中获取元数据
-			meta, err := msg.Metadata()
+		for _, topic := range that.conf.JetStream().Topics() {
+			// 群组订阅
+			sub, err := that.js.QueueSubscribe(topic, that.conf.JetStream().Consumer().Name(), func(msg *nats.Msg) { // push订阅
+				// sub, err := that.js.PullSubscribe(topic, that.conf.JetStream().Consumer().Name()) pull订阅
+				// 1. 从消息中获取元数据
+				meta, err := msg.Metadata()
+				if err != nil {
+					if that.logf != nil {
+						that.logf(klog.WarnLevel, natsmq_tag, "Failed to get message metadata: {}", err)
+					}
+					return
+				}
+				if callback != nil {
+					callback(voidObj, &NatsMessage{Seq: meta.Timestamp.UnixNano(), Topic: msg.Subject, Reply: msg.Reply, Header: msg.Header, Payload: msg.Data, origin: msg})
+				}
+
+				if that.conf.jetStream.consumer.AutoCommit() {
+					err := msg.Ack()
+					if err != nil && that.logf != nil {
+						that.logf(klog.WarnLevel, natsmq_tag, "Failed to ack topic: {}, message: {}", msg.Subject, err)
+					}
+				}
+			}, nats.Durable(that.conf.JetStream().Consumer().Name()))
+
 			if err != nil {
 				if that.logf != nil {
-					that.logf(klog.WarnLevel, natsmq_tag, "Failed to get message metadata: {}", err)
+					that.logf(klog.WarnLevel, natsmq_tag, "QueueSubscribe error: {}", err)
 				}
 				return
 			}
-			if callback != nil {
-				callback(voidObj, &NatsMessage{Seq: meta.Timestamp.UnixNano(), Topic: msg.Subject, Reply: msg.Reply, Header: msg.Header, Payload: msg.Data, origin: msg})
-			}
 
-			if that.conf.jetStream.consumer.AutoCommit() {
-				err := msg.Ack()
-				if err != nil && that.logf != nil {
-					that.logf(klog.ErrorLevel, natsmq_tag, "Failed to ack topic: {}, message: {}", msg.Subject, err)
-				}
-			}
-		}, nats.Durable(that.conf.JetStream().Consumer().Name()))
-
-		if err != nil {
-			if that.logf != nil {
-				that.logf(klog.WarnLevel, natsmq_tag, "QueueSubscribe error: {}", err)
-			}
-			return
+			that.sub[topic] = sub
 		}
 
-		that.sub = sub
 	} else {
-		// 普通订阅
-		sub, err := that.js.Subscribe(">", func(msg *nats.Msg) {
-			// 1. 从消息中获取元数据
-			meta, err := msg.Metadata()
+		for _, topic := range that.conf.JetStream().Topics() {
+			// 普通订阅
+			sub, err := that.js.Subscribe(topic, func(msg *nats.Msg) {
+				// 1. 从消息中获取元数据
+				meta, err := msg.Metadata()
+				if err != nil {
+					if that.logf != nil {
+						that.logf(klog.WarnLevel, natsmq_tag, "Failed to get message metadata: {}", err)
+					}
+					return
+				}
+				if callback != nil {
+					callback(voidObj, &NatsMessage{Seq: meta.Timestamp.UnixNano(), Topic: msg.Subject, Reply: msg.Reply, Header: msg.Header, Payload: msg.Data, origin: msg})
+				}
+				if err := msg.Ack(); err != nil {
+					if that.logf != nil {
+						that.logf(klog.ErrorLevel, natsmq_tag, "Failed to ack topic: {}, message: {}", msg.Subject, err)
+					}
+				}
+			})
 			if err != nil {
 				if that.logf != nil {
-					that.logf(klog.WarnLevel, natsmq_tag, "Failed to get message metadata: {}", err)
+					that.logf(klog.WarnLevel, natsmq_tag, "Subscribe error: {}", err)
 				}
 				return
 			}
-			if callback != nil {
-				callback(voidObj, &NatsMessage{Seq: meta.Timestamp.UnixNano(), Topic: msg.Subject, Reply: msg.Reply, Header: msg.Header, Payload: msg.Data, origin: msg})
-			}
-			if err := msg.Ack(); err != nil {
-				if that.logf != nil {
-					that.logf(klog.ErrorLevel, natsmq_tag, "Failed to ack topic: {}, message: {}", msg.Subject, err)
-				}
-			}
-		})
-		if err != nil {
-			if that.logf != nil {
-				that.logf(klog.WarnLevel, natsmq_tag, "Subscribe error: {}", err)
-			}
-			return
+			that.sub[topic] = sub
 		}
-		that.sub = sub
 	}
 
 	<-that.ctx.Context().Done()
@@ -527,6 +533,7 @@ func (that *NatsJetStreamClient) upsertJetstream(js nats.JetStreamContext) (*nat
 		MaxMsgSize:        that.conf.JetStream().MaxMsgSize(),
 		Duplicates:        time.Duration(that.conf.JetStream().Duplicates()) * time.Millisecond,
 		Discard:           that.conf.JetStream().Discard(),
+		// NoAck:             that.conf.JetStream().NoAck(), // capturing all subjects requires no-ack to be true
 	}
 
 	// 创建jetstream
@@ -559,16 +566,17 @@ func (that *NatsJetStreamClient) upsertJetstream(js nats.JetStreamContext) (*nat
 }
 
 func (that *NatsJetStreamClient) upsertConsumer(js nats.JetStreamContext) (*nats.ConsumerInfo, error) {
-
-	filterSubject := that.conf.JetStream().Consumer().FilterSubject()
-	if len(filterSubject) == 0 { // 如果没有指定过滤主题, 则订阅所有主题, `>`为通配符
-		filterSubject = ">"
-	}
+	filterSubjects := that.conf.JetStream().Topics()
 	consumerCfg := &nats.ConsumerConfig{
-		FilterSubject: filterSubject,
-		MaxWaiting:    int(that.conf.JetStream().Consumer().MaxWait()),
-		AckPolicy:     that.conf.JetStream().Consumer().AckPolicy(),
-		DeliverPolicy: that.conf.JetStream().Consumer().DeliverPolicy(),
+		Durable:        that.conf.JetStream().Consumer().Name(),
+		Name:           that.conf.JetStream().Consumer().Name(),
+		FilterSubjects: filterSubjects,
+		// MaxWaiting:     int(that.conf.JetStream().Consumer().MaxWait()), // pull模式专用参数
+		AckPolicy:      that.conf.JetStream().Consumer().AckPolicy(),
+		DeliverPolicy:  that.conf.JetStream().Consumer().DeliverPolicy(),
+		DeliverSubject: kstrings.Sprintf("_INBOX.{}", that.conf.JetStream().Consumer().Name()), // Push 模式, 推送模式时, 需要指定一个临时主题, 用于接收消息
+		DeliverGroup:   that.conf.JetStream().Consumer().Name(),
+		MaxAckPending:  1000,
 	}
 
 	if that.timestamp >= 0 {
@@ -581,17 +589,24 @@ func (that *NatsJetStreamClient) upsertConsumer(js nats.JetStreamContext) (*nats
 	consumer, err := js.AddConsumer(that.conf.JetStream().Name(), consumerCfg)
 	if err != nil {
 		if !errors.Is(err, nats.ErrConsumerNameAlreadyInUse) {
-			// if that.logf != nil {
-			// 	that.logf(klog.WarnLevel, natsmq_tag, "Consumer error: {}", err)
-			// }
+			if that.logf != nil {
+				that.logf(klog.WarnLevel, natsmq_tag, "Consumer error: {}", err)
+			}
 			return nil, err
 		} else {
-			consumer, err = js.UpdateConsumer(that.conf.JetStream().Consumer().Name(), consumerCfg)
+			consumer, err = js.ConsumerInfo(that.conf.JetStream().Name(), that.conf.JetStream().Consumer().Name())
+			// consumer, err = js.UpdateConsumer(that.conf.JetStream().Name(), consumerCfg)
 			if err != nil {
-				// if that.logf != nil {
-				// 	that.logf(klog.WarnLevel, natsmq_tag, "UpdateConsumer error: {}", err)
-				// }
-				return nil, err
+				if strings.Contains(err.Error(), "ack policy can not be updated") {
+					if that.logf != nil {
+						that.logf(klog.WarnLevel, natsmq_tag, "Ignoring AckPolicy update error: {}", err)
+					}
+				} else {
+					if that.logf != nil {
+						that.logf(klog.WarnLevel, natsmq_tag, "UpdateConsumer error: {}", err)
+					}
+					return nil, err
+				}
 			}
 		}
 	}
@@ -699,8 +714,11 @@ func (that *NatsJetStreamClient) doConnect() error {
 
 func (that *NatsJetStreamClient) stop() {
 	if that.sub != nil {
-		_ = that.sub.Drain() // 确保所有已投递但尚未处理的消息都能得到处理，这对于需要高可靠性、不能丢失任何消息的应用程序至关重要
-		// sub.Unsubscribe() // 立即断开订阅，而不会等待任何队列中未处理的消息。这可能导致这些消息永远无法被你的程序处理
+		for _, sub := range that.sub {
+			_ = sub.Drain() // 确保所有已投递但尚未处理的消息都能得到处理，这对于需要高可靠性、不能丢失任何消息的应用程序至关重要
+			// _ = sub.Unsubscribe() // 立即断开订阅，而不会等待任何队列中未处理的消息。这可能导致这些消息永远无法被你的程序处理
+		}
+
 	}
 	if that.conn != nil {
 		_ = that.conn.Drain() // 优雅地关闭连接，它会确保所有正在进行的订阅和发布操作都得到妥善处理, 阻塞操作

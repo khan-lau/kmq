@@ -33,7 +33,7 @@
         maxPingsOut: 3,            // 最大允许的连续无应答心跳次数
         useTls: false,             // 是否使用tls链路
 
-        topics: ["ntas.js.topic_001"],
+        topics: ["PHONE", "sim_data"], // 不支持直接使用`>`接收全部topic, 需要逐个topic订阅
         queueName: "js_queue01",    // 队列名称, jetstream名称, 必须不可为空, 命名不可包含 ` `, `.`, `*`, `>`, `\`, `/` 及非可见字符
         storageType: "memory",      // 存储类型，默认为 "memory", 可选 "file"
         storageCompression: "none", // 存储压缩，默认为 "none", 可选 "s2"

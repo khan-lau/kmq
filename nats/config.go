@@ -275,10 +275,10 @@ func (that *CoreNatsConfig) SetMaxPending(max int) *CoreNatsConfig {
 
 // JetStreamConsumerConfig 定义 JetStream Consumer 配置
 type JetStreamConsumerConfig struct {
-	durable       string // 持久化订阅名称，可以为空, 等同于消费者名称, 为空时表示临时消费组, 最后一个消费者断开连接时, 未处理消息被丢弃
-	filterSubject string // 过滤主题，可以为空
-	maxWait       int    // 最大等待时间，默认为 -1 (无限)
-	autoCommit    bool   // 是否自动提交，默认为 true
+	durable string // 持久化订阅名称，可以为空, 等同于消费者名称, 为空时表示临时消费组, 最后一个消费者断开连接时, 未处理消息被丢弃
+	// filterSubject string // 过滤主题，可以为空
+	maxWait    int  // 最大等待时间，默认为 -1 (无限)
+	autoCommit bool // 是否自动提交，默认为 true
 	// batchSize     int                // 批量消费的大小，默认为 -1 (无限)
 	// maxQueueSize  int                // 最大队列大小，默认为 -1 (无限)
 	ackPolicy     nats.AckPolicy     // 确认策略，默认`AckNonePolicy`无需ack, AckAllPolicy 批量ack所有消息; AckExplicitPolicy 需要显式ack每个消息
@@ -287,9 +287,9 @@ type JetStreamConsumerConfig struct {
 
 func NewJetStreamConsumerConfig(name string) *JetStreamConsumerConfig {
 	return &JetStreamConsumerConfig{
-		durable:       name,
-		filterSubject: "",
-		maxWait:       -1,
+		durable: name,
+		// filterSubject: "",
+		maxWait: -1,
 		// batchSize:     -1,
 		// maxQueueSize:  -1,
 		ackPolicy:     nats.AckNonePolicy,            // 默认无需ack
@@ -298,10 +298,11 @@ func NewJetStreamConsumerConfig(name string) *JetStreamConsumerConfig {
 }
 
 // Getter 方法
-func (that *JetStreamConsumerConfig) Name() string          { return that.durable }
-func (that *JetStreamConsumerConfig) FilterSubject() string { return that.filterSubject }
-func (that *JetStreamConsumerConfig) MaxWait() int          { return that.maxWait }
-func (that *JetStreamConsumerConfig) AutoCommit() bool      { return that.autoCommit }
+func (that *JetStreamConsumerConfig) Name() string { return that.durable }
+
+// func (that *JetStreamConsumerConfig) FilterSubject() string { return that.filterSubject }
+func (that *JetStreamConsumerConfig) MaxWait() int     { return that.maxWait }
+func (that *JetStreamConsumerConfig) AutoCommit() bool { return that.autoCommit }
 
 // func (that *JetStreamConsumerConfig) BatchSize() int                    { return that.batchSize }
 // func (that *JetStreamConsumerConfig) MaxQueueSize() int                 { return that.maxQueueSize }
@@ -317,10 +318,10 @@ func (that *JetStreamConsumerConfig) SetName(name string) *JetStreamConsumerConf
 	return that
 }
 
-func (that *JetStreamConsumerConfig) SetFilterSubject(subject string) *JetStreamConsumerConfig {
-	that.filterSubject = subject // 可以为空
-	return that
-}
+// func (that *JetStreamConsumerConfig) SetFilterSubject(subject string) *JetStreamConsumerConfig {
+// 	that.filterSubject = subject // 可以为空
+// 	return that
+// }
 
 func (that *JetStreamConsumerConfig) SetMaxWait(wait int) *JetStreamConsumerConfig {
 	if wait <= 0 {

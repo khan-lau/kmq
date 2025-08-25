@@ -44,7 +44,7 @@ func startMqSource(ctx *kcontext.ContextNode, sourceItems []*config.MQItemObj, o
 
 						natsCoreMq.SetOnRecivedCallback(
 							func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-								onRecved(origin, name, topic, partition, offset, properties, item.Compress, message)
+								onRecved(origin, name, topic, partition, offset, properties, item.Compress, false, message)
 							},
 						)
 						gMqSourceManager[item.MQType] = natsCoreMq
@@ -82,7 +82,7 @@ func startMqSource(ctx *kcontext.ContextNode, sourceItems []*config.MQItemObj, o
 						glog.I("start nats jetstream source: [{}], topic: [{}]", strings.Join(natsJsConfig.BrokerList, ", "), strings.Join(natsJsConfig.Topics, ", "))
 						natsJsMq.SetOnRecivedCallback(
 							func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-								onRecved(origin, name, topic, partition, offset, properties, item.Compress, message)
+								onRecved(origin, name, topic, partition, offset, properties, item.Compress, natsJsConfig.ConsumerConfig.AutoCommit, message)
 							},
 						)
 						gMqSourceManager[item.MQType] = natsJsMq
@@ -126,7 +126,7 @@ func startMqSource(ctx *kcontext.ContextNode, sourceItems []*config.MQItemObj, o
 
 						kafkaMq.SetOnRecivedCallback(
 							func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-								onRecved(origin, name, topic, partition, offset, properties, item.Compress, message)
+								onRecved(origin, name, topic, partition, offset, properties, item.Compress, kafkaConfig.Consumer.AutoCommit, message)
 							},
 						)
 						gMqSourceManager[item.MQType] = kafkaMq
@@ -154,7 +154,7 @@ func startMqSource(ctx *kcontext.ContextNode, sourceItems []*config.MQItemObj, o
 
 						rabbitMq.SetOnRecivedCallback(
 							func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-								onRecved(origin, name, topic, partition, offset, properties, item.Compress, message)
+								onRecved(origin, name, topic, partition, offset, properties, item.Compress, rabbitConfig.Consumer.AutoCommit, message)
 							},
 						)
 						gMqSourceManager[item.MQType] = rabbitMq
@@ -181,7 +181,7 @@ func startMqSource(ctx *kcontext.ContextNode, sourceItems []*config.MQItemObj, o
 						glog.I("start redis source, {}:{}, topic: {}", redisConfig.Host, int(redisConfig.Port), redisConfig.Topics)
 						redisMq.SetOnRecivedCallback(
 							func(origin interface{}, name string, topic string, _ int, _ int64, _ map[string]string, message []byte) {
-								onRecved(origin, name, topic, 0, 0, nil, item.Compress, message)
+								onRecved(origin, name, topic, 0, 0, nil, item.Compress, false, message)
 							},
 						)
 						gMqSourceManager[item.MQType] = redisMq
@@ -220,7 +220,7 @@ func startMqSource(ctx *kcontext.ContextNode, sourceItems []*config.MQItemObj, o
 							glog.I("start rocketmq source: {}, topic: {}", rocketConfig.Servers, rocketConfig.Consumer.Topics)
 							rocketMq.SetOnRecivedCallback(
 								func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-									onRecved(origin, name, topic, partition, offset, properties, item.Compress, message)
+									onRecved(origin, name, topic, partition, offset, properties, item.Compress, rocketConfig.Consumer.AutoCommit, message)
 								},
 							)
 							gMqSourceManager[item.MQType] = rocketMq
@@ -249,7 +249,7 @@ func startMqSource(ctx *kcontext.ContextNode, sourceItems []*config.MQItemObj, o
 							glog.I("start rocketmq source: {}, topic: {}", mqttConfig.Broker, strings.Join(mqttConfig.Topics, ","))
 							mqttClient.SetOnRecivedCallback(
 								func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-									onRecved(origin, name, topic, 0, 0, nil, item.Compress, message)
+									onRecved(origin, name, topic, 0, 0, nil, item.Compress, false, message)
 								},
 							)
 							gMqSourceManager[item.MQType] = mqttClient
@@ -670,7 +670,7 @@ func generalMessage(handler *dispatch.DispatchService, resetTimestamp bool, mess
 //   - properties map[string]string: 标签信息
 //   - isCompress bool: 是否为压缩数据
 //   - message []byte: 消息数据
-func onRecved(origin any, name string, topic string, partition int, offset int64, _ map[string]string, isCompress bool, message []byte) {
+func onRecved(origin any, name string, topic string, partition int, offset int64, _ map[string]string, isCompress bool, autoAck bool, message []byte) {
 	// 源数据是否为压缩数据, 压缩数据必须是zip压缩算法
 	str := ""
 	if isCompress {
@@ -684,8 +684,6 @@ func onRecved(origin any, name string, topic string, partition int, offset int64
 		str = string(message)
 	}
 
-	glog.D("onRecived: name={}, topic={}, partition={}, offset={}, message= {}", name, topic, partition, offset, str)
-
 	//// TODO 解析从消息中获取需要下发的topic 和 payload, 下发给下游MQ处理
 	// flag := publish(to, topic, []byte(str), nil)
 	// if !flag {
@@ -695,13 +693,22 @@ func onRecved(origin any, name string, topic string, partition int, offset int64
 	var err error
 	switch t := origin.(type) {
 	case *rabbitmq.Message:
-		err = t.Ack(false) // false: 只确认当前这条消息; true: 批量确认 DeliveryTag <= current DeliveryTag 的所有消息
+		if !autoAck {
+			err = t.Ack(false) // false: 只确认当前这条消息; true: 批量确认 DeliveryTag <= current DeliveryTag 的所有消息
+		}
+
 	case *rocketmq.Message:
-		err = t.Ack() // 批量确认
+		if !autoAck {
+			err = t.Ack() // 批量确认
+		}
 	case *nats.NatsMessage:
-		err = t.Ack() // 如果想批量确认 需要将 AckPolicy设置为 `AckAllPolicy`
+		if !autoAck {
+			err = t.Ack() // 如果想批量确认 需要将 AckPolicy设置为 `AckAllPolicy`
+		}
 	case *kafka.KafkaMessage:
-		err = t.Ack() // 确认当前消息seq之前的所有消息
+		if !autoAck {
+			err = t.Ack() // 确认当前消息seq之前的所有消息
+		}
 	case nil:
 		// 不支持ack的MQ 直接忽略
 	default:
@@ -709,6 +716,7 @@ func onRecved(origin any, name string, topic string, partition int, offset int64
 	}
 
 	if err == nil {
+		glog.D("onRecived: name={}, topic={}, partition={}, offset={}, message= {}", name, topic, partition, offset, str)
 		switch name {
 		case "KafkaSource":
 			gOffsetSync.Set("kafkamq", topic, strconv.Itoa(partition), offset)
