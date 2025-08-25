@@ -48,7 +48,7 @@
         discard: "old",             // 丢弃策略，默认为 "old", 可选 "new"
         consumer: {
           groupId: "js_groupId",  // 持久化订阅名称，可以为空, 等同于消费者名称, 为空时表示临时消费组, 最后一个消费者断开连接时, 未处理消息被丢弃
-          maxWait: -1,            // 最大等待时间，默认为 -1 (无限)
+          maxWait: -1,            // 最大等待时间，pull模式使用(暂不支持), push模式下无效
           autoCommit: true,       // 是否自动提交消息，默认为 false
           ackPolicy: "all",       // 确认策略，默认`none`: 自动ack; `all`: 确认一个序列号时，会隐式确认该序列号之前的所有消息; `explicit`: 每条需要单独确认
         }
