@@ -722,7 +722,7 @@ func onRecved(origin any, name string, topic string, partition int, offset int64
 			gOffsetSync.Set("kafkamq", topic, strconv.Itoa(partition), offset)
 		case "RocketSource":
 			gOffsetSync.Set("rocketmq", topic, strconv.Itoa(partition), offset)
-		case "natsjsmq":
+		case "NatsJSSource":
 			gOffsetSync.Set("natsjsmq", topic, strconv.Itoa(partition), offset)
 		}
 	} else {

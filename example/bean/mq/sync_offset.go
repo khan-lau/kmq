@@ -42,7 +42,7 @@ func NewOffsetSync(syncTime uint64, syncFilePath string, logf klog.AppLogFuncWit
 }
 
 func (that *OffsetSync) Set(mqType string, topic string, partition string, offset int64) {
-	if mqType == "" || mqType == "rabbitmq" || mqType == "redismq" {
+	if mqType == "" || mqType == "rabbitmq" || mqType == "redismq" || mqType == "mqtt3" || mqType == "natscoremq" {
 		return
 	}
 	that.recordMutext.Lock()
@@ -86,6 +86,10 @@ func (that *OffsetSync) Sync() {
 		}
 		that.modified = false
 		syncMap = tmap
+
+		// if that.logf != nil {
+		// 	that.logf(klog.DebugLevel, offset_tag, "sync offset to {} file: {}", syncMap, that.syncFile)
+		// }
 		that.recordMutext.Unlock()
 	}
 
