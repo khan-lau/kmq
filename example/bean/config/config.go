@@ -246,9 +246,9 @@ func (that *Configure) process() {
 ///////////////////////////////////////////////////////////
 
 type Topic struct {
-	Name      string `json:"topic" toml:"topic" yaml:"topic"`             // 队列名称
-	Partition int    `json:"partition" toml:"partition" yaml:"partition"` // 分区数量
-	Offset    int64  `json:"offset" toml:"offset" yaml:"offset"`          // 队列偏移量
+	Name      string `json:"topic" toml:"topic" yaml:"topic" mapstructure:"topic"` // 队列名称
+	Partition int    `json:"partition" toml:"partition" yaml:"partition"`          // 分区数量
+	Offset    int64  `json:"offset" toml:"offset" yaml:"offset"`                   // 队列偏移量
 }
 
 type Net struct {
@@ -292,9 +292,9 @@ type KafkaConfig struct {
 	GroupID           string    `json:"groupId" toml:"groupId" yaml:"groupId"`
 	BrokerList        []string  `json:"brokerList" toml:"brokerList" yaml:"brokerList"`
 	ChannelBufferSize int       `json:"channelBufferSize" toml:"channelBufferSize" yaml:"channelBufferSize"`
-	Net               *Net      `mapstructure:"net" json:"net" toml:"net" yaml:"net"`
-	Consumer          *Consumer `mapstructure:"consumer" json:"consumer" toml:"consumer" yaml:"consumer"`
-	Producer          *Producer `mapstructure:"producer" json:"producer" toml:"producer" yaml:"producer"`
+	Net               *Net      `json:"net" toml:"net" yaml:"net" mapstructure:"net"`
+	Consumer          *Consumer `json:"consumer" toml:"consumer" yaml:"consumer" mapstructure:"consumer"`
+	Producer          *Producer `json:"producer" toml:"producer" yaml:"producer" mapstructure:"producer"`
 }
 
 ///////////////////////////////////////////////////////////
@@ -322,8 +322,8 @@ type RabbitConfig struct {
 	Password string `json:"password" toml:"password" yaml:"password"`
 	VHost    string `json:"vhost" toml:"vhost" yaml:"vhost"`
 
-	Consumer *RabbitConsumerConfig `mapstructure:"consumer" json:"consumer" toml:"consumer" yaml:"consumer"` // 设置消费配置
-	Producer *RabbitProducerConfig `mapstructure:"producer" json:"producer" toml:"producer" yaml:"producer"` // 设置生产配置
+	Consumer *RabbitConsumerConfig `json:"consumer" toml:"consumer" yaml:"consumer" mapstructure:"consumer"` // 设置消费配置
+	Producer *RabbitProducerConfig `json:"producer" toml:"producer" yaml:"producer" mapstructure:"producer"` // 设置生产配置
 }
 
 ///////////////////////////////////////////////////////////
@@ -374,8 +374,8 @@ type RocketConfig struct {
 	AccessKey string `json:"accessKey" toml:"accessKey" yaml:"accessKey"`
 	SecretKey string `json:"secretKey" toml:"secretKey" yaml:"secretKey"`
 
-	Consumer *RocketCustomConfig   `mapstructure:"consumer" json:"consumer" toml:"consumer" yaml:"consumer"`
-	Producer *RocketProducerConfig `mapstructure:"producer" json:"producer" toml:"producer" yaml:"producer"`
+	Consumer *RocketCustomConfig   `json:"consumer" toml:"consumer" yaml:"consumer" mapstructure:"consumer"`
+	Producer *RocketProducerConfig `json:"producer" toml:"producer" yaml:"producer" mapstructure:"producer"`
 }
 
 ///////////////////////////////////////////////////////////
@@ -482,5 +482,5 @@ type NatsJsConfig struct {
 	Duplicates         int64                 `json:"duplicates" toml:"duplicates" yaml:"duplicates"`                         // 多长时间内不允许消息重复, 单位MS, 默认为 -1 (无限)
 	Discard            string                `json:"discard" toml:"discard" yaml:"discard"`                                  // 丢弃策略，默认为 "old", 可选 "new"
 	Topics             []string              `json:"topics" toml:"topics" yaml:"topics"`                                     // 主题列表，默认为空, nats支持一个stream对多个consmer, 但此处只实现了一个stream对应一个consumer
-	ConsumerConfig     *NatsJsConsumerConfig `mapstructure:"consumer" json:"consumer" toml:"consumer" yaml:"consumer"`       // 消费者配置
+	ConsumerConfig     *NatsJsConsumerConfig `json:"consumer" toml:"consumer" yaml:"consumer" mapstructure:"consumer"`       // 消费者配置
 }
