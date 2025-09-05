@@ -2,6 +2,7 @@ package mqtt
 
 import (
 	"strings"
+	"time"
 
 	"github.com/khan-lau/kutils/container/klists"
 	"github.com/khan-lau/kutils/container/kstrings"
@@ -40,20 +41,20 @@ func (that *MqttMessage) String() string {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Config struct {
-	broker       string // Broker 地址，例如 "tcp://127.0.0.1:1883"
-	clientId     string // 客户端ID，用于唯一标识一个MQTT连接
-	username     string // 用户名，用于连接MQTT服务器时进行身份验证
-	password     string // 密码，用于连接MQTT服务器时进行身份验证
-	keepAlive    int64  // 心跳间隔，单位为毫秒. 客户端和服务器之间保持连接的心跳时间
-	cleanSession bool   // 是否清除会话，如果为true，则断开连接后之前的订阅和消息都会被清空
-	qos          byte   // 消息服务质量等级，0表示最多一次，1表示至少一次，2表示恰好一次
-	willTopic    string // 遗嘱消息的主题，当客户端意外断开连接时，服务器会发布此主题的消息
-	willPayload  []byte // 遗嘱消息的内容，当客户端意外断开连接时，服务器会发布此内容的消息
-	willQos      byte   // 遗嘱消息的服务质量等级，0表示最多一次，1表示至少一次，2表示恰好一次
-	willRetain   bool   // 遗嘱消息是否保留，如果为true，则服务器会将此消息保存到持久存储中
+	broker       string        // Broker 地址，例如 "tcp://127.0.0.1:1883"
+	clientId     string        // 客户端ID，用于唯一标识一个MQTT连接
+	username     string        // 用户名，用于连接MQTT服务器时进行身份验证
+	password     string        // 密码，用于连接MQTT服务器时进行身份验证
+	keepAlive    time.Duration // 心跳间隔，单位为毫秒. 客户端和服务器之间保持连接的心跳时间
+	cleanSession bool          // 是否清除会话，如果为true，则断开连接后之前的订阅和消息都会被清空
+	qos          byte          // 消息服务质量等级，0表示最多一次，1表示至少一次，2表示恰好一次
+	willTopic    string        // 遗嘱消息的主题，当客户端意外断开连接时，服务器会发布此主题的消息
+	willPayload  []byte        // 遗嘱消息的内容，当客户端意外断开连接时，服务器会发布此内容的消息
+	willQos      byte          // 遗嘱消息的服务质量等级，0表示最多一次，1表示至少一次，2表示恰好一次
+	willRetain   bool          // 遗嘱消息是否保留，如果为true，则服务器会将此消息保存到持久存储中
 
 	version int                   // 协议版本 3: 3.1; 4: 3.1.1; 5: 5.0
-	timeout int64                 // 通信超时时间，单位为毫秒
+	timeout time.Duration         // 通信超时时间，单位为毫秒
 	topics  *klists.KList[string] // 订阅的主题列表
 
 	useTLS           bool             // 是否启用 TLS
@@ -68,10 +69,10 @@ func New() *Config {
 	}
 }
 
-func NewMqttConfig(broker string, clientId string, username string, password string, keepAlive int64, cleanSession bool, qos byte,
+func NewMqttConfig(broker string, clientId string, username string, password string, keepAlive time.Duration, cleanSession bool, qos byte,
 	willTopic string, willPayload []byte, willQos byte, willRetain bool,
 	version int,
-	timeout int64,
+	timeout time.Duration,
 	topics *klists.KList[string],
 	useTLS bool,
 	caCertPath string,
@@ -117,7 +118,7 @@ func (that *Config) SetPassword(password string) *Config {
 	return that
 }
 
-func (that *Config) SetKeepAlive(keepAlive int64) *Config {
+func (that *Config) SetKeepAlive(keepAlive time.Duration) *Config {
 	that.keepAlive = keepAlive
 	return that
 }
@@ -157,7 +158,7 @@ func (that *Config) SetVersion(version int) *Config {
 	return that
 }
 
-func (that *Config) SetTimeout(timeout int64) *Config {
+func (that *Config) SetTimeout(timeout time.Duration) *Config {
 	that.timeout = timeout
 	return that
 }
@@ -221,7 +222,7 @@ func (that *Config) Password() string {
 	return that.password
 }
 
-func (that *Config) KeepAlive() int64 {
+func (that *Config) KeepAlive() time.Duration {
 	return that.keepAlive
 }
 
@@ -253,7 +254,7 @@ func (that *Config) Version() int {
 	return that.version
 }
 
-func (that *Config) Timeout() int64 {
+func (that *Config) Timeout() time.Duration {
 	return that.timeout
 }
 

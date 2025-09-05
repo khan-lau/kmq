@@ -1,6 +1,8 @@
 package rocketmq
 
 import (
+	"time"
+
 	"github.com/apache/rocketmq-client-go/v2/consumer"
 	"github.com/apache/rocketmq-client-go/v2/primitive"
 	"github.com/apache/rocketmq-client-go/v2/producer"
@@ -128,7 +130,7 @@ func (that *RocketConsumerConfig) SetInterceptor(interceptors []primitive.Interc
 
 type RocketProducerConfig struct {
 	Topics        []string
-	Timeout       int64                   // 消息发送超时时间, 单位为毫秒
+	Timeout       time.Duration           // 消息发送超时时间, 单位为毫秒
 	Retry         int                     // 消息发送重试次数
 	QueueSelector producer.QueueSelector  // 消息队列选择策略, NewRandomQueueSelector 随机选择队列; NewRoundRobinQueueSelector 按照轮训方式选择队列; NewManualQueueSelector 直接选择消息中配置的队列
 	Interceptors  []primitive.Interceptor // 消息拦截器, 默认为空
@@ -162,7 +164,7 @@ func (that *RocketProducerConfig) RemoveTopic(topic string) *RocketProducerConfi
 	return that
 }
 
-func (that *RocketProducerConfig) SetTimeout(timeout int64) *RocketProducerConfig {
+func (that *RocketProducerConfig) SetTimeout(timeout time.Duration) *RocketProducerConfig {
 	that.Timeout = timeout
 	return that
 }

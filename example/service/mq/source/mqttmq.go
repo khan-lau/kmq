@@ -71,10 +71,10 @@ func (that *MqttMQ) Start() error {
 		AddBorker(that.conf.Broker).
 		SetClientId(that.conf.ClientID).
 		SetUsername(that.conf.UserName).SetPassword(that.conf.Password).
-		SetKeepAlive(int64(time.Duration(that.conf.KeepAlive) * time.Millisecond)).
+		SetKeepAlive((time.Duration(that.conf.KeepAlive) * time.Millisecond)).
 		SetCleanSession(that.conf.CleanSession).
 		SetQos(byte(that.conf.Qos)).
-		SetVersion(that.conf.Version).SetTimeout(int64(time.Duration(that.conf.Timeout) * time.Millisecond)).
+		SetVersion(that.conf.Version).SetTimeout((time.Duration(that.conf.Timeout) * time.Millisecond)).
 		SetWillTopic(that.conf.WillTopic).SetWillQos(byte(that.conf.WillQos)).SetWillRetain(that.conf.WillRetain).SetWillPayload([]byte(that.conf.WillPayload)).
 		SetTopics(that.conf.Topics...).SetUseTLS(that.conf.UseTLS).SetCaCertPath(that.conf.CaCertPath)
 

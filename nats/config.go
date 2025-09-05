@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/khan-lau/kutils/container/klists"
 	"github.com/nats-io/nats.go"
@@ -70,11 +71,11 @@ type NatsConnConfig struct {
 	user     string                // 用户名可以为空
 	password string                // 密码或token
 
-	allowReconnect   bool  // 默认不启用自动重连
-	maxReconnect     int   // 最大重连次数，0 表示不启用自动重连
-	reconnectWait    int64 // 重连等待时间，单位毫秒
-	reconnectBufSize int   // 在客户端与服务器连接断开时，临时缓存你发布的出站（outgoing）消息, -1 不启用自动重连缓冲区, 默认8M缓冲区
-	connectTimeout   int64 // 连接超时时间，单位为毫秒
+	allowReconnect   bool          // 默认不启用自动重连
+	maxReconnect     int           // 最大重连次数，0 表示不启用自动重连
+	reconnectWait    time.Duration // 重连等待时间，单位毫秒
+	reconnectBufSize int           // 在客户端与服务器连接断开时，临时缓存你发布的出站（outgoing）消息, -1 不启用自动重连缓冲区, 默认8M缓冲区
+	connectTimeout   time.Duration // 连接超时时间，单位为毫秒
 
 	useTls             bool   // 默认不启用 TLS 加密连接
 	caCertPath         string // CA 证书路径, 仅当 useTLS 为 true 时有效
@@ -85,8 +86,8 @@ type NatsConnConfig struct {
 
 	name string // 客户端名称，默认为空
 
-	pingInterval int64 // ping间隔时间, 单位毫秒, 默认为2分钟
-	maxPingsOut  int   // 最大允许的ping无应答次数, 超过则断开连接
+	pingInterval time.Duration // ping间隔时间, 单位毫秒, 默认为2分钟
+	maxPingsOut  int           // 最大允许的ping无应答次数, 超过则断开连接
 }
 
 func NewNatsConnConfig(name string) *NatsConnConfig {
@@ -110,23 +111,23 @@ func NewNatsConnConfig(name string) *NatsConnConfig {
 }
 
 // Getter 方法
-func (that *NatsConnConfig) Servers() []string        { return klists.ToKSlice(that.servers) }
-func (that *NatsConnConfig) User() string             { return that.user }
-func (that *NatsConnConfig) Password() string         { return that.password }
-func (that *NatsConnConfig) AllowReconnect() bool     { return that.allowReconnect }
-func (that *NatsConnConfig) MaxReconnect() int        { return that.maxReconnect }
-func (that *NatsConnConfig) ReconnectWait() int64     { return that.reconnectWait }
-func (that *NatsConnConfig) ReconnectBufSize() int    { return that.reconnectBufSize }
-func (that *NatsConnConfig) ConnectTimeout() int64    { return that.connectTimeout }
-func (that *NatsConnConfig) UseTls() bool             { return that.useTls }
-func (that *NatsConnConfig) CaCertPath() string       { return that.caCertPath }
-func (that *NatsConnConfig) TlsClientCert() string    { return that.tlsClientCert }
-func (that *NatsConnConfig) KeyPath() string          { return that.keyPath }
-func (that *NatsConnConfig) InsecureSkipVerify() bool { return that.insecureSkipVerify }
-func (that *NatsConnConfig) MinTlsVer() int           { return that.minTlsVer }
-func (that *NatsConnConfig) Name() string             { return that.name }
-func (that *NatsConnConfig) PingInterval() int64      { return that.pingInterval }
-func (that *NatsConnConfig) MaxPingsOut() int         { return that.maxPingsOut }
+func (that *NatsConnConfig) Servers() []string             { return klists.ToKSlice(that.servers) }
+func (that *NatsConnConfig) User() string                  { return that.user }
+func (that *NatsConnConfig) Password() string              { return that.password }
+func (that *NatsConnConfig) AllowReconnect() bool          { return that.allowReconnect }
+func (that *NatsConnConfig) MaxReconnect() int             { return that.maxReconnect }
+func (that *NatsConnConfig) ReconnectWait() time.Duration  { return that.reconnectWait }
+func (that *NatsConnConfig) ReconnectBufSize() int         { return that.reconnectBufSize }
+func (that *NatsConnConfig) ConnectTimeout() time.Duration { return that.connectTimeout }
+func (that *NatsConnConfig) UseTls() bool                  { return that.useTls }
+func (that *NatsConnConfig) CaCertPath() string            { return that.caCertPath }
+func (that *NatsConnConfig) TlsClientCert() string         { return that.tlsClientCert }
+func (that *NatsConnConfig) KeyPath() string               { return that.keyPath }
+func (that *NatsConnConfig) InsecureSkipVerify() bool      { return that.insecureSkipVerify }
+func (that *NatsConnConfig) MinTlsVer() int                { return that.minTlsVer }
+func (that *NatsConnConfig) Name() string                  { return that.name }
+func (that *NatsConnConfig) PingInterval() time.Duration   { return that.pingInterval }
+func (that *NatsConnConfig) MaxPingsOut() int              { return that.maxPingsOut }
 
 // Setter 方法（链式调用，非法值使用默认值）
 func (that *NatsConnConfig) AddServers(servers ...string) *NatsConnConfig {
@@ -149,7 +150,7 @@ func (that *NatsConnConfig) SetToken(token string) *NatsConnConfig {
 	return that
 }
 
-func (that *NatsConnConfig) EnableReconnect(maxReConnect, reconnectBufSize int, timeout, reconnectWait int64) *NatsConnConfig {
+func (that *NatsConnConfig) EnableReconnect(maxReConnect, reconnectBufSize int, timeout, reconnectWait time.Duration) *NatsConnConfig {
 	that.allowReconnect = true
 	that.maxReconnect = maxReConnect
 	that.connectTimeout = timeout
@@ -202,7 +203,7 @@ func (that *NatsConnConfig) SetName(name string) *NatsConnConfig {
 	return that
 }
 
-func (that *NatsConnConfig) SetPing(interval int64, retry int) *NatsConnConfig {
+func (that *NatsConnConfig) SetPing(interval time.Duration, retry int) *NatsConnConfig {
 	if interval < 0 {
 		fmt.Printf("Warning: pingInterval %d is invalid, using default: %dms\n", interval, defaultPingInterval)
 		that.pingInterval = defaultPingInterval

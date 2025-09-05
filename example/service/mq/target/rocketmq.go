@@ -68,7 +68,7 @@ func (that *RocketMQ) Start() error {
 
 	rabbitProducerConfig := rocketmq.NewRocketProducerConfig().
 		SetTopics(that.conf.Producer.Topics...).
-		SetTimeout(int64(time.Duration(that.conf.Producer.Timeout) * time.Millisecond)).
+		SetTimeout((time.Duration(that.conf.Producer.Timeout) * time.Millisecond)).
 		SetRetry(that.conf.Producer.Retry).
 		SetAsyncSend(that.conf.Producer.AsyncSend)
 	switch that.conf.Producer.QueueSelector {

@@ -88,12 +88,12 @@ func (that *NatsCoreMQ) Start() error {
 	natsConf := nats.NewNatsClientConfig().SetNats(nats.NewNatsConnConfig(that.conf.ClientID)).SetCoreNats(nats.NewCoreNatsConfig())
 	natsConf.Nats().AddServers(that.conf.BrokerList...)
 
-	natsConf.Nats().SetPing(int64(time.Duration(that.conf.PingInterval)*time.Millisecond), that.conf.MaxPingsOut)
+	natsConf.Nats().SetPing((time.Duration(that.conf.PingInterval) * time.Millisecond), that.conf.MaxPingsOut)
 	natsConf.Nats().SetUserPassword(that.conf.User, that.conf.Password)
 
 	if that.conf.AllowReconnect {
 		natsConf.Nats().EnableReconnect(that.conf.MaxReconnect, that.conf.ReconnectBufSize,
-			int64(time.Duration(that.conf.ConnectTimeout)*time.Millisecond), int64(time.Duration(that.conf.ReconnectWait)*time.Millisecond))
+			(time.Duration(that.conf.ConnectTimeout) * time.Millisecond), (time.Duration(that.conf.ReconnectWait) * time.Millisecond))
 	} else {
 		natsConf.Nats().DisableReconnect()
 	}
@@ -292,12 +292,12 @@ func (that *NatsJetStreamMQ) Start() error {
 	natsConf := nats.NewNatsClientConfig().SetNats(nats.NewNatsConnConfig(that.conf.ClientID)).SetJetStream(nats.NewJetStreamConfig(that.conf.QueueName))
 	natsConf.Nats().AddServers(that.conf.BrokerList...)
 
-	natsConf.Nats().SetPing(int64(time.Duration(that.conf.PingInterval)*time.Millisecond), that.conf.MaxPingsOut)
+	natsConf.Nats().SetPing((time.Duration(that.conf.PingInterval) * time.Millisecond), that.conf.MaxPingsOut)
 	natsConf.Nats().SetUserPassword(that.conf.User, that.conf.Password)
 
 	if that.conf.AllowReconnect {
 		natsConf.Nats().EnableReconnect(that.conf.MaxReconnect, that.conf.ReconnectBufSize,
-			int64(time.Duration(that.conf.ConnectTimeout)*time.Millisecond), int64(time.Duration(that.conf.ReconnectWait)*time.Millisecond))
+			(time.Duration(that.conf.ConnectTimeout) * time.Millisecond), (time.Duration(that.conf.ReconnectWait) * time.Millisecond))
 	} else {
 		natsConf.Nats().DisableReconnect()
 	}
