@@ -85,7 +85,7 @@
       type: "kafkamq",
       isCompress: true, // 是否为压缩数据
       mq: {
-        version: "3.0.0.0",         // kafka版本, 指定协议支持
+        version: "3.0.0",           // kafka版本, 指定协议支持, 早期版本4位,如 `0.10.3.1`; 之后的版本 3位, 如`3.0.0`, 如版本号非法, 则自动使用 0.10.2.0
         clientId: "sarama",         // clientID 必须在Kafka 集群中保证唯一，用于区分不同的客户端应用程序
         groupId: "groupId",         // 负载均衡时使用, 多个client用同一个groupID分别消费不同内容, 多个client用不同groupId则分别消费相同内容
         brokerList: ["10.50.145.34:19092"],

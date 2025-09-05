@@ -5,6 +5,7 @@ import (
 
 	"github.com/IBM/sarama"
 	"github.com/khan-lau/kutils/container/klists"
+	"github.com/khan-lau/kutils/container/kstrings"
 )
 
 const (
@@ -397,6 +398,7 @@ func (that *Config) SetVersion(version string) *Config {
 	ver, err := sarama.ParseKafkaVersion(version)
 	if err != nil {
 		that.Version = sarama.V0_10_2_0
+		kstrings.Debugf("kafka: parse kafka version failt, default to 0.10.2.0\n")
 	} else {
 		that.Version = ver
 	}
