@@ -233,7 +233,7 @@ func (that *MqttSubPub) connect() bool {
 		opts.SetUsername(that.conf.Username())
 		opts.SetPassword(that.conf.Password())
 		opts.SetProtocolVersion(uint(that.conf.Version()))
-		opts.SetKeepAlive(time.Duration(that.conf.KeepAlive()) * time.Millisecond)
+		opts.SetKeepAlive(time.Duration(that.conf.KeepAlive()))
 		opts.SetCleanSession(that.conf.CleanSession())
 
 		// 遗嘱设置
@@ -244,8 +244,8 @@ func (that *MqttSubPub) connect() bool {
 		opts.SetAutoReconnect(true)
 		opts.SetConnectRetry(true)
 		opts.SetConnectRetryInterval(time.Second * 5) // 重连等待时间, SetConnectRetry(true)时才生效
-		opts.SetConnectTimeout(time.Duration(that.conf.Timeout()) * time.Millisecond)
-		opts.SetPingTimeout(time.Duration(that.conf.Timeout()) * time.Millisecond)
+		opts.SetConnectTimeout(time.Duration(that.conf.Timeout()))
+		opts.SetPingTimeout(time.Duration(that.conf.Timeout()))
 
 		// TLS 配置
 		if that.conf.useTLS {

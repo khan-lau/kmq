@@ -222,13 +222,13 @@ func (that *NatsCoreClient) doConnect() error {
 
 	if that.conf.Nats().AllowReconnect() {
 		opts = append(opts, nats.MaxReconnects(that.conf.Nats().MaxReconnect()))
-		opts = append(opts, nats.ReconnectWait(time.Duration(that.conf.Nats().ReconnectWait())*time.Millisecond))
+		opts = append(opts, nats.ReconnectWait(time.Duration(that.conf.Nats().ReconnectWait())))
 
 		opts = append(opts, nats.ReconnectBufSize(that.conf.Nats().ReconnectBufSize())) // 在客户端与服务器连接断开时，临时缓存你发布的出站（outgoing）消息
 	}
 
-	opts = append(opts, nats.PingInterval(time.Duration(that.conf.Nats().PingInterval())*time.Millisecond)) // 设置ping间隔时间
-	opts = append(opts, nats.MaxPingsOutstanding(that.conf.Nats().MaxPingsOut()))                           // 设置最大允许的ping无应答次数
+	opts = append(opts, nats.PingInterval(time.Duration(that.conf.Nats().PingInterval()))) // 设置ping间隔时间
+	opts = append(opts, nats.MaxPingsOutstanding(that.conf.Nats().MaxPingsOut()))          // 设置最大允许的ping无应答次数
 
 	// 连接成功时调用
 	opts = append(opts, nats.ConnectHandler(func(nc *nats.Conn) {
@@ -528,10 +528,10 @@ func (that *NatsJetStreamClient) upsertJetstream(js nats.JetStreamContext) (*nat
 		MaxConsumers:      that.conf.JetStream().MaxConsumers(),
 		MaxMsgs:           that.conf.JetStream().MaxMsgs(),
 		MaxBytes:          that.conf.JetStream().MaxBytes(),
-		MaxAge:            time.Duration(that.conf.JetStream().MaxAge()) * time.Millisecond,
+		MaxAge:            time.Duration(that.conf.JetStream().MaxAge()),
 		MaxMsgsPerSubject: that.conf.JetStream().MaxMsgsPerSubject(),
 		MaxMsgSize:        that.conf.JetStream().MaxMsgSize(),
-		Duplicates:        time.Duration(that.conf.JetStream().Duplicates()) * time.Millisecond,
+		Duplicates:        time.Duration(that.conf.JetStream().Duplicates()),
 		Discard:           that.conf.JetStream().Discard(),
 		// NoAck:             that.conf.JetStream().NoAck(), // capturing all subjects requires no-ack to be true
 	}
@@ -655,13 +655,13 @@ func (that *NatsJetStreamClient) doConnect() error {
 
 	if that.conf.Nats().AllowReconnect() {
 		opts = append(opts, nats.MaxReconnects(that.conf.Nats().MaxReconnect()))
-		opts = append(opts, nats.ReconnectWait(time.Duration(that.conf.Nats().ReconnectWait())*time.Millisecond))
+		opts = append(opts, nats.ReconnectWait(time.Duration(that.conf.Nats().ReconnectWait())))
 
 		opts = append(opts, nats.ReconnectBufSize(that.conf.Nats().ReconnectBufSize())) // 在客户端与服务器连接断开时，临时缓存你发布的出站（outgoing）消息
 	}
 
-	opts = append(opts, nats.PingInterval(time.Duration(that.conf.Nats().PingInterval())*time.Millisecond)) // 设置ping间隔时间
-	opts = append(opts, nats.MaxPingsOutstanding(that.conf.Nats().MaxPingsOut()))                           // 设置最大允许的ping无应答次数
+	opts = append(opts, nats.PingInterval(time.Duration(that.conf.Nats().PingInterval()))) // 设置ping间隔时间
+	opts = append(opts, nats.MaxPingsOutstanding(that.conf.Nats().MaxPingsOut()))          // 设置最大允许的ping无应答次数
 
 	// 连接成功时调用
 	opts = append(opts, nats.ConnectHandler(func(nc *nats.Conn) {

@@ -65,19 +65,19 @@ func (that *KafkaMQ) Start() error {
 	}
 
 	netConfig := kafka.NewNetConfig().
-		SetDialTimeout(time.Duration(that.conf.Net.DialTimeout)).
+		SetDialTimeout(time.Duration(that.conf.Net.DialTimeout) * time.Millisecond).
 		SetMaxOpenRequests(that.conf.Net.MaxOpenRequests).
-		SetReadTimeout(time.Duration(that.conf.Net.ReadTimeout)).
-		SetWriteTimeout(time.Duration(that.conf.Net.WriteTimeout)).
+		SetReadTimeout(time.Duration(that.conf.Net.ReadTimeout) * time.Millisecond).
+		SetWriteTimeout(time.Duration(that.conf.Net.WriteTimeout) * time.Millisecond).
 		SetResolveHost(that.conf.Net.ResolveHost)
 
 	kafkaProducerConfig := kafka.NewKafkaProducerConfig().
 		SetCompression(that.conf.Producer.Compression, that.conf.Producer.CompressionLevel).
 		SetMaxMessageBytes(that.conf.Producer.MaxMessageBytes).
 		SetRequiredAcks(that.conf.Producer.RequiredAcks).
-		SetFlush(that.conf.Producer.FlushMessages, that.conf.Producer.FlushFrequency, time.Duration(that.conf.Producer.FlushMaxMessages)).
+		SetFlush(that.conf.Producer.FlushMessages, that.conf.Producer.FlushFrequency, time.Duration(that.conf.Producer.FlushMaxMessages)*time.Millisecond).
 		SetRetry(that.conf.Producer.RetryMax).
-		SetTimeout(time.Duration(that.conf.Producer.Timeout))
+		SetTimeout(time.Duration(that.conf.Producer.Timeout) * time.Millisecond)
 
 	// 设置topic
 	topics := make([]*kafka.Topic, 0, len(that.conf.Producer.Topics))

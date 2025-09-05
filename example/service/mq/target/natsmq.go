@@ -88,11 +88,12 @@ func (that *NatsCoreMQ) Start() error {
 	natsConf := nats.NewNatsClientConfig().SetNats(nats.NewNatsConnConfig(that.conf.ClientID)).SetCoreNats(nats.NewCoreNatsConfig())
 	natsConf.Nats().AddServers(that.conf.BrokerList...)
 
-	natsConf.Nats().SetPing(that.conf.PingInterval, that.conf.MaxPingsOut)
+	natsConf.Nats().SetPing(int64(time.Duration(that.conf.PingInterval)*time.Millisecond), that.conf.MaxPingsOut)
 	natsConf.Nats().SetUserPassword(that.conf.User, that.conf.Password)
 
 	if that.conf.AllowReconnect {
-		natsConf.Nats().EnableReconnect(that.conf.MaxReconnect, that.conf.ReconnectBufSize, that.conf.ConnectTimeout, that.conf.ReconnectWait)
+		natsConf.Nats().EnableReconnect(that.conf.MaxReconnect, that.conf.ReconnectBufSize,
+			int64(time.Duration(that.conf.ConnectTimeout)*time.Millisecond), int64(time.Duration(that.conf.ReconnectWait)*time.Millisecond))
 	} else {
 		natsConf.Nats().DisableReconnect()
 	}
@@ -291,11 +292,12 @@ func (that *NatsJetStreamMQ) Start() error {
 	natsConf := nats.NewNatsClientConfig().SetNats(nats.NewNatsConnConfig(that.conf.ClientID)).SetJetStream(nats.NewJetStreamConfig(that.conf.QueueName))
 	natsConf.Nats().AddServers(that.conf.BrokerList...)
 
-	natsConf.Nats().SetPing(that.conf.PingInterval, that.conf.MaxPingsOut)
+	natsConf.Nats().SetPing(int64(time.Duration(that.conf.PingInterval)*time.Millisecond), that.conf.MaxPingsOut)
 	natsConf.Nats().SetUserPassword(that.conf.User, that.conf.Password)
 
 	if that.conf.AllowReconnect {
-		natsConf.Nats().EnableReconnect(that.conf.MaxReconnect, that.conf.ReconnectBufSize, that.conf.ConnectTimeout, that.conf.ReconnectWait)
+		natsConf.Nats().EnableReconnect(that.conf.MaxReconnect, that.conf.ReconnectBufSize,
+			int64(time.Duration(that.conf.ConnectTimeout)*time.Millisecond), int64(time.Duration(that.conf.ReconnectWait)*time.Millisecond))
 	} else {
 		natsConf.Nats().DisableReconnect()
 	}
@@ -310,9 +312,9 @@ func (that *NatsJetStreamMQ) Start() error {
 	jsConf.SetStorageType(jsConf.StorageTypeFromStr(that.conf.StorageType))
 	jsConf.SetCompression(jsConf.StorageCompressionFromStr(that.conf.StorageCompression))
 	jsConf.SetDiscard(jsConf.DiscardFromStr(that.conf.Discard))
-	jsConf.SetMaxConsumers(that.conf.MaxConsumers).SetRetentionLimits(that.conf.MaxMsgs, that.conf.MaxBytes, that.conf.MaxAge, that.conf.MaxMsgsPerSubject)
+	jsConf.SetMaxConsumers(that.conf.MaxConsumers).SetRetentionLimits(that.conf.MaxMsgs, that.conf.MaxBytes, int64(time.Duration(that.conf.MaxAge)*time.Millisecond), that.conf.MaxMsgsPerSubject)
 	jsConf.SetRetentionPolicy(jsConf.RetentionPolicyFromStr(that.conf.RetentionPolicy))
-	jsConf.SetMaxMsgSize(that.conf.MaxMsgSize).SetDuplicates(that.conf.Duplicates)
+	jsConf.SetMaxMsgSize(that.conf.MaxMsgSize).SetDuplicates(int64(time.Duration(that.conf.Duplicates) * time.Millisecond))
 	jsConf.AddTopic(that.conf.Topics...)
 
 	// // 生产者封装, 无需消费组配置

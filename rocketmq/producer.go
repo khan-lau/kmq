@@ -65,7 +65,7 @@ func NewProducer(ctx *kcontext.ContextNode, chanSize uint, conf *RocketConfig, l
 	}
 
 	retryOption := producer.WithRetry(conf.Producer.Retry)
-	timeoutOption := producer.WithSendMsgTimeout(time.Duration(conf.Producer.Timeout) * time.Millisecond)
+	timeoutOption := producer.WithSendMsgTimeout(time.Duration(conf.Producer.Timeout))
 	queueOption := producer.WithQueueSelector(conf.Producer.QueueSelector)
 	interceptorOption := producer.WithInterceptor(conf.Consumer.Interceptors...)
 

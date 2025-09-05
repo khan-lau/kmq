@@ -70,22 +70,22 @@ func (that *KafkaMQ) Start() error {
 	}
 
 	netConfig := kafka.NewNetConfig().
-		SetDialTimeout(time.Duration(that.conf.Net.DialTimeout)).
+		SetDialTimeout(time.Duration(that.conf.Net.DialTimeout) * time.Millisecond).
 		SetMaxOpenRequests(that.conf.Net.MaxOpenRequests).
-		SetReadTimeout(time.Duration(that.conf.Net.ReadTimeout)).
-		SetWriteTimeout(time.Duration(that.conf.Net.WriteTimeout)).
+		SetReadTimeout(time.Duration(that.conf.Net.ReadTimeout) * time.Millisecond).
+		SetWriteTimeout(time.Duration(that.conf.Net.WriteTimeout) * time.Millisecond).
 		SetResolveHost(that.conf.Net.ResolveHost)
 
 	kafkaConsumerConfig := kafka.NewKafkaConsumerConfig().
-		SetSessionTimeout(time.Duration(that.conf.Consumer.SessionTimeout)).
-		SetHeartbeatInterval(time.Duration(that.conf.Consumer.HeartbeatInterval)).
+		SetSessionTimeout(time.Duration(that.conf.Consumer.SessionTimeout)*time.Millisecond).
+		SetHeartbeatInterval(time.Duration(that.conf.Consumer.HeartbeatInterval)*time.Millisecond).
 		SetInitialOffset(that.conf.Consumer.InitialOffset).
-		SetRebalanceTimeout(time.Duration(that.conf.Consumer.RebalanceTimeout)).
+		SetRebalanceTimeout(time.Duration(that.conf.Consumer.RebalanceTimeout)*time.Millisecond).
 		SetFetch(that.conf.Consumer.Min, that.conf.Consumer.Max, that.conf.Consumer.Fetch).
 		SetAssignor(that.conf.Consumer.Assignor)
 
 	if that.conf.Consumer.AutoCommit {
-		kafkaConsumerConfig.EnableAutoCommit(time.Duration(that.conf.Consumer.AutoCommitInterval))
+		kafkaConsumerConfig.EnableAutoCommit(time.Duration(that.conf.Consumer.AutoCommitInterval) * time.Millisecond)
 	} else {
 		kafkaConsumerConfig.DisableAutoCommit()
 	}

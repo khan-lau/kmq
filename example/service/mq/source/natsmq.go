@@ -94,11 +94,12 @@ func (that *NatsCoreMQ) Start() error {
 	natsConf := nats.NewNatsClientConfig().SetNats(nats.NewNatsConnConfig(that.conf.ClientID)).SetCoreNats(nats.NewCoreNatsConfig())
 	natsConf.Nats().AddServers(that.conf.BrokerList...)
 
-	natsConf.Nats().SetPing(that.conf.PingInterval, that.conf.MaxPingsOut)
+	natsConf.Nats().SetPing(int64(time.Duration(that.conf.PingInterval)*time.Millisecond), that.conf.MaxPingsOut)
 	natsConf.Nats().SetUserPassword(that.conf.User, that.conf.Password)
 
 	if that.conf.AllowReconnect {
-		natsConf.Nats().EnableReconnect(that.conf.MaxReconnect, that.conf.ReconnectBufSize, that.conf.ConnectTimeout, that.conf.ReconnectWait)
+		natsConf.Nats().EnableReconnect(that.conf.MaxReconnect, that.conf.ReconnectBufSize,
+			int64(time.Duration(that.conf.ConnectTimeout)*time.Millisecond), int64(time.Duration(that.conf.ReconnectWait)*time.Millisecond))
 	} else {
 		natsConf.Nats().DisableReconnect()
 	}
@@ -283,11 +284,13 @@ func (that *NatsJetStreamMQ) Start() error {
 	// nats连接配置
 	natsConf := nats.NewNatsClientConfig().SetNats(nats.NewNatsConnConfig(that.conf.ClientID)).SetJetStream(nats.NewJetStreamConfig(that.conf.QueueName))
 	natsConf.Nats().AddServers(that.conf.BrokerList...).
-		SetPing(that.conf.PingInterval, that.conf.MaxPingsOut).
+		SetPing(int64(time.Duration(that.conf.PingInterval)*time.Millisecond), that.conf.MaxPingsOut).
 		SetUserPassword(that.conf.User, that.conf.Password)
 
 	if that.conf.AllowReconnect {
-		natsConf.Nats().EnableReconnect(that.conf.MaxReconnect, that.conf.ReconnectBufSize, that.conf.ConnectTimeout, that.conf.ReconnectWait)
+		natsConf.Nats().EnableReconnect(that.conf.MaxReconnect, that.conf.ReconnectBufSize,
+			int64(time.Duration(that.conf.ConnectTimeout)*time.Millisecond),
+			int64(time.Duration(that.conf.ReconnectWait)*time.Millisecond))
 	} else {
 		natsConf.Nats().DisableReconnect()
 	}
@@ -303,9 +306,9 @@ func (that *NatsJetStreamMQ) Start() error {
 		SetCompression(jsConf.StorageCompressionFromStr(that.conf.StorageCompression)).
 		SetDiscard(jsConf.DiscardFromStr(that.conf.Discard)).
 		SetMaxConsumers(that.conf.MaxConsumers).
-		SetRetentionLimits(that.conf.MaxMsgs, that.conf.MaxBytes, that.conf.MaxAge, that.conf.MaxMsgsPerSubject).
+		SetRetentionLimits(that.conf.MaxMsgs, that.conf.MaxBytes, int64(time.Duration(that.conf.MaxAge)*time.Millisecond), that.conf.MaxMsgsPerSubject).
 		SetRetentionPolicy(jsConf.RetentionPolicyFromStr(that.conf.RetentionPolicy)).
-		SetMaxMsgSize(that.conf.MaxMsgSize).SetDuplicates(that.conf.Duplicates).
+		SetMaxMsgSize(that.conf.MaxMsgSize).SetDuplicates(int64(time.Duration(that.conf.Duplicates) * time.Millisecond)).
 		AddTopic(that.conf.Topics...).
 		// 消费者配置
 		SetConsumer(nats.NewJetStreamConsumerConfig(that.conf.ConsumerConfig.GroupId))
