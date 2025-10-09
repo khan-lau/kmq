@@ -33,6 +33,11 @@ ifeq ($(OS),Windows_NT)
 	tmp_lint=$(shell cmd /C "where /Q golangci-lint && echo YES||echo NO")
 	BuildDate=$(shell powershell -Command "Get-Date -Format 'yyyy-MM-dd HH:mm:ss'")
 	PWD=$(shell cmd /C "chdir")
+else ifeq ($(OS),Darwin)
+	uname_S=$(shell uname -s)
+	BuildDate=$(shell date +"%F %T")
+	PWD=$(shell pwd)
+	tmp_lint=$(shell  which golangci-lint > /dev/null 2>&1 && echo YES || echo NO)
 else
 	uname_S=$(shell uname -s)
 	BuildDate=$(shell date +"%F %T")
@@ -43,9 +48,27 @@ endif
 # $(warning OS: $(OS) - ${uname_S} , ${param}, ${PWD})
 # $(warning VAR: $(RM), $(TARGET_OS), tmp_uname: ${tmp_uname},  term_S: ${term_S}, tmp_lint: ${tmp_lint})
 
+# --- Start of Modification for Native Build ---
+# Determine the native build target based on the detected OS
+BUILD_TARGET :=
+ifeq ($(uname_S), Windows)
+    BUILD_TARGET := win
+else ifeq ($(uname_S), Linux)
+    BUILD_TARGET := linux armlinux
+else ifeq ($(uname_S), Darwin)
+    BUILD_TARGET := darwin
+else
+    # Fallback for unexpected environments
+    $(warning Unknown OS detected: $(uname_S). Falling back to Linux build target.)
+    BUILD_TARGET := linux
+endif
+# --- End of Modification ---
+
+
 all: build
 
-build: win linux
+# MODIFIED: 'build' now depends only on the current host OS target.
+build: $(BUILD_TARGET)
 	
 win:
 ifeq ($(uname_S), Windows)
@@ -56,30 +79,51 @@ ifeq ($(uname_S), Linux)
 	@export CGO_ENABLED=1; export GOOS=windows; go build -v -ldflags "${DEBUG} ${param}" -o ${DST_DIR}/${BIN_FILE}.exe  ${MAIN_PROG}
 	@echo -e "\033[0;32m Build windows 64bit program - ${DST_DIR}/${BIN_FILE}.exe\033[0m"
 endif
+ifeq ($(uname_S), Darwin)
+	@export CGO_ENABLED=1; export GOOS=windows; export GOARCH=amd64; go build -v -ldflags "${DEBUG} ${param}" -o ${DST_DIR}/${BIN_FILE}.exe  ${MAIN_PROG}
+	@echo "\033[0;32m Build windows amd64bit program - ${DST_DIR}/${BIN_FILE}.exe\033[0m"
+endif
 
 linux:
 ifeq ($(uname_S), Windows)
 	@cmd /C 'set CGO_ENABLED=0&&set GOOS=linux&&go build -v -ldflags '${DEBUG} ${param}' -o ${DST_DIR}/${BIN_FILE}  ${MAIN_PROG}'
 	@powershell -Command "Write-Host \"Build linux 64bit program - ${DST_DIR}/${BIN_FILE}\" -ForegroundColor green"
-
 endif
 ifeq ($(uname_S), Linux)
 	@export CGO_ENABLED=0; export GOOS=linux; go build -v -ldflags "${DEBUG} ${param}" -o ${DST_DIR}/${BIN_FILE}  ${MAIN_PROG}
 	@echo -e "\033[0;32m Build linux 64bit program - ${DST_DIR}/${BIN_FILE}\033[0m"
-
 endif
-
+ifeq ($(uname_S), Darwin)
+	@export CGO_ENABLED=0; export GOOS=linux; export GOARCH=amd64; go build -v -ldflags "${DEBUG} ${param}" -o ${DST_DIR}/${BIN_FILE}  ${MAIN_PROG}
+	@echo "\033[0;32m Build linux amd64bit program - ${DST_DIR}/${BIN_FILE}\033[0m"
+endif
 
 armlinux:
 ifeq ($(uname_S), Windows)
 	@cmd /C 'set CGO_ENABLED=0&&set GOOS=linux&&set GOARCH=arm64&&go build -v -ldflags '${DEBUG} ${param}' -o ${DST_DIR}/${BIN_FILE}.arm64  ${MAIN_PROG}'
 	@powershell -Command "Write-Host \"Build linux 64bit program - ${DST_DIR}/${BIN_FILE}.arm64\" -ForegroundColor green"
-
 endif
 ifeq ($(uname_S), Linux)
 	@export CGO_ENABLED=0; export GOOS=linux; export GOARCH=arm64; go build -v -ldflags "${DEBUG} ${param}" -o ${DST_DIR}/${BIN_FILE}.arm64  ${MAIN_PROG}
 	@echo -e "\033[0;32m Build linux 64bit program - ${DST_DIR}/${BIN_FILE}.arm64\033[0m"
+endif
+ifeq ($(uname_S), Darwin)
+	@export CGO_ENABLED=0; export GOOS=linux; export GOARCH=arm64; go build -v -ldflags "${DEBUG} ${param}" -o ${DST_DIR}/${BIN_FILE}  ${MAIN_PROG}
+	@echo "\033[0;32m Build linux arm64bit program - ${DST_DIR}/${BIN_FILE}\033[0m"
+endif
 
+darwin:
+ifeq ($(uname_S), Windows)
+	@cmd /C 'set CGO_ENABLED=1&&set GOOS=darwin&&set GOARCH=arm64&&go build -v -ldflags '${DEBUG} ${param}' -o ${DST_DIR}/${BIN_FILE}.darwin  ${MAIN_PROG}'
+	@powershell -Command "Write-Host \"Build MacOS arm64bit program - ${DST_DIR}/${BIN_FILE}.darwin\" -ForegroundColor green"
+endif
+ifeq ($(uname_S), Linux)
+	@export CGO_ENABLED=0; export GOOS=darwin; export GOARCH=arm64; go build -v -ldflags "${DEBUG} ${param}" -o ${DST_DIR}/${BIN_FILE}.darwin  ${MAIN_PROG}
+	@echo -e "\033[0;32m Build MacOS arm64bit program - ${DST_DIR}/${BIN_FILE}.darwin\033[0m"
+endif
+ifeq ($(uname_S), Darwin)
+	@export CGO_ENABLED=0; export GOOS=darwin; export GOARCH=arm64; go build -v -ldflags "${DEBUG} ${param}" -o ${DST_DIR}/${BIN_FILE}.darwin  ${MAIN_PROG}
+	@echo "\033[0;32m Build MacOS arm64bit program - ${DST_DIR}/${BIN_FILE}.darwin\033[0m"
 endif
 
 # make ARGS="-v" run
@@ -90,7 +134,9 @@ endif
 ifeq ($(uname_S), Linux)
 	${DST_DIR}/${BIN_FILE} $(ARGS)
 endif
-
+ifeq ($(uname_S), Darwin)
+	${DST_DIR}/${BIN_FILE}.darwin $(ARGS)
+endif
 
 check:
 # 格式化代码
@@ -117,7 +163,14 @@ endif
 endif
 
 ifeq ($(uname_S), Linux)
-ifeq (tmp_lint, NO)
+ifeq (${tmp_lint}, NO)
+	$(error golangci-lint not found!  try run 'go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest' at bash)
+endif
+	@find ./ -name '*.go' -exec go fmt {} \;
+endif
+
+ifeq ($(uname_S), Darwin)
+ifeq (${tmp_lint}, NO)
 	$(error golangci-lint not found!  try run 'go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest' at bash)
 endif
 	@find ./ -name '*.go' -exec go fmt {} \;
@@ -134,5 +187,8 @@ ifeq ($(uname_S), Windows)
 	@cmd /C 'del /F /Q ${DST_DIR}\\*'
 endif
 ifeq ($(uname_S), Linux)
+	@rm --force ${DST_DIR}/*
+endif
+ifeq ($(uname_S), Darwin)
 	@rm --force ${DST_DIR}/*
 endif
