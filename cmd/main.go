@@ -153,10 +153,10 @@ func main() {
 			var messages *klists.KList[*dispatch.GenericMessage]
 			if filesystem.IsFileExists(replayDataPath) { // 如果存在重放文件, 则读取重放记录
 				fmt.Printf("founded test file : %s\n", replayDataPath)
-				messages = getReplayData(replayDataPath)
+				messages = getReplayData(conf.DumpHex, replayDataPath)
 			} else if filesystem.IsFileExists(workReplayDataPath) { // 如果存在重放文件, 则读取重放记录
 				fmt.Printf("founded test file : %s\n", workReplayDataPath)
-				messages = getReplayData(workReplayDataPath)
+				messages = getReplayData(conf.DumpHex, workReplayDataPath)
 			} else {
 				// fmt.Printf("not found test file : %s or %s \n", replayDataPath, workReplayDataPath)
 				glog.E("error: not found replay file : {} or {}", replayDataPath, workReplayDataPath)
@@ -239,7 +239,7 @@ func main() {
 		go func(ctx *kcontext.ContextNode) {
 			defer waitGroup.Done()
 			glog.I("start manager mq source service")
-			startMqSource(ctx, conf.Source, gOffsetSync, LogFunc)
+			startMqSource(ctx, conf.DumpHex, conf.Source, gOffsetSync, LogFunc)
 		}(mainCtx)
 	}
 

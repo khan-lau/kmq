@@ -40,6 +40,7 @@ type Configure struct {
 	SyncFile       string       `json:"syncFile" toml:"syncFile" yaml:"syncFile"`                   // 同步文件路径, 同步偏移量缓存文件路径配置
 	SendInterval   uint32       `json:"sendInterval" toml:"sendInterval" yaml:"sendInterval"`       // 发送间隔, 单位毫秒
 	SendFile       string       `json:"sendFile" toml:"sendFile" yaml:"sendFile"`                   // 发送文件路径
+	DumpHex        bool         `json:"dumpHex" toml:"dumpHex" yaml:"dumpHex"`                      // 数据包是否为hexString格式; recv模式时体现在日志中; send模式时,表示 `sendFile` 中的格式是否为hexString格式
 	ResetTimestamp bool         `json:"resetTimestamp" toml:"resetTimestamp" yaml:"resetTimestamp"` // 是否重置时间戳
 	Log            *Log         `json:"log" toml:"log" yaml:"log"`                                  // 日志配置
 	Source         []*MQItemObj `json:"source" toml:"source" yaml:"source"`                         // 消息队列配置

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -27,7 +28,7 @@ import (
 	klog "github.com/khan-lau/kutils/klogger"
 )
 
-func startMqSource(ctx *kcontext.ContextNode, sourceItems []*config.MQItemObj, offsetSync *mq.OffsetSync, logf klog.AppLogFuncWithTag) {
+func startMqSource(ctx *kcontext.ContextNode, toHex bool, sourceItems []*config.MQItemObj, offsetSync *mq.OffsetSync, logf klog.AppLogFuncWithTag) {
 	waitGroup := sync.WaitGroup{}
 	for _, item := range sourceItems {
 		waitGroup.Add(1)
@@ -44,7 +45,7 @@ func startMqSource(ctx *kcontext.ContextNode, sourceItems []*config.MQItemObj, o
 
 						natsCoreMq.SetOnRecivedCallback(
 							func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-								onRecved(origin, name, topic, partition, offset, properties, item.Compress, false, message)
+								onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, false, message)
 							},
 						)
 						gMqSourceManager[item.MQType] = natsCoreMq
@@ -82,7 +83,7 @@ func startMqSource(ctx *kcontext.ContextNode, sourceItems []*config.MQItemObj, o
 						glog.I("start nats jetstream source: [{}], topic: [{}]", strings.Join(natsJsConfig.BrokerList, ", "), strings.Join(natsJsConfig.Topics, ", "))
 						natsJsMq.SetOnRecivedCallback(
 							func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-								onRecved(origin, name, topic, partition, offset, properties, item.Compress, natsJsConfig.ConsumerConfig.AutoCommit, message)
+								onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, natsJsConfig.ConsumerConfig.AutoCommit, message)
 							},
 						)
 						gMqSourceManager[item.MQType] = natsJsMq
@@ -126,7 +127,7 @@ func startMqSource(ctx *kcontext.ContextNode, sourceItems []*config.MQItemObj, o
 
 						kafkaMq.SetOnRecivedCallback(
 							func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-								onRecved(origin, name, topic, partition, offset, properties, item.Compress, kafkaConfig.Consumer.AutoCommit, message)
+								onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, kafkaConfig.Consumer.AutoCommit, message)
 							},
 						)
 						gMqSourceManager[item.MQType] = kafkaMq
@@ -154,7 +155,7 @@ func startMqSource(ctx *kcontext.ContextNode, sourceItems []*config.MQItemObj, o
 
 						rabbitMq.SetOnRecivedCallback(
 							func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-								onRecved(origin, name, topic, partition, offset, properties, item.Compress, rabbitConfig.Consumer.AutoCommit, message)
+								onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, rabbitConfig.Consumer.AutoCommit, message)
 							},
 						)
 						gMqSourceManager[item.MQType] = rabbitMq
@@ -181,7 +182,7 @@ func startMqSource(ctx *kcontext.ContextNode, sourceItems []*config.MQItemObj, o
 						glog.I("start redis source, {}:{}, topic: {}", redisConfig.Host, int(redisConfig.Port), redisConfig.Topics)
 						redisMq.SetOnRecivedCallback(
 							func(origin interface{}, name string, topic string, _ int, _ int64, _ map[string]string, message []byte) {
-								onRecved(origin, name, topic, 0, 0, nil, item.Compress, false, message)
+								onRecved(origin, name, topic, 0, 0, nil, item.Compress, toHex, false, message)
 							},
 						)
 						gMqSourceManager[item.MQType] = redisMq
@@ -220,7 +221,7 @@ func startMqSource(ctx *kcontext.ContextNode, sourceItems []*config.MQItemObj, o
 							glog.I("start rocketmq source: {}, topic: {}", rocketConfig.Servers, rocketConfig.Consumer.Topics)
 							rocketMq.SetOnRecivedCallback(
 								func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-									onRecved(origin, name, topic, partition, offset, properties, item.Compress, rocketConfig.Consumer.AutoCommit, message)
+									onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, rocketConfig.Consumer.AutoCommit, message)
 								},
 							)
 							gMqSourceManager[item.MQType] = rocketMq
@@ -249,7 +250,7 @@ func startMqSource(ctx *kcontext.ContextNode, sourceItems []*config.MQItemObj, o
 							glog.I("start rocketmq source: {}, topic: {}", mqttConfig.Broker, strings.Join(mqttConfig.Topics, ","))
 							mqttClient.SetOnRecivedCallback(
 								func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-									onRecved(origin, name, topic, 0, 0, nil, item.Compress, false, message)
+									onRecved(origin, name, topic, 0, 0, nil, item.Compress, toHex, false, message)
 								},
 							)
 							gMqSourceManager[item.MQType] = mqttClient
@@ -495,7 +496,7 @@ func loadOffsetCache(conf *config.Configure) *mq.OffsetSync {
 // }
 
 /* 解析重放消息文件 */
-func getReplayData(path string) *klists.KList[*dispatch.GenericMessage] {
+func getReplayData(toHex bool, path string) *klists.KList[*dispatch.GenericMessage] {
 	messages := klists.New[*dispatch.GenericMessage]()
 
 	glog.Info("Server parse file: %s", path)
@@ -586,7 +587,18 @@ func getReplayData(path string) *klists.KList[*dispatch.GenericMessage] {
 			message = strings.Replace(message, "\\\\u", "\\u", -1)
 			arr := strings.Split(message, ",")
 			record_count += int64(len(arr))
-			messages.PushBack(&dispatch.GenericMessage{Topic: topic, Message: []byte(message)})
+
+			dataStr := []byte(message)
+			if toHex {
+				if tmpData, err := hex.DecodeString(message); err == nil {
+					dataStr = tmpData
+				} else {
+					glog.E("hex decode line: {} error: {}", line, err.Error())
+					continue
+				}
+			}
+
+			messages.PushBack(&dispatch.GenericMessage{Topic: topic, Message: dataStr})
 		} else {
 			if line == "quit" || line == "exit" || line == "stop" || line == "QUIT" || line == "EXIT" || line == "STOP" {
 				messages.PushBack(&dispatch.GenericMessage{Topic: "quit", Message: []byte("")})
@@ -670,7 +682,7 @@ func generalMessage(handler *dispatch.DispatchService, resetTimestamp bool, mess
 //   - properties map[string]string: 标签信息
 //   - isCompress bool: 是否为压缩数据
 //   - message []byte: 消息数据
-func onRecved(origin any, name string, topic string, partition int, offset int64, _ map[string]string, isCompress bool, autoAck bool, message []byte) {
+func onRecved(origin any, name string, topic string, partition int, offset int64, _ map[string]string, isCompress bool, toHex bool, autoAck bool, message []byte) {
 	// 源数据是否为压缩数据, 压缩数据必须是zip压缩算法
 	str := ""
 	if isCompress {
@@ -716,7 +728,11 @@ func onRecved(origin any, name string, topic string, partition int, offset int64
 	}
 
 	if err == nil {
-		glog.D("onRecived: name={}, topic={}, partition={}, offset={}, message= {}", name, topic, partition, offset, str)
+		dataStr := str
+		if toHex {
+			dataStr = hex.EncodeToString([]byte(str))
+		}
+		glog.D("onRecived: name={}, topic={}, partition={}, offset={}, message={}", name, topic, partition, offset, dataStr)
 		switch name {
 		case "KafkaSource":
 			gOffsetSync.Set("kafkamq", topic, strconv.Itoa(partition), offset)
