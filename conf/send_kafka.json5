@@ -26,12 +26,12 @@
     // 告警推送目标, 支持 kafkamq rabbitmq rocketmq redismq mqtt3 natscoremq natsjsmq消息队列
     {
       type: "kafkamq",
-      isCompress: true, // 是否压缩
+      isCompress: false, // 是否压缩
       mq: {
         version: "3.0.0",         // kafka版本, 指定协议支持
         clientId: "sarama",         // clientID 必须在Kafka 集群中保证唯一，用于区分不同的客户端应用程序
         groupId: "groupId",         // 负载均衡时使用, 多个client用同一个groupID分别消费不同内容, 多个client用不同groupId则分别消费相同内容
-        brokerList: ["10.50.145.34:9092"],
+        brokerList: ["10.50.145.36:19092"],
         channelBufferSize: 10000,   // 通道缓冲区大小
         net: {
           maxOpenRequests: 5,       // 最大请求数
@@ -43,7 +43,7 @@
         producer: {
           compression: "snappy",       // 压缩方式: 默认snappy , 可选[none, gzip, snappy, lz4, zstd]
           CompressionLevel: -1000,     // 压缩级别
-          maxMessageBytes: 1048576000, // 每条消息最大容量, 单位 字节
+          maxMessageBytes: 104857600,  // 1048576000, // 每条消息最大容量, 单位 字节
           requiredAcks: "local",       // 发送确认: 默认 none, 可选[none, local, all]
           flushMessages: 100,          // 刷新消息数量, 每10条刷新一次
           flushFrequency: 1000,        // 刷新时间, 单位ms
@@ -51,8 +51,8 @@
           retryMax: 3,                 // 重试次数: 最多重试3次
           timeout: 10000,              // 超时时间 单位ms
           topics: [
-            { topic: "test_saver", partition: 0 },
-            { topic: "test_saver02", partition: 0 },
+            { topic: "PHONE", partition: 0 },
+            { topic: "sim_data", partition: 0 },
           ],
         },
       },
