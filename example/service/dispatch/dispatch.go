@@ -1,6 +1,7 @@
 package dispatch
 
 import (
+	"encoding/hex"
 	"sync"
 	"time"
 
@@ -31,6 +32,7 @@ type DispatchService struct {
 	msgChan      chan *GenericMessage // 消息通道
 	timer        *time.Timer          // 定时器
 	sendInterval uint                 // 发送间隔，毫秒
+	dumpHex      bool                 // 是否以十六进制形式打印消息内容
 
 	mqTargets map[string]idl.ServiceInterface // 目标MQ服务列表
 
@@ -45,6 +47,7 @@ type DispatchService struct {
 // 参数:
 //
 //	ctx: 上下文节点，用于创建子上下文
+//	dumpHex: 是否以十六进制形式打印消息内容
 //	sendInterval: 消息发送间隔，单位毫秒
 //	maxBatchSize: 批量发送时, 单次消息最大条数, 小于等于1时, 不启用批量发送
 //	name: 服务名称
@@ -54,7 +57,7 @@ type DispatchService struct {
 // 返回值:
 //
 //	*DispatchService: 指向新创建的 DispatchService 实例的指针
-func NewDispatchService(ctx *kcontext.ContextNode, sendInterval uint, maxBatchSize uint, name string, mqTargets map[string]idl.ServiceInterface, logf klog.AppLogFuncWithTag) *DispatchService {
+func NewDispatchService(ctx *kcontext.ContextNode, dumpHex bool, sendInterval uint, maxBatchSize uint, name string, mqTargets map[string]idl.ServiceInterface, logf klog.AppLogFuncWithTag) *DispatchService {
 	var timer *time.Timer
 	if maxBatchSize > 1 {
 		timer = time.NewTimer(time.Duration(sendInterval) * time.Millisecond)
@@ -248,13 +251,18 @@ func (that *DispatchService) sendArray(msgs []*GenericMessage) {
 }
 
 func (that *DispatchService) send(msg *GenericMessage) {
+	msgStr := string(msg.Message)
+	if that.dumpHex {
+		msgStr = hex.EncodeToString(msg.Message)
+	}
 	if !that.publish(msg.Topic, msg.Message, nil) {
 		if that.logf != nil {
-			that.logf(klog.ErrorLevel, dispatch_tag, "service {} send fault, topic: {}, message: {}", that.name, msg.Topic, string(msg.Message))
+
+			that.logf(klog.ErrorLevel, dispatch_tag, "service {} send fault, topic: {}, message: {}", that.name, msg.Topic, msgStr)
 		}
 	} else {
 		if that.logf != nil {
-			that.logf(klog.DebugLevel, dispatch_tag, "service {} sent topic: {}, message: {} ", that.name, msg.Topic, string(msg.Message))
+			that.logf(klog.DebugLevel, dispatch_tag, "service {} sent topic: {}, message: {} ", that.name, msg.Topic, msgStr)
 		}
 	}
 }

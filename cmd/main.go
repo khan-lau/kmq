@@ -148,7 +148,7 @@ func main() {
 			glog.I("start manager mq target service")
 			startMqTarget(ctx, conf.Target, LogFunc)
 
-			gDispatcher = dispatch.NewDispatchService(ctx, 0, 1, "dispatch", gMqTargetManager, LogFunc)
+			gDispatcher = dispatch.NewDispatchService(ctx, conf.DumpHex, 0, 1, "dispatch", gMqTargetManager, LogFunc)
 
 			var messages *klists.KList[*dispatch.GenericMessage]
 			if filesystem.IsFileExists(replayDataPath) { // 如果存在重放文件, 则读取重放记录
