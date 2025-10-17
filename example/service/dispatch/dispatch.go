@@ -71,6 +71,7 @@ func NewDispatchService(ctx *kcontext.ContextNode, dumpHex bool, sendInterval ui
 		msgChan:      make(chan *GenericMessage, 20000),        // 消息通道
 		timer:        timer,                                    // 定时器，用于触发消息发送, 毫秒
 		sendInterval: sendInterval,                             // 发送间隔，毫秒
+		dumpHex:      dumpHex,                                  // 是否以十六进制形式打印消息内容
 		mqTargets:    mqTargets,                                // 目标MQ服务列表，用于转发消息到不同的队列或主题
 		buffer:       make([]*GenericMessage, 0, maxBatchSize), // 缓冲区，用于存储待发送的消息
 		logf:         logf,
@@ -251,9 +252,11 @@ func (that *DispatchService) sendArray(msgs []*GenericMessage) {
 }
 
 func (that *DispatchService) send(msg *GenericMessage) {
-	msgStr := string(msg.Message)
+	var msgStr string
 	if that.dumpHex {
 		msgStr = hex.EncodeToString(msg.Message)
+	} else {
+		msgStr = string(msg.Message)
 	}
 	if !that.publish(msg.Topic, msg.Message, nil) {
 		if that.logf != nil {

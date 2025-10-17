@@ -99,7 +99,11 @@ func LogFunc(lvl klog.Level, tag, f string, args ...interface{}) {
 
 	switch lvl {
 	case klog.DebugLevel:
-		glog.KD(skip, f, args...)
+		if tag == "kafka" {
+
+		} else {
+			glog.KD(skip, f, args...)
+		}
 	case klog.InfoLevel:
 		glog.KI(skip, f, args...)
 	case klog.WarnLevel:
