@@ -4,6 +4,7 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/khan-lau/kutils/container/kcontext"
 	"github.com/khan-lau/kutils/container/klists"
+	"github.com/khan-lau/kutils/container/kstrings"
 	klog "github.com/khan-lau/kutils/klogger"
 )
 
@@ -102,7 +103,7 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 		pc        sarama.PartitionConsumer
 	}
 	contextList := klists.New[*SubContext]()
-	for _, topic := range that.topics {
+	for idx, topic := range that.topics {
 		partitionList, err := that.Consumer.Partitions(topic.Name)
 		if err != nil {
 			if that.logf != nil {
@@ -111,7 +112,7 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 			return
 		}
 
-		for _, partition := range partitionList {
+		for partIdx, partition := range partitionList {
 			offset := topic.Partition[partition]
 			if offset < 0 {
 				offset = that.offset
@@ -124,7 +125,7 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 				return
 			}
 
-			subCtx := that.ctx.NewChild("kafka_single_consumer_child")
+			subCtx := that.ctx.NewChild(kstrings.Sprintf("kafka_single_consumer_child_{}_{}", idx, partIdx))
 			contextList.PushBack(&SubContext{topic: topic.Name, partition: partition, ctx: subCtx, pc: pc})
 
 			go func(ctx *kcontext.ContextNode, pc sarama.PartitionConsumer) {
@@ -143,6 +144,10 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 				}
 				defer pc.Close()
 			}(subCtx, pc)
+
+			if that.logf != nil {
+				that.logf(klog.InfoLevel, kafka_tag, "kafka.Consumer subscribe topic: {}, partition: {} success", topic.Name, partition)
+			}
 		}
 	}
 
