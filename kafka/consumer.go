@@ -103,7 +103,7 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 		pc        sarama.PartitionConsumer
 	}
 	contextList := klists.New[*SubContext]()
-	for idx, topic := range that.topics {
+	for _, topic := range that.topics {
 		partitionList, err := that.Consumer.Partitions(topic.Name)
 		if err != nil {
 			if that.logf != nil {
@@ -112,7 +112,7 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 			return
 		}
 
-		for partIdx, partition := range partitionList {
+		for _, partition := range partitionList {
 			offset := topic.Partition[partition]
 			if offset < 0 {
 				offset = that.offset
@@ -122,10 +122,10 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 				if that.logf != nil {
 					that.logf(klog.ErrorLevel, kafka_tag, "Create partition consumer error: {}", err.Error())
 				}
-				return
+				continue
 			}
 
-			subCtx := that.ctx.NewChild(kstrings.Sprintf("kafka_single_consumer_child_{}_{}", idx, partIdx))
+			subCtx := that.ctx.NewChild(kstrings.Sprintf("kafka_single_consumer_child_{}_{}", topic, partition))
 			contextList.PushBack(&SubContext{topic: topic.Name, partition: partition, ctx: subCtx, pc: pc})
 
 			go func(ctx *kcontext.ContextNode, pc sarama.PartitionConsumer) {
