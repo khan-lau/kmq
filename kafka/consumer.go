@@ -120,7 +120,7 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 			pc, err := that.Consumer.ConsumePartition(topic.Name, partition, offset)
 			if err != nil {
 				if that.logf != nil {
-					that.logf(klog.ErrorLevel, kafka_tag, "Create topic {} partition {} consumer error: {}", topic.Name, partition, err.Error())
+					that.logf(klog.ErrorLevel, kafka_tag, "Create topic {} partition {} consumer offset {} error: {}", topic.Name, partition, offset, err.Error())
 				}
 				continue
 			}
