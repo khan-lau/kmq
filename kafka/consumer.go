@@ -1,6 +1,8 @@
 package kafka
 
 import (
+	"slices"
+
 	"github.com/IBM/sarama"
 	"github.com/khan-lau/kutils/container/kcontext"
 	"github.com/khan-lau/kutils/container/klists"
@@ -119,12 +121,14 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 			}
 			return
 		}
-
-		for _, partition := range partitionList {
-			offset := topic.Partition[partition]
-			if offset < 0 {
-				offset = that.offset
+		for partition, offset := range topic.Partition {
+			if !slices.Contains(partitionList, partition) {
+				if that.logf != nil {
+					that.logf(klog.ErrorLevel, kafka_tag, "Partition {} not found in topic {}", partition, topic)
+				}
+				continue
 			}
+
 			pc, err := that.Consumer.ConsumePartition(topic.Name, partition, offset)
 			if err != nil {
 				if that.logf != nil {
@@ -156,7 +160,15 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 			if that.logf != nil {
 				that.logf(klog.InfoLevel, kafka_tag, "kafka.Consumer subscribe topic: {}, partition: {} success", topic.Name, partition)
 			}
+
 		}
+
+		// for _, partition := range partitionList {
+		// 	offset := topic.Partition[partition]
+		// 	if offset < 0 {
+		// 		offset = that.offset
+		// 	}
+		// }
 	}
 
 	<-that.ctx.Context().Done()
