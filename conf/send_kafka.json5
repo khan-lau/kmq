@@ -51,8 +51,8 @@
           retryMax: 3,                 // 重试次数: 最多重试3次
           timeout: 10000,              // 超时时间 单位ms
           topics: [
-            { topic: "PHONE", partition: 0 },
-            { topic: "sim_data", partition: 0 },
+            { topic: "PHONE", partitions: [{partition: 0, offset: -1}] },
+            { topic: "sim_data", partitions: [{partition: 0, offset: -1}]},
           ],
         },
       },

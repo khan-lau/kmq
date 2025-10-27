@@ -90,10 +90,14 @@ func (that *KafkaMQ) Start() error {
 		kafkaConsumerConfig.DisableAutoCommit()
 	}
 
-	// TODO 载入上次消费的offset
+	// 载入上次消费的offset
 	topics := make([]*kafka.Topic, 0, len(that.conf.Consumer.Topics))
-	for _, topic := range that.conf.Consumer.Topics {
-		topics = append(topics, kafka.NewTopic(topic.Name).SetOffset(int32(topic.Partition), topic.Offset))
+	for _, item := range that.conf.Consumer.Topics {
+		topic := kafka.NewTopic(item.Name)
+		for _, partition := range item.Partitions {
+			topic.SetOffset(int32(partition.Partition), partition.Offset)
+		}
+		topics = append(topics, topic)
 	}
 
 	kafkaConfig := kafka.NewKafkaConfig().

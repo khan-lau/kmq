@@ -247,9 +247,13 @@ func (that *Configure) process() {
 ///////////////////////////////////////////////////////////
 
 type Topic struct {
-	Name      string `json:"topic" toml:"topic" yaml:"topic" mapstructure:"topic"` // 队列名称
-	Partition int    `json:"partition" toml:"partition" yaml:"partition"`          // 分区数量
-	Offset    int64  `json:"offset" toml:"offset" yaml:"offset"`                   // 队列偏移量
+	Name       string       `json:"topic" toml:"topic" yaml:"topic" mapstructure:"topic"` // 队列名称
+	Partitions []*Partition `json:"partitions" toml:"partitions" yaml:"partitions"`       // 分区数量
+}
+
+type Partition struct {
+	Partition int   `json:"partition" toml:"partition" yaml:"partition"` // 分区编号
+	Offset    int64 `json:"offset" toml:"offset" yaml:"offset"`          // 队列偏移量
 }
 
 type Net struct {

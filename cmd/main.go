@@ -223,7 +223,7 @@ func main() {
 				for {
 					select {
 					case <-syncTimer.C:
-						gOffsetSync.Sync()
+						gOffsetSync.Sync(false)
 						syncTimer = time.NewTimer(time.Duration(conf.SyncTime) * time.Millisecond)
 						// glog.I("sync offset to file: {}", conf.SyncFile)
 					case <-ctx.Context().Done():
@@ -255,7 +255,7 @@ func main() {
 	stopMqTargetManager() // 停止消息队列target服务
 
 	syncTimer.Stop() // 停止定时器
-	gOffsetSync.Sync()
+	gOffsetSync.Sync(true)
 
 	mainCtx.Remove() // 清理主上下文
 	glog.I("{} is finished", BuildName)

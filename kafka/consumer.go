@@ -10,6 +10,13 @@ import (
 
 type SubscribeCallback func(voidObj interface{}, msg *KafkaMessage)
 
+const (
+	KAFKA_OFFSET_NEWEST = -1
+	KAFKA_OFFSET_OLDEST = -2
+
+	DEFAULT_OFFSET = KAFKA_OFFSET_NEWEST
+)
+
 /////////////////////////////////////////////////////////////
 
 type Consumer struct {
@@ -84,6 +91,7 @@ func NewConsumer(ctx *kcontext.ContextNode, conf *Config, logf klog.AppLogFuncWi
 		conf:       conf,
 		Consumer:   consumer,
 		topics:     topics,
+		offset:     DEFAULT_OFFSET,
 		logf:       logf,
 	}, nil
 }

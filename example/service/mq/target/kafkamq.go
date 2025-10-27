@@ -81,8 +81,12 @@ func (that *KafkaMQ) Start() error {
 
 	// 设置topic
 	topics := make([]*kafka.Topic, 0, len(that.conf.Producer.Topics))
-	for _, topic := range that.conf.Producer.Topics {
-		topics = append(topics, kafka.NewTopic(topic.Name).SetOffset(int32(topic.Partition), topic.Offset))
+	for _, item := range that.conf.Consumer.Topics {
+		topic := kafka.NewTopic(item.Name)
+		for _, partition := range item.Partitions {
+			topic.SetOffset(int32(partition.Partition), partition.Offset)
+		}
+		topics = append(topics, topic)
 	}
 
 	kafkaConfig := kafka.NewKafkaConfig().
@@ -149,12 +153,15 @@ func (that *KafkaMQ) Broadcast(message []byte, properties map[string]string) boo
 		if properties != nil {
 			key = properties["key"]
 		}
-		if !that.PublishMessageWithProperties(int32(topic.Partition), topic.Name, key, message, properties) {
+		// if !that.PublishMessageWithProperties(int32(topic.Partition), topic.Name, key, message, properties) {
+		// 	if that.logf != nil {
+		// 		that.logf(klog.ErrorLevel, kafkamq_tag, "publish topic {} partition {} message {} fault", topic.Name, topic.Partition, string(message))
+		// 	}
+		// }
+
+		if !that.PublishMessageWithProperties(int32(0), topic.Name, key, message, properties) {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, kafkamq_tag,
-					"publish topic {} partition {} message {} fault",
-					topic.Name, topic.Partition, string(message),
-				)
+				that.logf(klog.ErrorLevel, kafkamq_tag, "publish topic {} message {} fault", topic.Name, string(message))
 			}
 		}
 	}
@@ -173,9 +180,19 @@ func (that *KafkaMQ) PublishMessage(partition int32, topic, key string, value []
 	if that.status != idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
 		return false
 	}
+
+	// that.publisher
 	return that.publisher.PublisDataWithProperties(partition, topic, key, value, nil)
 }
 
+// PublishMessageWithProperties 带属性的发布消息
+// 参数:
+//
+//	partition - 分区号 该参数暂时无效
+//	topic     - 主题名
+//	key       - 消息键值
+//	value     - 消息内容
+//	properties- 属性列表
 func (that *KafkaMQ) PublishMessageWithProperties(partition int32, topic, key string, value []byte, properties map[string]string) bool {
 	if that.status != idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
 		return false

@@ -47,11 +47,11 @@
           rebalanceTimeout: 60000,  // 重均衡超时时间
           sessionTimeout: 10000,    // session超时时间
           topics: [
-            // { topic: "PHONE", partition: 0, offset: -1 },
-            // { topic: "sim_data", partition: 0, offset: -1 },
-            { topic: "all_analog_data", partition: 0, offset: -1 },       // 模拟量数据 - 温度、风速等模拟数据
-            { topic: "all_discrete_data", partition: 0, offset: -1 },     // 离散量数据 - 开关状态等离散数据
-            { topic: "all_accumulator_data", partition: 0, offset: -1 },  // 累加量数据 - 总发电量、总有功等计算数据
+            // { topic: "PHONE", partitions: [{partition: 0, offset: -1}] },
+            // { topic: "sim_data", partitions: [{partition: 0, offset: -1}]},
+            { topic: "all_analog_data", partitions: [{partition: 0, offset: -1}, {partition: 1, offset: -1}, {partition: 2, offset: -1}] },       // 模拟量数据 - 温度、风速等模拟数据
+            { topic: "all_discrete_data", partitions: [{partition: 0, offset: -1}, {partition: 1, offset: -1}, {partition: 2, offset: -1}] },     // 离散量数据 - 开关状态等离散数据
+            { topic: "all_accumulator_data", partitions: [{partition: 0, offset: -1}, {partition: 1, offset: -1}, {partition: 2, offset: -1}] },  // 累加量数据 - 总发电量、总有功等计算数据
           ],
         },
       },

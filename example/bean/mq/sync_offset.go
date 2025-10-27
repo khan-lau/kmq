@@ -45,43 +45,52 @@ func (that *OffsetSync) Set(mqType string, topic string, partition string, offse
 	if mqType == "" || mqType == "rabbitmq" || mqType == "redismq" || mqType == "mqtt3" || mqType == "natscoremq" {
 		return
 	}
+
 	that.recordMutext.Lock()
-	if _, ok := that.Records[mqType]; ok {
-		if _, ok := that.Records[mqType][topic]; ok {
-			that.Records[mqType][topic][partition] = offset
-		} else {
-			that.Records[mqType][topic] = map[string]int64{partition: offset}
-		}
-	} else {
-		that.Records[mqType] = map[string]map[string]int64{topic: {partition: offset}}
+
+	mqBean, ok := that.Records[mqType]
+	if !ok {
+		mqBean = make(map[string]map[string]int64)
+		that.Records[mqType] = mqBean
 	}
+
+	topicBean, ok := mqBean[topic]
+	if !ok {
+		topicBean = make(map[string]int64)
+		mqBean[topic] = topicBean
+	}
+
+	topicBean[partition] = offset
 
 	that.modified = true
 	that.recordMutext.Unlock()
-	that.Sync()
+	that.Sync(false)
 }
 
-func (that *OffsetSync) Sync() {
-	// 没有修改过, 则不进行同步
-	if !that.modified {
-		return
-	}
-
+func (that *OffsetSync) Sync(force bool) {
 	// 如果时间未到, 则不进行同步, 避免频繁读写
 	current := time.Now().UnixMilli()
-	if current-that.Timestamp < int64(that.SyncTime) {
-		return
+	// 没有修改过, 则不进行同步
+
+	if !force {
+		if !that.modified {
+			return
+		}
+
+		if current-that.Timestamp < int64(that.SyncTime) {
+			return
+		}
 	}
 
 	var syncMap map[string]map[string]map[string]int64
 	// 尝试加锁, 如果成功则进行同步, 避免多处同时写
 	if that.recordMutext.TryLock() {
 		that.Timestamp = current
-		tmap := map[string]map[string]map[string]int64{}
+		tmap := make(map[string]map[string]map[string]int64)
 
 		// 深度拷贝map
 		for k, v := range that.Records {
-			tmap[k] = map[string]map[string]int64{}
+			tmap[k] = make(map[string]map[string]int64)
 			maps.Copy(tmap[k], v)
 		}
 		that.modified = false

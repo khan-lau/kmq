@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -109,11 +110,10 @@ func startMqSource(ctx *kcontext.ContextNode, toHex bool, sourceItems []*config.
 							if topicOffset, ok := kafkaOffset[topic.Name]; ok {
 								for partition, offset := range topicOffset {
 									if partitionVal, err := strconv.Atoi(partition); err == nil {
-										topic.Partition = partitionVal
-									} else {
-										topic.Partition = 0
+										if pos := slices.IndexFunc(topic.Partitions, func(partition *config.Partition) bool { return partition.Partition == partitionVal }); pos >= 0 {
+											topic.Partitions[pos].Offset = offset
+										}
 									}
-									topic.Offset = offset
 								}
 							}
 						}

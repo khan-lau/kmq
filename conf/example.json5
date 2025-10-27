@@ -22,7 +22,6 @@
   source: [
     // 采集数据源, 支持 kafkamq rabbitmq rocketmq redismq mqtt3 natscoremq natsjsmq 消息队列
     {
-      tag : "", 
       type: "natscoremq",
       isCompress: false,
       mq: {
@@ -110,8 +109,8 @@
           rebalanceTimeout: 60000,  // 重均衡超时时间
           sessionTimeout: 10000,    // session超时时间
           topics: [
-            { topic: "test_saver", partition: 0, offset: -1 },
-            { topic: "test_saver02", partition: 0, offset: 32 },
+            { topic: "test_saver", partitions: [{partition: 0, offset: -1}] },
+            { topic: "test_saver02", partitions: [{partition: 0, offset: -1}]},
           ],
         },
       },
@@ -278,8 +277,8 @@
           retryMax: 3,                 // 重试次数: 最多重试3次
           timeout: 10000,              // 超时时间 单位ms
           topics: [
-            { topic: "test_saver", partition: 0 },
-            { topic: "test_saver02", partition: 0 },
+            { topic: "test_saver", partitions: [{partition: 0}] },
+            { topic: "test_saver02", partitions: [{partition: 0}]},
           ],
         },
       },
