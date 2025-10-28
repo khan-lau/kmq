@@ -289,6 +289,7 @@ END_LOOP:
 		case <-that.ctx.Context().Done():
 			break END_LOOP
 		case msg := <-that.msgChan:
+			// that.logf(klog.InfoLevel, kafka_tag, "kafka.AsyncProducer publish key:{} message: {}", string(msg.Key), string(msg.Value))
 			rawMsg := &sarama.ProducerMessage{Topic: msg.Topic, Key: sarama.StringEncoder(msg.Key), Value: sarama.ByteEncoder(msg.Value), Headers: msg.Headers}
 			that.Producer.Input() <- rawMsg
 		}

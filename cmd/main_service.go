@@ -27,6 +27,7 @@ import (
 	"github.com/khan-lau/kutils/data"
 	"github.com/khan-lau/kutils/filesystem"
 	klog "github.com/khan-lau/kutils/klogger"
+	"github.com/khan-lau/kutils/kuuid"
 )
 
 func startMqSource(ctx *kcontext.ContextNode, toHex bool, sourceItems []*config.MQItemObj, offsetSync *mq.OffsetSync, logf klog.AppLogFuncWithTag) {
@@ -664,7 +665,9 @@ func generalMessage(handler *dispatch.DispatchService, resetTimestamp bool, mess
 	if len(message.Message) < 1 || len(message.Topic) < 1 {
 		glog.W("{}", "Message or topic is empty")
 	}
-	handler.DoSend(&dispatch.GenericMessage{Topic: message.Topic, Message: []byte(content)})
+	uuid, _ := kuuid.NewV1()
+	uuidStr := uuid.ShortString()
+	handler.DoSend(&dispatch.GenericMessage{Topic: message.Topic, Message: []byte(content), Properties: map[string]string{"key": uuidStr}})
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////

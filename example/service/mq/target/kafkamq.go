@@ -81,7 +81,7 @@ func (that *KafkaMQ) Start() error {
 
 	// 设置topic
 	topics := make([]*kafka.Topic, 0, len(that.conf.Producer.Topics))
-	for _, item := range that.conf.Consumer.Topics {
+	for _, item := range that.conf.Producer.Topics {
 		topic := kafka.NewTopic(item.Name)
 		for _, partition := range item.Partitions {
 			topic.SetOffset(int32(partition.Partition), partition.Offset)
@@ -173,6 +173,7 @@ func (that *KafkaMQ) Publish(topic string, message []byte, properties map[string
 	if properties != nil {
 		key = properties["key"]
 	}
+	// that.logf(klog.DebugLevel, kafkamq_tag, "publish topic {}, key {}, message {}", topic, key, string(message))
 	return that.PublishMessageWithProperties(0, topic, key, message, properties)
 }
 

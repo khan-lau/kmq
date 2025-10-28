@@ -247,7 +247,7 @@ func (that *DispatchService) DoSend(msg *GenericMessage) bool {
 
 func (that *DispatchService) sendArray(msgs []*GenericMessage) {
 	for _, msg := range msgs {
-		that.publish(msg.Topic, msg.Message, nil)
+		that.publish(msg.Topic, msg.Message, msg.Properties)
 	}
 }
 
@@ -258,7 +258,7 @@ func (that *DispatchService) send(msg *GenericMessage) {
 	} else {
 		msgStr = string(msg.Message)
 	}
-	if !that.publish(msg.Topic, msg.Message, nil) {
+	if !that.publish(msg.Topic, msg.Message, msg.Properties) {
 		if that.logf != nil {
 
 			that.logf(klog.ErrorLevel, dispatch_tag, "service {} send fault, topic: {}, message: {}", that.name, msg.Topic, msgStr)
