@@ -667,7 +667,14 @@ func generalMessage(handler *dispatch.DispatchService, resetTimestamp bool, mess
 	}
 	uuid, _ := kuuid.NewV1()
 	uuidStr := uuid.ShortString()
-	handler.DoSend(&dispatch.GenericMessage{Topic: message.Topic, Message: []byte(content), Properties: map[string]string{"key": uuidStr}})
+END_SEND:
+	for {
+		if !handler.DoSend(&dispatch.GenericMessage{Topic: message.Topic, Message: []byte(content), Properties: map[string]string{"key": uuidStr}}) {
+			time.Sleep(50 * time.Millisecond)
+		} else {
+			break END_SEND
+		}
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
