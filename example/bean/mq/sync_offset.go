@@ -38,6 +38,14 @@ func NewOffsetSync(syncTime uint64, syncFilePath string, logf klog.AppLogFuncWit
 	if syncTime < 1000 {
 		offsetSync.SyncTime = 1000
 	}
+	// go func() {
+	// 	// 使用一个 ticker 来周期性地触发同步
+	// 	ticker := time.NewTicker(time.Duration(offsetSync.SyncTime) * time.Millisecond)
+	// 	for {
+	// 		<-ticker.C
+	// 		offsetSync.Sync(false)
+	// 	}
+	// }()
 	return offsetSync
 }
 
@@ -89,9 +97,18 @@ func (that *OffsetSync) Sync(force bool) {
 		tmap := make(map[string]map[string]map[string]int64)
 
 		// 深度拷贝map
-		for k, v := range that.Records {
-			tmap[k] = make(map[string]map[string]int64)
-			maps.Copy(tmap[k], v)
+		for mqType, topicMap := range that.Records {
+			// 第一层: mqType
+			newTopicMap := make(map[string]map[string]int64)
+			tmap[mqType] = newTopicMap
+
+			for topic, partitionMap := range topicMap {
+				// 第二层: topic
+				newPartitionMap := make(map[string]int64)
+				newTopicMap[topic] = newPartitionMap
+
+				maps.Copy(newPartitionMap, partitionMap)
+			}
 		}
 		that.modified = false
 		syncMap = tmap
@@ -116,6 +133,8 @@ func (that *OffsetSync) Sync(force bool) {
 }
 
 func (that *OffsetSync) ToJson() string {
+	that.recordMutext.Lock()
+	defer that.recordMutext.Unlock()
 	buf, err := json.Marshal(that.Records)
 	if err != nil {
 		return ""
