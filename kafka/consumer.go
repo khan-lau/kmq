@@ -134,7 +134,15 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 				if that.logf != nil {
 					that.logf(klog.ErrorLevel, kafka_tag, "Create topic {} partition {} consumer offset {} error: {}", topic.Name, partition, offset, err.Error())
 				}
-				continue
+
+				// 如果初始偏移量不正确，则重新创建消费者并从配置文件的InitialOffset开始消费
+				pc, err = that.Consumer.ConsumePartition(topic.Name, partition, that.conf.Consumer.InitialOffset)
+				if err != nil {
+					if that.logf != nil {
+						that.logf(klog.ErrorLevel, kafka_tag, "Create topic {} partition {} consumer offset {} error: {}", topic.Name, partition, offset, err.Error())
+					}
+					continue
+				}
 			}
 
 			subCtx := that.ctx.NewChild(kstrings.Sprintf("kafka_single_consumer_child_{}_{}", topic, partition))
