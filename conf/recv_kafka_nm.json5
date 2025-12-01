@@ -50,8 +50,8 @@
             { topic: "all_analog_data", partitions: [{partition: 0, offset: -1}, {partition: 1, offset: -1}, {partition: 2, offset: -1}] },       // 模拟量数据 - 温度、风速等模拟数据
             { topic: "all_discrete_data", partitions: [{partition: 0, offset: -1}, {partition: 1, offset: -1}, {partition: 2, offset: -1}] },     // 离散量数据 - 开关状态等离散数据
             { topic: "all_accumulator_data", partitions: [{partition: 0, offset: -1}, {partition: 1, offset: -1}, {partition: 2, offset: -1}] },  // 累加量数据 - 总发电量、总有功等计算数据
-            { topic: "nes_event", partitions: [{partition: 0, offset: -1}, {partition: 1, offset: -1}, {partition: 2, offset: -1}] },
-            { topic: "cim_update_msg", partitions: [{partition: 0, offset: -1}, {partition: 1, offset: -1}, {partition: 2, offset: -1}] },
+            { topic: "nes_event", partitions: [{partition: 0, offset: -1}, {partition: 1, offset: -1}, {partition: 2, offset: -1}] },             // 告警事项
+            { topic: "cim_update_msg", partitions: [{partition: 0, offset: -1}, {partition: 1, offset: -1}, {partition: 2, offset: -1}] },        // 点表更新通知
           ],
         },
       },
