@@ -148,13 +148,19 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 			subCtx := that.ctx.NewChild(kstrings.Sprintf("kafka_single_consumer_child_{}_{}", topic, partition))
 			contextList.PushBack(&SubContext{topic: topic.Name, partition: partition, ctx: subCtx, pc: pc})
 
-			go func(ctx *kcontext.ContextNode, pc sarama.PartitionConsumer) {
+			go func(ctx *kcontext.ContextNode, pc sarama.PartitionConsumer, partition int32) {
 			SUB_END_LOOP:
 				for {
 					select {
 					case <-ctx.Context().Done():
 						pc.Close()
 						break SUB_END_LOOP
+
+					case err := <-pc.Errors():
+						if that.logf != nil {
+							that.logf(klog.ErrorLevel, kafka_tag, "kafka.Consumer consume partition {} error: {}", partition, err.Error())
+						}
+						continue SUB_END_LOOP
 
 					case msg := <-pc.Messages():
 						if callback != nil {
@@ -163,7 +169,7 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 					}
 				}
 				defer pc.Close()
-			}(subCtx, pc)
+			}(subCtx, pc, partition)
 
 			if that.logf != nil {
 				that.logf(klog.InfoLevel, kafka_tag, "kafka.Consumer subscribe topic: {}, partition: {} success", topic.Name, partition)
