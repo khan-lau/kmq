@@ -157,7 +157,7 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 						break SUB_END_LOOP
 
 					case err := <-pc.Errors():
-						if that.logf != nil {
+						if that.logf != nil && err != nil {
 							that.logf(klog.ErrorLevel, kafka_tag, "kafka.Consumer consume partition {} error: {}", partition, err.Error())
 						}
 						continue SUB_END_LOOP
