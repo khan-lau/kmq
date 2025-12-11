@@ -157,14 +157,22 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 						break SUB_END_LOOP
 
 					case err := <-pc.Errors():
-						if that.logf != nil && err != nil {
-							that.logf(klog.ErrorLevel, kafka_tag, "kafka.Consumer consume partition {} error: {}", partition, err.Error())
+						if that.logf != nil {
+							if err != nil {
+								that.logf(klog.ErrorLevel, kafka_tag, "kafka.Consumer consume partition {} error: {}", partition, err.Error())
+							} else {
+								that.logf(klog.DebugLevel, kafka_tag, "kafka.Consumer consume partition {} error: is null", partition)
+							}
 						}
 						continue SUB_END_LOOP
 
 					case msg := <-pc.Messages():
 						if callback != nil {
-							callback(voidObj, &KafkaMessage{Topic: msg.Topic, Partition: msg.Partition, Offset: msg.Offset, Key: msg.Key, Value: msg.Value})
+							if msg != nil {
+								callback(voidObj, &KafkaMessage{Topic: msg.Topic, Partition: msg.Partition, Offset: msg.Offset, Key: msg.Key, Value: msg.Value})
+							} else {
+								that.logf(klog.DebugLevel, kafka_tag, "kafka.Consumer consume partition {} message is nil", partition)
+							}
 						}
 					}
 				}
