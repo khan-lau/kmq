@@ -1,11 +1,12 @@
 package kafka
 
 import (
-	"slices"
+	"time"
 
 	"github.com/IBM/sarama"
 	"github.com/khan-lau/kutils/container/kcontext"
 	"github.com/khan-lau/kutils/container/klists"
+	"github.com/khan-lau/kutils/container/kslices"
 	"github.com/khan-lau/kutils/container/kstrings"
 	klog "github.com/khan-lau/kutils/klogger"
 )
@@ -46,14 +47,21 @@ func NewConsumer(ctx *kcontext.ContextNode, conf *Config, logf klog.AppLogFuncWi
 	config.Version = conf.Version                     // 设置协议版本
 	config.ClientID = conf.ClientId                   // 设置客户端 ID
 	config.ChannelBufferSize = conf.ChannelBufferSize // 设置通道缓冲区大小
+	config.Consumer.Group.InstanceId = conf.GroupID   // 设置消费者组 ID
 
-	config.Consumer.Fetch.Min = int32(conf.Consumer.Min)                           // 每次从broker拉取的最小消息数
-	config.Consumer.Fetch.Max = int32(conf.Consumer.Max)                           // 每次从broker拉取的最大消息数
-	config.Consumer.Fetch.Default = int32(conf.Consumer.Fetch)                     // 默认每次从broker拉取的消息数
+	config.Consumer.Fetch.Min = int32(conf.Consumer.Min)       // 每次从broker拉取的最小消息数
+	config.Consumer.Fetch.Max = int32(conf.Consumer.Max)       // 每次从broker拉取的最大消息数
+	config.Consumer.Fetch.Default = int32(conf.Consumer.Fetch) // 默认每次从broker拉取的消息数
+
 	config.Consumer.Offsets.Initial = conf.Consumer.InitialOffset                  // 设置消费者偏移量, -1: 从最新的消息开始消费, -2: 重新开始消费
 	config.Consumer.Offsets.AutoCommit.Enable = conf.Consumer.AutoCommit           // 是否自动提交偏移量
 	config.Consumer.Offsets.AutoCommit.Interval = conf.Consumer.AutoCommitInterval // 自动提交偏移量的间隔时间
 	config.Consumer.Return.Errors = true                                           // 是否返回消费过程中遇到的错误, 默认为false
+
+	// 关键配置：解决长时间无消息导致卡住的问题
+	config.Consumer.MaxProcessingTime = 5 * time.Second  // 关键！防止被视为慢消费者
+	config.Consumer.MaxWaitTime = 500 * time.Millisecond // 控制最大等待时间，增加 poll 频率
+	config.Metadata.RefreshFrequency = 5 * time.Minute   // 更快刷新 metadata
 
 	// 网络配置
 	config.Net.MaxOpenRequests = conf.Net.MaxOpenRequests // 最大请求数, 默认为5，这里设置为1，避免并发请求过多导致Kafka端出现问题
@@ -102,17 +110,14 @@ func (that *Consumer) Subscribe(voidObj interface{}, callback SubscribeCallback)
 	go that.SyncSubscribe(voidObj, callback)
 }
 
-// Subscribe 订阅Kafka主题并异步处理消息。从最新偏移量开始收取消息。 该函数会阻塞, 直到 Close() 被调用。
-//   - @param offset: 消费者的偏移量
-//   - @param callback: 当收到新消息时要调用的函数。
 func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallback) {
 	type SubContext struct {
 		topic     string
 		partition int32
 		ctx       *kcontext.ContextNode
-		pc        sarama.PartitionConsumer
 	}
 	contextList := klists.New[*SubContext]()
+
 	for _, topic := range that.topics {
 		partitionList, err := that.Consumer.Partitions(topic.Name)
 		if err != nil {
@@ -121,90 +126,197 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 			}
 			return
 		}
+
 		for partition, offset := range topic.Partition {
-			if !slices.Contains(partitionList, partition) {
+			if !kslices.Contains(partitionList, partition) {
 				if that.logf != nil {
 					that.logf(klog.ErrorLevel, kafka_tag, "Partition {} not found in topic {}", partition, topic)
 				}
 				continue
 			}
 
-			pc, err := that.Consumer.ConsumePartition(topic.Name, partition, offset)
-			if err != nil {
-				if that.logf != nil {
-					that.logf(klog.ErrorLevel, kafka_tag, "Create topic {} partition {} consumer offset {} error: {}", topic.Name, partition, offset, err.Error())
-				}
+			subCtx := that.ctx.NewChild(kstrings.Sprintf("kafka_single_consumer_child_{}_{}", topic.Name, partition))
+			contextList.PushBack(&SubContext{topic: topic.Name, partition: partition, ctx: subCtx})
 
-				// 如果初始偏移量不正确，则重新创建消费者并从配置文件的InitialOffset开始消费
-				pc, err = that.Consumer.ConsumePartition(topic.Name, partition, that.conf.Consumer.InitialOffset)
-				if err != nil {
-					if that.logf != nil {
-						that.logf(klog.ErrorLevel, kafka_tag, "Create topic {} partition {} consumer offset {} error: {}", topic.Name, partition, offset, err.Error())
-					}
-					continue
-				}
-			}
+			go func(ctx *kcontext.ContextNode, topic string, partition int32, initialOffset int64) {
+				var pc sarama.PartitionConsumer
+				var err error
 
-			subCtx := that.ctx.NewChild(kstrings.Sprintf("kafka_single_consumer_child_{}_{}", topic, partition))
-			contextList.PushBack(&SubContext{topic: topic.Name, partition: partition, ctx: subCtx, pc: pc})
-
-			go func(ctx *kcontext.ContextNode, pc sarama.PartitionConsumer, partition int32) {
-			SUB_END_LOOP:
+			RECONNECT_LOOP:
 				for {
-					select {
-					case <-ctx.Context().Done():
-						pc.Close()
-						break SUB_END_LOOP
-
-					case err := <-pc.Errors():
+					// 创建 PartitionConsumer
+					pc, err = that.Consumer.ConsumePartition(topic, partition, initialOffset)
+					if err != nil {
 						if that.logf != nil {
-							if err != nil {
-								that.logf(klog.ErrorLevel, kafka_tag, "kafka.Consumer consume partition {} error: {}", partition, err.Error())
-							} else {
-								that.logf(klog.DebugLevel, kafka_tag, "kafka.Consumer consume partition {} error: is null", partition)
-							}
+							that.logf(klog.ErrorLevel, kafka_tag, "Create topic {} partition {} consumer offset {} error: {}", topic, partition, initialOffset, err.Error())
 						}
-						continue SUB_END_LOOP
+						// 尝试使用全局 InitialOffset
+						pc, err = that.Consumer.ConsumePartition(topic, partition, that.conf.Consumer.InitialOffset)
+						if err != nil {
+							if that.logf != nil {
+								that.logf(klog.ErrorLevel, kafka_tag, "Fallback create topic {} partition {} error: {}, retry in 5s", topic, partition, err.Error())
+							}
+							time.Sleep(5 * time.Second)
+							continue RECONNECT_LOOP
+						}
+					}
 
-					case msg := <-pc.Messages():
-						if callback != nil {
-							if msg != nil {
-								callback(voidObj, &KafkaMessage{Topic: msg.Topic, Partition: msg.Partition, Offset: msg.Offset, Key: msg.Key, Value: msg.Value})
+					if that.logf != nil {
+						that.logf(klog.InfoLevel, kafka_tag, "kafka.Consumer subscribe topic: {}, partition: {} success (offset {})", topic, partition, initialOffset)
+					}
+
+					// 消费循环
+					for {
+						select {
+						case <-ctx.Context().Done():
+							pc.Close()
+							return // 退出 goroutine
+
+						case err := <-pc.Errors():
+							if err != nil {
+								if that.logf != nil {
+									that.logf(klog.ErrorLevel, kafka_tag, "kafka.Consumer consume partition {}/{} error: {}, reconnecting...", topic, partition, err.Error())
+								}
 							} else {
-								that.logf(klog.DebugLevel, kafka_tag, "kafka.Consumer consume partition {} message is nil", partition)
+								if that.logf != nil {
+									that.logf(klog.DebugLevel, kafka_tag, "kafka.Consumer consume partition {}/{} error channel closed normally", topic, partition)
+								}
+							}
+							pc.Close()
+							time.Sleep(1 * time.Second)
+							continue RECONNECT_LOOP // 出错后重新创建
+
+						case msg := <-pc.Messages():
+							if msg != nil {
+								// 更新下次重建时的起始 offset，避免重复消费
+								initialOffset = msg.Offset + 1
+								if callback != nil {
+									callback(voidObj, &KafkaMessage{Topic: msg.Topic, Partition: msg.Partition, Offset: msg.Offset, Key: msg.Key, Value: msg.Value})
+								}
 							}
 						}
 					}
 				}
-				defer pc.Close()
-			}(subCtx, pc, partition)
-
-			if that.logf != nil {
-				that.logf(klog.InfoLevel, kafka_tag, "kafka.Consumer subscribe topic: {}, partition: {} success", topic.Name, partition)
-			}
-
+			}(subCtx, topic.Name, partition, offset)
 		}
-
-		// for _, partition := range partitionList {
-		// 	offset := topic.Partition[partition]
-		// 	if offset < 0 {
-		// 		offset = that.offset
-		// 	}
-		// }
 	}
 
 	<-that.ctx.Context().Done()
 
+	// 取消所有子上下文
 	for it := contextList.Front(); it != nil; it = it.Next() {
 		subContext := it.Value
 		subContext.ctx.Cancel()
-		subContext.pc.Close()
 		subContext.ctx.Remove()
 		if that.logf != nil {
 			that.logf(klog.DebugLevel, kafka_tag, "kafka.Consumer unsubscribe topic: {}, partition: {} success", subContext.topic, subContext.partition)
 		}
 	}
 }
+
+// // Subscribe 订阅Kafka主题并异步处理消息。从最新偏移量开始收取消息。 该函数会阻塞, 直到 Close() 被调用。
+// //   - @param offset: 消费者的偏移量
+// //   - @param callback: 当收到新消息时要调用的函数。
+// func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallback) {
+// 	type SubContext struct {
+// 		topic     string
+// 		partition int32
+// 		ctx       *kcontext.ContextNode
+// 		pc        sarama.PartitionConsumer
+// 	}
+// 	contextList := klists.New[*SubContext]()
+// 	for _, topic := range that.topics {
+// 		partitionList, err := that.Consumer.Partitions(topic.Name)
+// 		if err != nil {
+// 			if that.logf != nil {
+// 				that.logf(klog.ErrorLevel, kafka_tag, "Get partition list from kafka error: {}", err.Error())
+// 			}
+// 			return
+// 		}
+// 		for partition, offset := range topic.Partition {
+// 			if !slices.Contains(partitionList, partition) {
+// 				if that.logf != nil {
+// 					that.logf(klog.ErrorLevel, kafka_tag, "Partition {} not found in topic {}", partition, topic)
+// 				}
+// 				continue
+// 			}
+//
+// 			pc, err := that.Consumer.ConsumePartition(topic.Name, partition, offset)
+// 			if err != nil {
+// 				if that.logf != nil {
+// 					that.logf(klog.ErrorLevel, kafka_tag, "Create topic {} partition {} consumer offset {} error: {}", topic.Name, partition, offset, err.Error())
+// 				}
+//
+// 				// 如果初始偏移量不正确，则重新创建消费者并从配置文件的InitialOffset开始消费
+// 				pc, err = that.Consumer.ConsumePartition(topic.Name, partition, that.conf.Consumer.InitialOffset)
+// 				if err != nil {
+// 					if that.logf != nil {
+// 						that.logf(klog.ErrorLevel, kafka_tag, "Create topic {} partition {} consumer offset {} error: {}", topic.Name, partition, offset, err.Error())
+// 					}
+// 					continue
+// 				}
+// 			}
+//
+// 			subCtx := that.ctx.NewChild(kstrings.Sprintf("kafka_single_consumer_child_{}_{}", topic, partition))
+// 			contextList.PushBack(&SubContext{topic: topic.Name, partition: partition, ctx: subCtx, pc: pc})
+//
+// 			go func(ctx *kcontext.ContextNode, pc sarama.PartitionConsumer, partition int32) {
+// 			SUB_END_LOOP:
+// 				for {
+// 					select {
+// 					case <-ctx.Context().Done():
+// 						pc.Close()
+// 						break SUB_END_LOOP
+//
+// 					case err := <-pc.Errors():
+// 						if that.logf != nil {
+// 							if err != nil {
+// 								that.logf(klog.ErrorLevel, kafka_tag, "kafka.Consumer consume partition {} error: {}", partition, err.Error())
+// 							} else {
+// 								that.logf(klog.DebugLevel, kafka_tag, "kafka.Consumer consume partition {} error: is null", partition)
+// 							}
+// 						}
+// 						continue SUB_END_LOOP
+//
+// 					case msg := <-pc.Messages():
+// 						if callback != nil {
+// 							if msg != nil {
+// 								callback(voidObj, &KafkaMessage{Topic: msg.Topic, Partition: msg.Partition, Offset: msg.Offset, Key: msg.Key, Value: msg.Value})
+// 							} else {
+// 								that.logf(klog.DebugLevel, kafka_tag, "kafka.Consumer consume partition {} message is nil", partition)
+// 							}
+// 						}
+// 					}
+// 				}
+// 				defer pc.Close()
+// 			}(subCtx, pc, partition)
+//
+// 			if that.logf != nil {
+// 				that.logf(klog.InfoLevel, kafka_tag, "kafka.Consumer subscribe topic: {}, partition: {} success", topic.Name, partition)
+// 			}
+//
+// 		}
+//
+// 		// for _, partition := range partitionList {
+// 		// 	offset := topic.Partition[partition]
+// 		// 	if offset < 0 {
+// 		// 		offset = that.offset
+// 		// 	}
+// 		// }
+// 	}
+//
+// 	<-that.ctx.Context().Done()
+//
+// 	for it := contextList.Front(); it != nil; it = it.Next() {
+// 		subContext := it.Value
+// 		subContext.ctx.Cancel()
+// 		subContext.pc.Close()
+// 		subContext.ctx.Remove()
+// 		if that.logf != nil {
+// 			that.logf(klog.DebugLevel, kafka_tag, "kafka.Consumer unsubscribe topic: {}, partition: {} success", subContext.topic, subContext.partition)
+// 		}
+// 	}
+// }
 
 func (that *Consumer) Close() {
 	that.ctx.Cancel()
