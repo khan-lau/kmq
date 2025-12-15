@@ -59,6 +59,14 @@ func NewSyncProducer(ctx *kcontext.ContextNode, chanSize uint, conf *Config, log
 	config.Producer.Retry.Max = conf.Producer.RetryMax                 // 设置重试次数: 最多重试3次
 	config.Producer.Timeout = conf.Producer.Timeout                    // 设置发送超时时间: 30s
 
+	// 若通过环境变量提供了 Kerberos 配置，则启用 Kerberos 认证
+	if err := applyKerberosEnv(config); err != nil {
+		if logf != nil {
+			logf(klog.ErrorLevel, kafka_tag, "enable Kerberos failed: {}", err.Error())
+		}
+		return nil, err
+	}
+
 	brokerList := klists.ToKSlice(conf.Brokers)
 	producer, err := sarama.NewSyncProducer(brokerList, config)
 	if err != nil {
@@ -234,6 +242,14 @@ func NewAsyncProducer(ctx *kcontext.ContextNode, chanSize uint, conf *Config, lo
 	config.Producer.Flush.MaxMessages = conf.Producer.FlushMaxMessages // 设置刷新最大消息数量: 10000条
 	config.Producer.Retry.Max = conf.Producer.RetryMax                 // 设置重试次数: 最多重试3次
 	config.Producer.Timeout = conf.Producer.Timeout                    // 设置发送超时时间: 30s
+
+	// 若通过环境变量提供了 Kerberos 配置，则启用 Kerberos 认证
+	if err := applyKerberosEnv(config); err != nil {
+		if logf != nil {
+			logf(klog.ErrorLevel, kafka_tag, "enable Kerberos failed: {}", err.Error())
+		}
+		return nil, err
+	}
 
 	brokerList := klists.ToKSlice(conf.Brokers)
 	producer, err := sarama.NewAsyncProducer(brokerList, config)

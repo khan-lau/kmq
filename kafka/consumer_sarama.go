@@ -73,6 +73,14 @@ func NewConsumer(ctx *kcontext.ContextNode, conf *Config, logf klog.AppLogFuncWi
 	// 如果设置为 true, 当 Kafka 集群的主机名称为 IP 地址时, 可能会导致连接失败, 因此这里设置为 false。
 	config.Net.ResolveCanonicalBootstrapServers = conf.Net.ResolveHost
 
+	// 若通过环境变量提供了 Kerberos 配置，则启用 Kerberos 认证
+	if err := applyKerberosEnv(config); err != nil {
+		if logf != nil {
+			logf(klog.ErrorLevel, kafka_tag, "enable Kerberos failed: {}", err.Error())
+		}
+		return nil, err
+	}
+
 	brokerList := klists.ToKSlice(conf.Brokers)
 	client, err := sarama.NewClient(brokerList, config)
 	if err != nil {
@@ -376,6 +384,14 @@ func NewConsumerGroup(ctx *kcontext.ContextNode, conf *Config, logf klog.AppLogF
 	// 这一行的作用是: 设置客户端是否在连接 Kafka 时尝试解析 Kafka 集群的主机名称, 默认为 true。
 	// 如果设置为 true, 当 Kafka 集群的主机名称为 IP 地址时, 可能会导致连接失败, 因此这里设置为 false。
 	config.Net.ResolveCanonicalBootstrapServers = conf.Net.ResolveHost
+
+	// 若通过环境变量提供了 Kerberos 配置，则启用 Kerberos 认证
+	if err := applyKerberosEnv(config); err != nil {
+		if logf != nil {
+			logf(klog.ErrorLevel, kafka_tag, "enable Kerberos failed: {}", err.Error())
+		}
+		return nil, err
+	}
 
 	brokerList := klists.ToKSlice(conf.Brokers)
 	client, err := sarama.NewClient(brokerList, config)
