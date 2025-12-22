@@ -38,18 +38,14 @@ func NewOffsetSync(syncTime uint64, syncFilePath string, logf klog.AppLogFuncWit
 	if syncTime < 1000 {
 		offsetSync.SyncTime = 1000
 	}
-	// go func() {
-	// 	// 使用一个 ticker 来周期性地触发同步
-	// 	ticker := time.NewTicker(time.Duration(offsetSync.SyncTime) * time.Millisecond)
-	// 	for {
-	// 		<-ticker.C
-	// 		offsetSync.Sync(false)
-	// 	}
-	// }()
 	return offsetSync
 }
 
 func (that *OffsetSync) Set(mqType string, topic string, partition string, offset int64) {
+	// 未指定文件, 则退出
+	if len(that.syncFile) == 0 {
+		return
+	}
 	if mqType == "" || mqType == "rabbitmq" || mqType == "redismq" || mqType == "mqtt3" || mqType == "natscoremq" {
 		return
 	}
@@ -76,6 +72,10 @@ func (that *OffsetSync) Set(mqType string, topic string, partition string, offse
 }
 
 func (that *OffsetSync) Sync(force bool) {
+	// 未指定文件, 则退出
+	if len(that.syncFile) == 0 {
+		return
+	}
 	// 如果时间未到, 则不进行同步, 避免频繁读写
 	current := time.Now().UnixMilli()
 	// 没有修改过, 则不进行同步
