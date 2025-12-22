@@ -122,16 +122,53 @@ func applyKerberosProjectFiles(cfg *sarama.Config) error {
 }
 
 // applyKerberosEnv 依赖环境变量
-func applyKerberosEnv(cfg *sarama.Config) error {
+func applyConsumerKerberosEnv(cfg *sarama.Config) error {
 	if cfg == nil {
 		return kstrings.Errorf("sarama.Config is nil")
 	}
 
-	krb5ConfPath := os.Getenv("KRB5_CONF")
-	keytabPath := os.Getenv("KRB5_KEYTAB")
-	principal := os.Getenv("KRB5_PRINCIPAL")
-	serviceName := os.Getenv("KRB5_SERVICE")
-	disablePAFXFASTStr := os.Getenv("KRB5_DISABLEPAFXFAST")
+	krb5ConfPath := os.Getenv("CONSUMER_KRB5_CONF")
+	keytabPath := os.Getenv("CONSUMER_KRB5_KEYTAB")
+	principal := os.Getenv("CONSUMER_KRB5_PRINCIPAL")
+	serviceName := os.Getenv("CONSUMER_KRB5_SERVICE")
+	disablePAFXFASTStr := os.Getenv("CONSUMER_KRB5_DISABLEPAFXFAST")
+
+	// 如果某些环境变量未设置，则不启用 Kerberos 认证
+	if krb5ConfPath == "" || keytabPath == "" || principal == "" {
+		return nil
+	}
+
+	disablePAFXFAST := disablePAFXFASTStr == "true" || disablePAFXFASTStr == "True" || disablePAFXFASTStr == "TRUE" ||
+		disablePAFXFASTStr == "1" ||
+		disablePAFXFASTStr == "yes" || disablePAFXFASTStr == "Yes" || disablePAFXFASTStr == "YES"
+
+	opts := KerberosOptions{
+		Krb5ConfPath:    krb5ConfPath,
+		KeytabPath:      keytabPath,
+		Principal:       principal,
+		ServiceName:     serviceName,
+		DisablePAFXFAST: disablePAFXFAST,
+	}
+
+	// 先验证配置
+	if err := ValidateKerberosOptions(opts); err != nil {
+		return kstrings.Errorf("kerberos configuration validation failed: {}", err)
+	}
+
+	// 再应用配置
+	return ApplyKerberos(cfg, opts)
+}
+
+func applyProducerKerberosEnv(cfg *sarama.Config) error {
+	if cfg == nil {
+		return kstrings.Errorf("sarama.Config is nil")
+	}
+
+	krb5ConfPath := os.Getenv("PRODUCER_KRB5_CONF")
+	keytabPath := os.Getenv("PRODUCER_KRB5_KEYTAB")
+	principal := os.Getenv("PRODUCER_KRB5_PRINCIPAL")
+	serviceName := os.Getenv("PRODUCER_KRB5_SERVICE")
+	disablePAFXFASTStr := os.Getenv("PRODUCER_KRB5_DISABLEPAFXFAST")
 
 	// 如果某些环境变量未设置，则不启用 Kerberos 认证
 	if krb5ConfPath == "" || keytabPath == "" || principal == "" {

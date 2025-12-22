@@ -60,7 +60,7 @@ func NewSyncProducer(ctx *kcontext.ContextNode, chanSize uint, conf *Config, log
 	config.Producer.Timeout = conf.Producer.Timeout                    // 设置发送超时时间: 30s
 
 	// 若通过环境变量提供了 Kerberos 配置，则启用 Kerberos 认证
-	if err := applyKerberosEnv(config); err != nil {
+	if err := applyProducerKerberosEnv(config); err != nil {
 		if logf != nil {
 			logf(klog.ErrorLevel, kafka_tag, "enable Kerberos failed: {}", err.Error())
 		}
@@ -244,7 +244,7 @@ func NewAsyncProducer(ctx *kcontext.ContextNode, chanSize uint, conf *Config, lo
 	config.Producer.Timeout = conf.Producer.Timeout                    // 设置发送超时时间: 30s
 
 	// 若通过环境变量提供了 Kerberos 配置，则启用 Kerberos 认证
-	if err := applyKerberosEnv(config); err != nil {
+	if err := applyProducerKerberosEnv(config); err != nil {
 		if logf != nil {
 			logf(klog.ErrorLevel, kafka_tag, "enable Kerberos failed: {}", err.Error())
 		}

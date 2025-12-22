@@ -74,7 +74,7 @@ func NewConsumer(ctx *kcontext.ContextNode, conf *Config, logf klog.AppLogFuncWi
 	config.Net.ResolveCanonicalBootstrapServers = conf.Net.ResolveHost
 
 	// 若通过环境变量提供了 Kerberos 配置，则启用 Kerberos 认证
-	if err := applyKerberosEnv(config); err != nil {
+	if err := applyConsumerKerberosEnv(config); err != nil {
 		if logf != nil {
 			logf(klog.ErrorLevel, kafka_tag, "enable Kerberos failed: {}", err.Error())
 		}
@@ -386,7 +386,7 @@ func NewConsumerGroup(ctx *kcontext.ContextNode, conf *Config, logf klog.AppLogF
 	config.Net.ResolveCanonicalBootstrapServers = conf.Net.ResolveHost
 
 	// 若通过环境变量提供了 Kerberos 配置，则启用 Kerberos 认证
-	if err := applyKerberosEnv(config); err != nil {
+	if err := applyConsumerKerberosEnv(config); err != nil {
 		if logf != nil {
 			logf(klog.ErrorLevel, kafka_tag, "enable Kerberos failed: {}", err.Error())
 		}
