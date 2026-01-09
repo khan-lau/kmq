@@ -207,9 +207,16 @@ func main() {
 				}
 				glog.I("{}", "Publisher send goroutine finish")
 
+				root := ctx.Root()
+				if root != nil {
+					root.Cancel()
+				}
+
 			}(sendCtx, conf.SendInterval, msgArr)
 			glog.I("replay data is finished")
+
 		}(mainCtx)
+
 	} else {
 
 		// MQ offset sync服务, 该服务用于定时将当前offset记录到文件中, 以便重启时恢复offset

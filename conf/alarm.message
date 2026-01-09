@@ -9,3 +9,5 @@ PHONE "{\"calltype\": \"bye\", \"callid\": \"1697640892.247076\"}"
 PHONE "{\"calltype\": \"stop\", \"callid\": \"1697640892.247076\"}"
 
 sim_data "test message"
+
+quit
