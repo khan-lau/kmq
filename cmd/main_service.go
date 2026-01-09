@@ -124,7 +124,7 @@ func startMqSource(ctx *kcontext.ContextNode, toHex bool, sourceItems []*config.
 					if err != nil && logf != nil {
 						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create kafka mq source failed, {}", err.Error())
 					} else {
-						glog.I("start kafka source {}, topic: {}", kafkaConfig.BrokerList, kafkaConfig.Consumer.Topics)
+						glog.I("start kafka source {}, topic: {}", kafkaConfig.BrokerList, kafkaTopicsToStr(kafkaConfig.Consumer.Topics))
 
 						kafkaMq.SetOnRecivedCallback(
 							func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
@@ -340,7 +340,7 @@ func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, l
 					if err != nil && logf != nil {
 						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create kafka mq target failed, {}", err.Error())
 					} else {
-						glog.I("start kafka target: {}, topic: {}", kafkaConfig.BrokerList, kafkaConfig.Producer.Topics)
+						glog.I("start kafka target: {}, topic: {}", kafkaConfig.BrokerList, kafkaTopicsToStr(kafkaConfig.Producer.Topics))
 						gMqTargetManager[item.MQType] = kafkaMq
 						go func(kafkaMq *target.KafkaMQ) {
 							err := kafkaMq.Start()
@@ -754,4 +754,30 @@ func onRecved(origin any, name string, topic string, partition int, offset int64
 	} else {
 		glog.E("onRecived: name={}, topic={}, partition={}, offset={}, ack return error={}", name, topic, partition, offset, err)
 	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////////////
+
+func kafkaTopicsToStr(topics []*config.Topic) string {
+	var sb strings.Builder
+	sb.WriteString("[")
+	for i, topic := range topics {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString("topic:")
+		sb.WriteString(topic.Name)
+		sb.WriteString(", partitions:[")
+		for j, partition := range topic.Partitions {
+			if j > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(kstrings.Sprintf("{}:{}", partition.Partition, partition.Offset))
+		}
+		sb.WriteString("]")
+	}
+	sb.WriteString("]")
+	return sb.String()
 }

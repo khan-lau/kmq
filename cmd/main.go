@@ -152,10 +152,10 @@ func main() {
 
 			var messages *klists.KList[*dispatch.GenericMessage]
 			if filesystem.IsFileExists(replayDataPath) { // 如果存在重放文件, 则读取重放记录
-				fmt.Printf("founded test file : %s\n", replayDataPath)
+				glog.D("founded test file : {}", replayDataPath)
 				messages = getReplayData(conf.DumpHex, replayDataPath)
 			} else if filesystem.IsFileExists(workReplayDataPath) { // 如果存在重放文件, 则读取重放记录
-				fmt.Printf("founded test file : %s\n", workReplayDataPath)
+				glog.D("founded test file : {}", workReplayDataPath)
 				messages = getReplayData(conf.DumpHex, workReplayDataPath)
 			} else {
 				// fmt.Printf("not found test file : %s or %s \n", replayDataPath, workReplayDataPath)
