@@ -11,6 +11,7 @@
     maxAge: 72,       // 日志最长保留时间, 单位 小时
     rotationTime: 24, // 日志滚动周期, 单位 小时, 24小时滚动一个文件
     console: true,    // 是否同时输出到控制台
+    async: false,     // 是否异步输出到日志文件
     logDir: "logs_recv",   // 日志路径
   },
 
