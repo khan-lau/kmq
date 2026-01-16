@@ -62,7 +62,7 @@ func initLog(conf *config.Configure) {
 
 	logConfig := klog.NewConfigure().SetLogFile(filename).SetLevel(klog.Level(logLevel)).
 		SetMaxAge(conf.Log.MaxAge).SetRotationTime(conf.Log.RotationTime).
-		ShowConsole(conf.Log.Console).IsColorful(conf.Log.Colorful)
+		ShowConsole(conf.Log.Console).SetAsync(conf.Log.Async).IsColorful(conf.Log.Colorful)
 
 	// logConfig.SetLogFile("") // 不写入日志文件
 
