@@ -152,10 +152,10 @@ func main() {
 
 			var messages *klists.KList[*dispatch.GenericMessage]
 			if filesystem.IsFileExists(replayDataPath) { // 如果存在重放文件, 则读取重放记录
-				fmt.Printf("founded test file : %s\n", replayDataPath)
+				glog.I("founded test file : {}", replayDataPath)
 				messages = getReplayData(conf.DumpHex, replayDataPath)
 			} else if filesystem.IsFileExists(workReplayDataPath) { // 如果存在重放文件, 则读取重放记录
-				fmt.Printf("founded test file : %s\n", workReplayDataPath)
+				glog.I("founded test file : {}", workReplayDataPath)
 				messages = getReplayData(conf.DumpHex, workReplayDataPath)
 			} else {
 				// fmt.Printf("not found test file : %s or %s \n", replayDataPath, workReplayDataPath)
@@ -206,6 +206,11 @@ func main() {
 					}
 				}
 				glog.I("{}", "Publisher send goroutine finish")
+
+				root := ctx.Root()
+				if root != nil {
+					root.Cancel()
+				}
 
 			}(sendCtx, conf.SendInterval, msgArr)
 			glog.I("replay data is finished")
