@@ -8,7 +8,7 @@ require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/IBM/sarama v1.46.3
 	github.com/apache/rocketmq-client-go/v2 v2.1.2
-	github.com/eclipse/paho.mqtt.golang v1.5.0
+	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/khan-lau/kutils v0.4.6
 	github.com/khan-lau/mapstructure v1.5.4
 	github.com/nats-io/nats.go v1.47.0
