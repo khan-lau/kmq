@@ -119,6 +119,9 @@ func NewPushConsumer(ctx *kcontext.ContextNode, conf *RocketConfig, logf klog.Ap
 
 	tConsumer.ctx = subCtx
 
+	if conf.OnReady != nil {
+		conf.OnReady(true)
+	}
 	return tConsumer, nil
 }
 
@@ -305,6 +308,9 @@ func NewPullConsumer(ctx *kcontext.ContextNode, conf *RocketConfig, pullSize uin
 	subCtx := ctx.NewChild("rocketmq_consumer")
 	tConsumer.ctx = subCtx
 
+	if conf.OnReady != nil {
+		conf.OnReady(true)
+	}
 	return tConsumer, nil
 }
 

@@ -27,6 +27,7 @@ import (
 	"github.com/khan-lau/kutils/data"
 	"github.com/khan-lau/kutils/filesystem"
 	klog "github.com/khan-lau/kutils/klogger"
+	"github.com/khan-lau/kutils/ksync"
 	"github.com/khan-lau/kutils/kuuid"
 )
 
@@ -281,7 +282,7 @@ func startMqSource(ctx *kcontext.ContextNode, toHex bool, sourceItems []*config.
 	waitGroup.Wait()
 }
 
-func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, logf klog.AppLogFuncWithTag) {
+func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, countdown *ksync.CountDownLatch, logf klog.AppLogFuncWithTag) {
 	waitGroup := sync.WaitGroup{}
 
 	for _, item := range targetItems {
@@ -294,8 +295,12 @@ func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, l
 					if err != nil && logf != nil {
 						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create nats core mq target failed, {}", err.Error())
 					} else {
-						glog.I("start nats core target: [{}], topic: [{}]", strings.Join(natsCoreConfig.BrokerList, ", "), strings.Join(natsCoreConfig.Topics, ", "))
 
+						natsCoreMq.SetOnReady(func(ready bool) {
+							glog.I("nats core target ready")
+							countdown.CountDown()
+						})
+						glog.I("start nats core target: [{}], topic: [{}]", strings.Join(natsCoreConfig.BrokerList, ", "), strings.Join(natsCoreConfig.Topics, ", "))
 						gMqTargetManager[item.MQType] = natsCoreMq
 						go func(natsCore *target.NatsCoreMQ) {
 							err := natsCore.Start()
@@ -309,7 +314,6 @@ func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, l
 						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "nats core target config is invalid")
 					}
 				}
-
 			case "natsjsmq":
 				if natsJsConfig, ok := item.Item.(*config.NatsJsConfig); ok {
 					natsJsMq, err := target.NewNatsJetStreamMQ(ctx, "NatsJSTarget", natsJsConfig, logf)
@@ -317,7 +321,10 @@ func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, l
 						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create nats jetstream mq target failed, {}", err.Error())
 					} else {
 						glog.I("start nats jetstream target: [{}], topic: [{}]", strings.Join(natsJsConfig.BrokerList, ", "), strings.Join(natsJsConfig.Topics, ", "))
-
+						natsJsMq.SetOnReady(func(ready bool) {
+							glog.I("nats jetstream target ready")
+							countdown.CountDown()
+						})
 						gMqTargetManager[item.MQType] = natsJsMq
 						go func(natsJs *target.NatsJetStreamMQ) {
 							err := natsJs.Start()
@@ -333,13 +340,17 @@ func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, l
 						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "nats jetstream target config is invalid")
 					}
 				}
-
 			case "kafkamq":
 				if kafkaConfig, ok := item.Item.(*config.KafkaConfig); ok {
 					kafkaMq, err := target.NewKafkaMQ(ctx, "KafkaTarget", kafkaConfig, logf)
 					if err != nil && logf != nil {
 						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create kafka mq target failed, {}", err.Error())
 					} else {
+						kafkaMq.SetOnReady(func(ready bool) {
+							glog.I("kafka target ready")
+							countdown.CountDown()
+						})
+
 						glog.I("start kafka target: {}, topic: {}", kafkaConfig.BrokerList, kafkaTopicsToStr(kafkaConfig.Producer.Topics))
 						gMqTargetManager[item.MQType] = kafkaMq
 						go func(kafkaMq *target.KafkaMQ) {
@@ -360,6 +371,10 @@ func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, l
 					if err != nil && logf != nil {
 						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create rabbit mq target failed, {}", err.Error())
 					} else {
+						rabbitMq.SetOnReady(func(ready bool) {
+							glog.I("rabbitmq target ready")
+							countdown.CountDown()
+						})
 						glog.I("start rabbitmq target, {}:{}, route: {}", rabbitConfig.Host, int(rabbitConfig.Port), rabbitConfig.Producer.Router)
 						gMqTargetManager[item.MQType] = rabbitMq
 						go func(rabbitMq *target.RabbitMQ) {
@@ -380,6 +395,10 @@ func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, l
 					if err != nil && logf != nil {
 						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create redis mq target failed, {}", err.Error())
 					} else {
+						redisMq.SetOnReady(func(ready bool) {
+							glog.I("redismq target ready")
+							countdown.CountDown()
+						})
 						glog.I("start redismq target, {}:{}, topic: {}", redisConfig.Host, int(redisConfig.Port), redisConfig.Topics)
 						gMqTargetManager[item.MQType] = redisMq
 						go func(redisMq *target.RedisMQ) {
@@ -400,6 +419,10 @@ func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, l
 					if err != nil && logf != nil {
 						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create rocket mq target failed, {}", err.Error())
 					} else {
+						rocketMq.SetOnReady(func(ready bool) {
+							glog.I("rocketmq target ready")
+							countdown.CountDown()
+						})
 						glog.I("start rocketmq target, {}, topic: {}", rocketConfig.Servers, rocketConfig.Producer.Topics)
 						gMqTargetManager[item.MQType] = rocketMq
 						go func(rocketMq *target.RocketMQ) {
@@ -420,6 +443,10 @@ func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, l
 					if err != nil && logf != nil {
 						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create rocket mq target failed, {}", err.Error())
 					} else {
+						mqttClient.SetOnReady(func(ready bool) {
+							glog.I("mqtt3 target ready")
+							countdown.CountDown()
+						})
 						glog.I("start rocketmq target, {}, topic: {}", mqttConfig.Broker, strings.Join(mqttConfig.Topics, ","))
 						gMqTargetManager[item.MQType] = mqttClient
 						go func(mqtt *target.MqttMQ) {

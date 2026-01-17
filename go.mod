@@ -9,7 +9,7 @@ require (
 	github.com/IBM/sarama v1.44.0
 	github.com/apache/rocketmq-client-go/v2 v2.1.2
 	github.com/eclipse/paho.mqtt.golang v1.5.0
-	github.com/khan-lau/kutils v0.4.5
+	github.com/khan-lau/kutils v0.4.6
 	github.com/khan-lau/mapstructure v1.5.4
 	github.com/nats-io/nats.go v1.44.0
 	github.com/titanous/json5 v1.0.0

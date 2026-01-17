@@ -8,6 +8,7 @@ const (
 
 type ErrorCallbackFunc func(err error)
 type EventCallbackFunc func(event interface{})
+type ReadyCallbackFunc func(ready bool)
 
 /////////////////////////////////////////////////////////////
 
@@ -22,6 +23,7 @@ type RedisConfig struct {
 
 	OnError ErrorCallbackFunc // 设置错误回调
 	OnExit  EventCallbackFunc // 设置退出回调
+	OnReady ReadyCallbackFunc // 设置启动完成回调
 }
 
 func NewRedisConfig() *RedisConfig {
@@ -77,5 +79,10 @@ func (that *RedisConfig) SetErrorCallback(callback ErrorCallbackFunc) *RedisConf
 
 func (that *RedisConfig) SetExitCallback(callback EventCallbackFunc) *RedisConfig {
 	that.OnExit = callback
+	return that
+}
+
+func (that *RedisConfig) SetReadyCallback(callback ReadyCallbackFunc) *RedisConfig {
+	that.OnReady = callback
 	return that
 }

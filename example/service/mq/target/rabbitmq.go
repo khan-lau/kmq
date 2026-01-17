@@ -18,8 +18,8 @@ type RabbitMQ struct {
 	name      string // 服务名称
 	status    idl.ServiceStatus
 	publisher *rabbitmq.Producer
-
-	logf klog.AppLogFuncWithTag
+	onReady   rabbitmq.ReadyCallbackFunc
+	logf      klog.AppLogFuncWithTag
 }
 
 const (
@@ -37,7 +37,11 @@ func NewRabbitMQ(ctx *kcontext.ContextNode, name string, conf *config.RabbitConf
 		publisher: nil,
 		logf:      logf,
 	}
-
+	_ = rabbitMQ.SetOnReady(func(ready bool) {
+		if rabbitMQ.onReady != nil {
+			rabbitMQ.onReady(ready)
+		}
+	})
 	return rabbitMQ, nil
 }
 
@@ -149,4 +153,9 @@ func (that *RabbitMQ) onError(obj interface{}, err error) {
 }
 
 func (that *RabbitMQ) onExit(obj interface{}) {
+}
+
+func (that *RabbitMQ) SetOnReady(callback rabbitmq.ReadyCallbackFunc) *RabbitMQ {
+	that.onReady = callback
+	return that
 }

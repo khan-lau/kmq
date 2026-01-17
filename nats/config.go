@@ -18,6 +18,7 @@ type SubscribeCallback func(voidObj interface{}, msg *NatsMessage)
 
 type ErrorCallbackFunc func(err error)
 type EventCallbackFunc func(event interface{})
+type ReadyCallbackFunc func(ready bool)
 
 type NatsMessage struct {
 	Seq     int64       // 消息序列号, 仅在 JetStream 模式下有效, 实际存储的是纳秒时间戳
@@ -609,6 +610,7 @@ type NatsClientConfig struct {
 
 	onError ErrorCallbackFunc // 设置错误回调
 	onExit  EventCallbackFunc // 设置退出回调
+	OnReady ReadyCallbackFunc // 设置启动完成回调
 }
 
 func NewNatsClientConfig() *NatsClientConfig {
@@ -653,6 +655,11 @@ func (that *NatsClientConfig) SetOnError(onError ErrorCallbackFunc) *NatsClientC
 
 func (that *NatsClientConfig) SetOnExit(onExit EventCallbackFunc) *NatsClientConfig {
 	that.onExit = onExit
+	return that
+}
+
+func (that *NatsClientConfig) SetReadyCallback(callback ReadyCallbackFunc) *NatsClientConfig {
+	that.OnReady = callback
 	return that
 }
 

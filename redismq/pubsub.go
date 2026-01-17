@@ -63,6 +63,10 @@ func (that *RedisPubSub) SyncSubscribe(voidObj interface{}, callback SubscribeCa
 		return
 	}
 
+	if that.conf != nil && that.conf.OnReady != nil {
+		that.conf.OnReady(true)
+	}
+
 	// consumerErrChan := make(chan error)
 	that.redisHandler.PSubscribeWithChanSize(1000, int(that.chanSize),
 		func(err error, topic string, payload interface{}) {
@@ -121,6 +125,10 @@ func (that *RedisPubSub) Start() {
 		subCtx.Cancel()
 		subCtx.Remove()
 		return
+	}
+
+	if that.conf != nil && that.conf.OnReady != nil {
+		that.conf.OnReady(true)
 	}
 
 END_LOOP:

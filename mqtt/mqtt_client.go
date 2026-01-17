@@ -359,7 +359,10 @@ func (that *MqttSubPub) ReadySend() {
 
 // 全局鉴权回调事件, 连接并鉴权成功或断开都会触发此函数
 func (that *MqttSubPub) onAuthed(isOnAuthed bool) {
-	if that.conf.OnAuthedCallback() != nil {
+	if that.conf != nil && that.conf.OnAuthedCallback() != nil {
 		that.conf.OnAuthedCallback()(that, isOnAuthed)
+		if isOnAuthed && that.conf.OnReady != nil {
+			that.conf.OnReady(true)
+		}
 	}
 }

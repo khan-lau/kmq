@@ -71,7 +71,7 @@ func NewSyncProducer(ctx *kcontext.ContextNode, chanSize uint, conf *Config, log
 	msgChan := make(chan *KafkaMessage, chanSize) // 初始化消息通道
 
 	subCtx := ctx.NewChild("kafka_sync_producer")
-	return &SyncProducer{
+	producerClient := &SyncProducer{
 		ctx:        subCtx,
 		brokerList: brokerList,
 		conf:       conf,
@@ -79,7 +79,12 @@ func NewSyncProducer(ctx *kcontext.ContextNode, chanSize uint, conf *Config, log
 		msgChan:    msgChan,
 		chanSize:   chanSize,
 		logf:       logf,
-	}, nil
+	}
+
+	if conf != nil && conf.OnReady != nil {
+		conf.OnReady(true)
+	}
+	return producerClient, nil
 }
 
 func (that *SyncProducer) Start() {
@@ -247,7 +252,7 @@ func NewAsyncProducer(ctx *kcontext.ContextNode, chanSize uint, conf *Config, lo
 	msgChan := make(chan *KafkaMessage, chanSize)
 
 	subCtx := ctx.NewChild("kafka_async_producer")
-	return &AsyncProducer{
+	producerClient := &AsyncProducer{
 		ctx:        subCtx,
 		brokerList: brokerList,
 		conf:       conf,
@@ -255,7 +260,8 @@ func NewAsyncProducer(ctx *kcontext.ContextNode, chanSize uint, conf *Config, lo
 		msgChan:    msgChan,
 		chanSize:   chanSize,
 		logf:       logf,
-	}, nil
+	}
+	return producerClient, nil
 }
 
 func (that *AsyncProducer) Start() {
@@ -283,16 +289,23 @@ func (that *AsyncProducer) Start() {
 		}
 	}(tmpCtx)
 
-END_LOOP:
-	for {
-		select {
-		case <-that.ctx.Context().Done():
-			break END_LOOP
-		case msg := <-that.msgChan:
-			// that.logf(klog.InfoLevel, kafka_tag, "kafka.AsyncProducer publish key:{} message: {}", string(msg.Key), string(msg.Value))
-			rawMsg := &sarama.ProducerMessage{Topic: msg.Topic, Key: sarama.StringEncoder(msg.Key), Value: sarama.ByteEncoder(msg.Value), Headers: msg.Headers}
-			that.Producer.Input() <- rawMsg
+	daemonCtx := that.ctx.NewChild("kafka_single_producer_daemon_child")
+	go func(ctx *kcontext.ContextNode) {
+	END_LOOP:
+		for {
+			select {
+			case <-ctx.Context().Done():
+				break END_LOOP
+			case msg := <-that.msgChan:
+				// that.logf(klog.InfoLevel, kafka_tag, "kafka.AsyncProducer publish key:{} message: {}", string(msg.Key), string(msg.Value))
+				rawMsg := &sarama.ProducerMessage{Topic: msg.Topic, Key: sarama.StringEncoder(msg.Key), Value: sarama.ByteEncoder(msg.Value), Headers: msg.Headers}
+				that.Producer.Input() <- rawMsg
+			}
 		}
+	}(daemonCtx)
+
+	if that.conf != nil && that.conf.OnReady != nil {
+		that.conf.OnReady(true)
 	}
 
 	<-that.ctx.Context().Done()

@@ -27,6 +27,7 @@ const (
 
 type ErrorCallbackFunc func(err error)
 type EventCallbackFunc func(event interface{})
+type ReadyCallbackFunc func(ready bool)
 
 /////////////////////////////////////////////////////////////
 
@@ -376,6 +377,7 @@ type Config struct {
 
 	OnError ErrorCallbackFunc // 设置错误回调
 	OnExit  EventCallbackFunc // 设置退出回调
+	OnReady ReadyCallbackFunc // 设置启动完成回调
 }
 
 func NewKafkaConfig() *Config {
@@ -469,5 +471,10 @@ func (that *Config) SetErrorCallback(callback ErrorCallbackFunc) *Config {
 
 func (that *Config) SetExitCallback(callback EventCallbackFunc) *Config {
 	that.OnExit = callback
+	return that
+}
+
+func (that *Config) SetReadyCallback(callback ReadyCallbackFunc) *Config {
+	that.OnReady = callback
 	return that
 }

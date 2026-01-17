@@ -16,6 +16,7 @@ const (
 
 type ErrorCallbackFunc func(err error)
 type EventCallbackFunc func(event interface{})
+type ReadyCallbackFunc func(ready bool)
 
 /////////////////////////////////////////////////////////////
 
@@ -211,6 +212,7 @@ type RocketConfig struct {
 
 	OnError ErrorCallbackFunc // 设置错误回调
 	OnExit  EventCallbackFunc // 设置退出回调
+	OnReady ReadyCallbackFunc // 设置启动完成回调
 }
 
 func NewRocketConfig() *RocketConfig {
@@ -288,6 +290,11 @@ func (that *RocketConfig) SetErrorCallback(callback ErrorCallbackFunc) *RocketCo
 
 func (that *RocketConfig) SetExitCallback(callback EventCallbackFunc) *RocketConfig {
 	that.OnExit = callback
+	return that
+}
+
+func (that *RocketConfig) SetReadyCallback(callback ReadyCallbackFunc) *RocketConfig {
+	that.OnReady = callback
 	return that
 }
 

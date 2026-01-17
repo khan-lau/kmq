@@ -87,7 +87,7 @@ func NewConsumer(ctx *kcontext.ContextNode, conf *Config, logf klog.AppLogFuncWi
 	topics = QueryTopics(client, topics...)
 
 	subCtx := ctx.NewChild("kafka_single_consumer")
-	return &Consumer{
+	consumerClient := &Consumer{
 		ctx:        subCtx,
 		brokerList: brokerList,
 		conf:       conf,
@@ -95,7 +95,8 @@ func NewConsumer(ctx *kcontext.ContextNode, conf *Config, logf klog.AppLogFuncWi
 		topics:     topics,
 		offset:     DEFAULT_OFFSET,
 		logf:       logf,
-	}, nil
+	}
+	return consumerClient, nil
 }
 
 func (that *Consumer) Subscribe(voidObj interface{}, callback SubscribeCallback) {
@@ -193,6 +194,9 @@ func (that *Consumer) SyncSubscribe(voidObj interface{}, callback SubscribeCallb
 		// }
 	}
 
+	if that.conf != nil && that.conf.OnReady != nil {
+		that.conf.OnReady(true)
+	}
 	<-that.ctx.Context().Done()
 
 	for it := contextList.Front(); it != nil; it = it.Next() {
@@ -350,6 +354,10 @@ func (that *ConsumerGroup) SyncSubscribe(voidObj interface{}, callback Subscribe
 			}
 		}
 	}(subCtx, msgChan)
+
+	if that.conf != nil && that.conf.OnReady != nil {
+		that.conf.OnReady(true)
+	}
 
 	<-that.ctx.Context().Done()
 	tmpCtx.Cancel()

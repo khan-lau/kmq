@@ -18,8 +18,8 @@ type KafkaMQ struct {
 	name      string // 服务名称
 	status    idl.ServiceStatus
 	publisher *kafka.AsyncProducer
-
-	logf klog.AppLogFuncWithTag
+	onReady   kafka.ReadyCallbackFunc
+	logf      klog.AppLogFuncWithTag
 }
 
 const (
@@ -37,7 +37,11 @@ func NewKafkaMQ(ctx *kcontext.ContextNode, name string, conf *config.KafkaConfig
 		publisher: nil,
 		logf:      logf,
 	}
-
+	_ = rabbitMQ.SetOnReady(func(ready bool) {
+		if rabbitMQ.onReady != nil {
+			rabbitMQ.onReady(ready)
+		}
+	})
 	return rabbitMQ, nil
 }
 
@@ -205,4 +209,8 @@ func (that *KafkaMQ) onError(obj interface{}, err error) {
 }
 
 func (that *KafkaMQ) onExit(obj interface{}) {
+}
+func (that *KafkaMQ) SetOnReady(callback kafka.ReadyCallbackFunc) *KafkaMQ {
+	that.onReady = callback
+	return that
 }
