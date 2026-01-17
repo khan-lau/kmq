@@ -19,8 +19,8 @@ type Log struct {
 	Colorful     bool   `json:"colorful" toml:"colorful" yaml:"colorful"`             // 是否彩色输出
 	MaxAge       int    `json:"maxAge" toml:"maxAge" yaml:"maxAge"`                   // 文件最大保存数量
 	RotationTime int    `json:"rotationTime" toml:"rotationTime" yaml:"rotationTime"` // 文件最大滚动时间
-	Async        bool   `json:"async" toml:"async" yaml:"async"`                      // 是否异步输出日志
 	Console      bool   `json:"console" toml:"console" yaml:"console"`                // 是否输出到控制台
+	Async        bool   `json:"async" toml:"async" yaml:"async"`                      // 是否异步输出日志
 	LogDir       string `json:"logDir" toml:"logDir" yaml:"logDir"`                   // 日志文件存储目录
 }
 

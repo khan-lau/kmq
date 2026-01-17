@@ -36,7 +36,7 @@ func NewNatsCoreClient(ctx *kcontext.ContextNode, chanSize uint, conf *NatsClien
 	}
 
 	subCtx := ctx.NewChild("natsmq_pubsub")
-	return &NatsCoreClient{
+	coreClient := &NatsCoreClient{
 		ctx:       subCtx,
 		conf:      conf,
 		conn:      nil,
@@ -45,7 +45,8 @@ func NewNatsCoreClient(ctx *kcontext.ContextNode, chanSize uint, conf *NatsClien
 		queue:     nil,
 		chanSize:  chanSize,
 		logf:      logf,
-	}, nil
+	}
+	return coreClient, nil
 }
 
 func (that *NatsCoreClient) Subscribe(voidObj interface{}, callback SubscribeCallback) {
@@ -119,6 +120,10 @@ func (that *NatsCoreClient) SyncSubscribe(voidObj interface{}, callback Subscrib
 		}
 	}
 
+	if that.conf != nil && that.conf.OnReady != nil {
+		that.conf.OnReady(true)
+	}
+
 	<-that.ctx.Context().Done()
 
 	that.stop()
@@ -148,6 +153,10 @@ func (that *NatsCoreClient) Start() {
 
 	that.queue = make(chan *NatsMessage, that.chanSize) //创建发送channel
 	subCtx := that.ctx.NewChild("natsmq_pub")
+
+	if that.conf != nil && that.conf.OnReady != nil {
+		that.conf.OnReady(true)
+	}
 
 END_LOOP:
 	for {
@@ -376,6 +385,9 @@ func (that *NatsJetStreamClient) Start() {
 	that.queue = make(chan *NatsMessage, that.chanSize) //创建发送channel
 	subCtx := that.ctx.NewChild("natsmq_js_pub")
 
+	if that.conf != nil && that.conf.OnReady != nil {
+		that.conf.OnReady(true)
+	}
 END_LOOP:
 	for {
 		select {
@@ -503,6 +515,10 @@ func (that *NatsJetStreamClient) SyncSubscribe(voidObj interface{}, callback Sub
 			}
 			that.sub[topic] = sub
 		}
+	}
+
+	if that.conf != nil && that.conf.OnReady != nil {
+		that.conf.OnReady(true)
 	}
 
 	<-that.ctx.Context().Done()

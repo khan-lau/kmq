@@ -13,6 +13,7 @@ const (
 )
 
 type OnAuthedCallback func(client *MqttSubPub, isAuthed bool)
+type ReadyCallbackFunc func(ready bool)
 
 type MqttMessage struct {
 	Topic     string
@@ -57,9 +58,10 @@ type Config struct {
 	timeout time.Duration         // 通信超时时间，单位为毫秒
 	topics  *klists.KList[string] // 订阅的主题列表
 
-	useTLS           bool             // 是否启用 TLS
-	caCertPath       string           // CA 证书路径, 仅当 useTLS 为 true 时有效
-	onAuthedCallback OnAuthedCallback // 认证回调
+	useTLS           bool              // 是否启用 TLS
+	caCertPath       string            // CA 证书路径, 仅当 useTLS 为 true 时有效
+	onAuthedCallback OnAuthedCallback  // 认证回调
+	OnReady          ReadyCallbackFunc // 设置启动完成回调
 
 }
 
@@ -199,6 +201,11 @@ func (that *Config) SetCaCertPath(caCertPath string) *Config {
 
 func (that *Config) SetOnAuthedCallback(onAuthed OnAuthedCallback) *Config {
 	that.onAuthedCallback = onAuthed
+	return that
+}
+
+func (that *Config) SetReadyCallback(callback ReadyCallbackFunc) *Config {
+	that.OnReady = callback
 	return that
 }
 

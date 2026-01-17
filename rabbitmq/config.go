@@ -25,6 +25,7 @@ const (
 
 type ErrorCallbackFunc func(err error)
 type EventCallbackFunc func(event interface{})
+type ReadyCallbackFunc func(ready bool)
 
 /////////////////////////////////////////////////////////////
 
@@ -174,6 +175,7 @@ type RabbitConfig struct {
 
 	OnError ErrorCallbackFunc // 设置错误回调
 	OnExit  EventCallbackFunc // 设置退出回调
+	OnReady ReadyCallbackFunc // 设置启动完成回调
 }
 
 func NewRabbitConfig() *RabbitConfig {
@@ -222,5 +224,10 @@ func (that *RabbitConfig) SetErrorCallback(callback ErrorCallbackFunc) *RabbitCo
 
 func (that *RabbitConfig) SetExitCallback(callback EventCallbackFunc) *RabbitConfig {
 	that.OnExit = callback
+	return that
+}
+
+func (that *RabbitConfig) SetReadyCallback(callback ReadyCallbackFunc) *RabbitConfig {
+	that.OnReady = callback
 	return that
 }

@@ -22,8 +22,8 @@ type RedisMQ struct {
 	name      string // 服务名称
 	status    idl.ServiceStatus
 	publisher *redismq.RedisPubSub
-
-	logf klog.AppLogFuncWithTag
+	onReady   redismq.ReadyCallbackFunc
+	logf      klog.AppLogFuncWithTag
 }
 
 func NewRedisMQ(ctx *kcontext.ContextNode, name string, conf *config.RedisConfig, logf klog.AppLogFuncWithTag) (*RedisMQ, error) {
@@ -37,7 +37,11 @@ func NewRedisMQ(ctx *kcontext.ContextNode, name string, conf *config.RedisConfig
 		publisher: nil,
 		logf:      logf,
 	}
-
+	_ = redisMQ.SetOnReady(func(ready bool) {
+		if redisMQ.onReady != nil {
+			redisMQ.onReady(ready)
+		}
+	})
 	return redisMQ, nil
 }
 
@@ -138,4 +142,9 @@ func (that *RedisMQ) onError(obj interface{}, err error) {
 }
 
 func (that *RedisMQ) onExit(obj interface{}) {
+}
+
+func (that *RedisMQ) SetOnReady(callback redismq.ReadyCallbackFunc) *RedisMQ {
+	that.onReady = callback
+	return that
 }

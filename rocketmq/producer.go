@@ -88,6 +88,10 @@ func NewProducer(ctx *kcontext.ContextNode, chanSize uint, conf *RocketConfig, l
 	subCtx := ctx.NewChild("rocketmq_producer")
 	tProducer.ctx = subCtx
 
+	if conf.OnReady != nil {
+		conf.OnReady(true)
+	}
+
 	return tProducer, nil
 }
 

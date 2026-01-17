@@ -22,6 +22,7 @@ import (
 	"github.com/khan-lau/kutils/container/kstrings"
 	"github.com/khan-lau/kutils/filesystem"
 	klog "github.com/khan-lau/kutils/klogger"
+	"github.com/khan-lau/kutils/ksync"
 )
 
 var ( // 程序信息
@@ -141,21 +142,22 @@ func main() {
 	if conf.Type == "send" {
 		//  此处添加一个生产数据的服务
 		waitGroup.Add(1)
-		go func(ctx *kcontext.ContextNode) {
+
+		countDown := ksync.NewCountDownLatch(len(conf.Target))
+
+		go func(ctx *kcontext.ContextNode, countdown *ksync.CountDownLatch) {
 			defer waitGroup.Done()
 
 			// 消息队列target服务
 			glog.I("start manager mq target service")
-			startMqTarget(ctx, conf.Target, LogFunc)
-
-			gDispatcher = dispatch.NewDispatchService(ctx, conf.DumpHex, 0, 1, "dispatch", gMqTargetManager, LogFunc)
+			startMqTarget(ctx, conf.Target, countDown, LogFunc)
 
 			var messages *klists.KList[*dispatch.GenericMessage]
 			if filesystem.IsFileExists(replayDataPath) { // 如果存在重放文件, 则读取重放记录
-				glog.D("founded test file : {}", replayDataPath)
+				glog.I("founded test file : {}", replayDataPath)
 				messages = getReplayData(conf.DumpHex, replayDataPath)
 			} else if filesystem.IsFileExists(workReplayDataPath) { // 如果存在重放文件, 则读取重放记录
-				glog.D("founded test file : {}", workReplayDataPath)
+				glog.I("founded test file : {}", workReplayDataPath)
 				messages = getReplayData(conf.DumpHex, workReplayDataPath)
 			} else {
 				// fmt.Printf("not found test file : %s or %s \n", replayDataPath, workReplayDataPath)
@@ -164,6 +166,7 @@ func main() {
 				return
 			}
 
+			gDispatcher = dispatch.NewDispatchService(ctx, conf.DumpHex, 0, 1, "dispatch", gMqTargetManager, LogFunc)
 			gDispatcher.StartAsync()
 
 			msgArr := make([]*dispatch.GenericMessage, 0)
@@ -172,6 +175,18 @@ func main() {
 			}
 			sendCtx := mainCtx.NewChild("sendCtx")
 			go func(ctx *kcontext.ContextNode, sendInterval uint32, messages []*dispatch.GenericMessage) {
+				// 确保所有的target已经启动完成, 否则退出程序
+				err := countdown.WaitWithTimeout(15 * 60 * 1000 * time.Millisecond) // 等待startMqTarget 启动完成, 15分钟超时退出
+				if err != nil {
+					glog.E("targets init failt: {}", err)
+					root := ctx.Root()
+					if root != nil {
+						root.Cancel() // 超时退出
+					}
+					return
+				}
+				glog.I("all target is ready")
+
 				// 创建一个定时器，每隔`ScanInterval`秒执行一次
 				index := 0
 				timer := time.NewTimer(time.Duration(sendInterval) * time.Millisecond)
@@ -214,9 +229,7 @@ func main() {
 
 			}(sendCtx, conf.SendInterval, msgArr)
 			glog.I("replay data is finished")
-
-		}(mainCtx)
-
+		}(mainCtx, countDown)
 	} else {
 
 		// MQ offset sync服务, 该服务用于定时将当前offset记录到文件中, 以便重启时恢复offset

@@ -57,6 +57,10 @@ func NewConsumer(conf *RabbitConfig, logf klog.AppLogFuncWithTag) (*Consumer, er
 		return nil, err
 	}
 
+	if conf.OnReady != nil {
+		conf.OnReady(true)
+	}
+
 	return &Consumer{conn: conn, consumer: consumer, conf: conf, logf: logf}, nil
 }
 

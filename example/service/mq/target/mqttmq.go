@@ -22,14 +22,14 @@ type MqttMQ struct {
 	name      string // 服务名称
 	status    idl.ServiceStatus
 	publisher *mqtt.MqttSubPub
-
-	logf klog.AppLogFuncWithTag
+	onReady   mqtt.ReadyCallbackFunc
+	logf      klog.AppLogFuncWithTag
 }
 
 func NewMqttMQ(ctx *kcontext.ContextNode, name string, conf *config.MqttConfig, logf klog.AppLogFuncWithTag) (*MqttMQ, error) {
 	subCtx := ctx.NewChild(kstrings.FormatString("{}_{}", redismq_tag, name))
 
-	redisMQ := &MqttMQ{
+	mqttMq := &MqttMQ{
 		ctx:       subCtx,
 		conf:      conf,
 		name:      name,
@@ -38,7 +38,12 @@ func NewMqttMQ(ctx *kcontext.ContextNode, name string, conf *config.MqttConfig, 
 		logf:      logf,
 	}
 
-	return redisMQ, nil
+	_ = mqttMq.SetOnReady(func(ready bool) {
+		if mqttMq.onReady != nil {
+			mqttMq.onReady(ready)
+		}
+	})
+	return mqttMq, nil
 }
 
 func (that *MqttMQ) Name() string {
@@ -185,4 +190,9 @@ func (that *MqttMQ) publish(msg *mqtt.MqttMessage) bool {
 		return false
 	}
 	return that.publisher.Publish(msg)
+}
+
+func (that *MqttMQ) SetOnReady(callback mqtt.ReadyCallbackFunc) *MqttMQ {
+	that.onReady = callback
+	return that
 }

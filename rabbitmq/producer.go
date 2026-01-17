@@ -70,6 +70,10 @@ func NewProducer(ctx *kcontext.ContextNode, chanSize uint, conf *RabbitConfig, l
 	})
 
 	subCtx := ctx.NewChild("rabbitmq_producer")
+
+	if conf.OnReady != nil {
+		conf.OnReady(true)
+	}
 	return &Producer{ctx: subCtx, conn: conn, publisher: publisher, queue: queue, chanSize: chanSize, conf: conf, logf: logf}, nil
 }
 

@@ -24,8 +24,8 @@ type NatsCoreMQ struct {
 	name      string // 服务名称
 	status    idl.ServiceStatus
 	publisher *nats.NatsCoreClient
-
-	logf klog.AppLogFuncWithTag
+	onReady   nats.ReadyCallbackFunc
+	logf      klog.AppLogFuncWithTag
 }
 
 func NewNatsCoreMQ(ctx *kcontext.ContextNode, name string, conf *config.NatsCoreConfig, logf klog.AppLogFuncWithTag) (*NatsCoreMQ, error) {
@@ -58,6 +58,12 @@ func NewNatsCoreMQ(ctx *kcontext.ContextNode, name string, conf *config.NatsCore
 		publisher: nil,
 		logf:      logf,
 	}
+
+	_ = natsCoreMq.SetOnReady(func(ready bool) {
+		if natsCoreMq.onReady != nil {
+			natsCoreMq.onReady(ready)
+		}
+	})
 
 	return natsCoreMq, nil
 }
@@ -179,6 +185,11 @@ func (that *NatsCoreMQ) onError(obj interface{}, err error) {
 func (that *NatsCoreMQ) onExit(obj interface{}) {
 }
 
+func (that *NatsCoreMQ) SetOnReady(callback nats.ReadyCallbackFunc) *NatsCoreMQ {
+	that.onReady = callback
+	return that
+}
+
 ///////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////
@@ -189,8 +200,8 @@ type NatsJetStreamMQ struct {
 	name      string // 服务名称
 	status    idl.ServiceStatus
 	publisher *nats.NatsJetStreamClient
-
-	logf klog.AppLogFuncWithTag
+	onReady   nats.ReadyCallbackFunc
+	logf      klog.AppLogFuncWithTag
 }
 
 func NewNatsJetStreamMQ(ctx *kcontext.ContextNode, name string, conf *config.NatsJsConfig, logf klog.AppLogFuncWithTag) (*NatsJetStreamMQ, error) {
@@ -261,7 +272,11 @@ func NewNatsJetStreamMQ(ctx *kcontext.ContextNode, name string, conf *config.Nat
 		publisher: nil,
 		logf:      logf,
 	}
-
+	_ = natsJSMq.SetOnReady(func(ready bool) {
+		if natsJSMq.onReady != nil {
+			natsJSMq.onReady(ready)
+		}
+	})
 	return natsJSMq, nil
 }
 
@@ -397,4 +412,9 @@ func (that *NatsJetStreamMQ) onError(obj interface{}, err error) {
 }
 
 func (that *NatsJetStreamMQ) onExit(obj interface{}) {
+}
+
+func (that *NatsJetStreamMQ) SetOnReady(callback nats.ReadyCallbackFunc) *NatsJetStreamMQ {
+	that.onReady = callback
+	return that
 }

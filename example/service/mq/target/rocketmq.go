@@ -20,8 +20,8 @@ type RocketMQ struct {
 	name      string // 服务名称
 	status    idl.ServiceStatus
 	publisher *rocketmq.Producer
-
-	logf klog.AppLogFuncWithTag
+	onReady   rocketmq.ReadyCallbackFunc
+	logf      klog.AppLogFuncWithTag
 }
 
 const (
@@ -31,7 +31,7 @@ const (
 func NewRocketMQ(ctx *kcontext.ContextNode, name string, conf *config.RocketConfig, logf klog.AppLogFuncWithTag) (*RocketMQ, error) {
 	subCtx := ctx.NewChild(kstrings.FormatString("{}_{}", rocketmq_tag, name))
 
-	rabbitMQ := &RocketMQ{
+	rocketMQ := &RocketMQ{
 		ctx:       subCtx,
 		conf:      conf,
 		name:      name,
@@ -39,8 +39,12 @@ func NewRocketMQ(ctx *kcontext.ContextNode, name string, conf *config.RocketConf
 		publisher: nil,
 		logf:      logf,
 	}
-
-	return rabbitMQ, nil
+	_ = rocketMQ.SetOnReady(func(ready bool) {
+		if rocketMQ.onReady != nil {
+			rocketMQ.onReady(ready)
+		}
+	})
+	return rocketMQ, nil
 }
 
 func (that *RocketMQ) Name() string {
@@ -165,4 +169,9 @@ func (that *RocketMQ) onError(obj interface{}, err error) {
 }
 
 func (that *RocketMQ) onExit(obj interface{}) {
+}
+
+func (that *RocketMQ) SetOnReady(callback rocketmq.ReadyCallbackFunc) *RocketMQ {
+	that.onReady = callback
+	return that
 }
