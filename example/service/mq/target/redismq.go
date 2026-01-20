@@ -39,11 +39,7 @@ func NewRedisMQ(ctx *kcontext.ContextNode, name string, conf *config.RedisConfig
 		publisher: nil,
 		logf:      logf,
 	}
-	_ = redisMQ.SetOnReady(func(ready bool) {
-		if redisMQ.onReady != nil {
-			redisMQ.onReady(ready)
-		}
-	})
+
 	return redisMQ, nil
 }
 
@@ -78,6 +74,13 @@ func (that *RedisMQ) Start() error {
 		SetRetry(int(that.conf.Retry)).
 		SetTopics(that.conf.Topics...)
 	that.publisher = redismq.NewRedisPubSub(that.ctx, that.chanSize, redisConf, that.logf)
+
+	redisConf.SetReadyCallback(func(ready bool) {
+		if that.onReady != nil {
+			that.onReady(ready)
+		}
+	})
+
 	redisConf.SetExitCallback(func(event interface{}) {
 		that.onExit(event)
 	})

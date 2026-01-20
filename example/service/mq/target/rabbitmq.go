@@ -39,11 +39,7 @@ func NewRabbitMQ(ctx *kcontext.ContextNode, name string, conf *config.RabbitConf
 		publisher: nil,
 		logf:      logf,
 	}
-	_ = rabbitMQ.SetOnReady(func(ready bool) {
-		if rabbitMQ.onReady != nil {
-			rabbitMQ.onReady(ready)
-		}
-	})
+
 	return rabbitMQ, nil
 }
 
@@ -92,6 +88,12 @@ func (that *RabbitMQ) Start() error {
 	if err != nil {
 		return err
 	}
+
+	rabbitConfig.SetReadyCallback(func(ready bool) {
+		if that.onReady != nil {
+			that.onReady(ready)
+		}
+	})
 
 	rabbitConfig.SetExitCallback(func(event interface{}) {
 		that.onExit(event)

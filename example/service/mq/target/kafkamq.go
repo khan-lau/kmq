@@ -30,7 +30,7 @@ const (
 func NewKafkaMQ(ctx *kcontext.ContextNode, name string, conf *config.KafkaConfig, chanSize uint, logf klog.AppLogFuncWithTag) (*KafkaMQ, error) {
 	subCtx := ctx.NewChild(kstrings.FormatString("{}_{}", kafkamq_tag, name))
 
-	rabbitMQ := &KafkaMQ{
+	kafkaMQ := &KafkaMQ{
 		ctx:       subCtx,
 		conf:      conf,
 		name:      name,
@@ -39,12 +39,8 @@ func NewKafkaMQ(ctx *kcontext.ContextNode, name string, conf *config.KafkaConfig
 		publisher: nil,
 		logf:      logf,
 	}
-	_ = rabbitMQ.SetOnReady(func(ready bool) {
-		if rabbitMQ.onReady != nil {
-			rabbitMQ.onReady(ready)
-		}
-	})
-	return rabbitMQ, nil
+
+	return kafkaMQ, nil
 }
 
 func (that *KafkaMQ) Name() string {
@@ -109,6 +105,12 @@ func (that *KafkaMQ) Start() error {
 	if err != nil {
 		return err
 	}
+
+	kafkaConfig.SetReadyCallback(func(ready bool) {
+		if that.onReady != nil {
+			that.onReady(ready)
+		}
+	})
 
 	kafkaConfig.SetExitCallback(func(event interface{}) {
 		that.onExit(event)

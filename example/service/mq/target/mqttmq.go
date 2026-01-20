@@ -40,11 +40,6 @@ func NewMqttMQ(ctx *kcontext.ContextNode, name string, conf *config.MqttConfig, 
 		logf:      logf,
 	}
 
-	_ = mqttMq.SetOnReady(func(ready bool) {
-		if mqttMq.onReady != nil {
-			mqttMq.onReady(ready)
-		}
-	})
 	return mqttMq, nil
 }
 
@@ -86,6 +81,12 @@ func (that *MqttMQ) Start() error {
 	if err != nil {
 		return err
 	}
+
+	mqttConf.SetReadyCallback(func(ready bool) {
+		if that.onReady != nil {
+			that.onReady(ready)
+		}
+	})
 	mqttConf.SetOnAuthedCallback(func(client *mqtt.MqttSubPub, isAuthed bool) {
 		if isAuthed {
 			// 连接且鉴权成功, 开始发送循环

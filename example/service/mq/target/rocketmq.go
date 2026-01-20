@@ -41,11 +41,7 @@ func NewRocketMQ(ctx *kcontext.ContextNode, name string, conf *config.RocketConf
 		publisher: nil,
 		logf:      logf,
 	}
-	_ = rocketMQ.SetOnReady(func(ready bool) {
-		if rocketMQ.onReady != nil {
-			rocketMQ.onReady(ready)
-		}
-	})
+
 	return rocketMQ, nil
 }
 
@@ -102,6 +98,11 @@ func (that *RocketMQ) Start() error {
 		return err
 	}
 
+	rocketConfig.SetReadyCallback(func(ready bool) {
+		if that.onReady != nil {
+			that.onReady(ready)
+		}
+	})
 	rocketConfig.SetExitCallback(func(event interface{}) {
 		that.onExit(event)
 	})

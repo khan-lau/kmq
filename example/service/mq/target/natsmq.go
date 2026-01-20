@@ -61,12 +61,6 @@ func NewNatsCoreMQ(ctx *kcontext.ContextNode, name string, conf *config.NatsCore
 		logf:      logf,
 	}
 
-	_ = natsCoreMq.SetOnReady(func(ready bool) {
-		if natsCoreMq.onReady != nil {
-			natsCoreMq.onReady(ready)
-		}
-	})
-
 	return natsCoreMq, nil
 }
 
@@ -118,6 +112,12 @@ func (that *NatsCoreMQ) Start() error {
 		return err
 	}
 	that.publisher = publisher
+
+	natsConf.SetReadyCallback(func(ready bool) {
+		if that.onReady != nil {
+			that.onReady(ready)
+		}
+	})
 
 	natsConf.SetOnExit(func(event interface{}) {
 		that.onExit(event)
@@ -276,11 +276,7 @@ func NewNatsJetStreamMQ(ctx *kcontext.ContextNode, name string, conf *config.Nat
 		publisher: nil,
 		logf:      logf,
 	}
-	_ = natsJSMq.SetOnReady(func(ready bool) {
-		if natsJSMq.onReady != nil {
-			natsJSMq.onReady(ready)
-		}
-	})
+
 	return natsJSMq, nil
 }
 
@@ -348,6 +344,12 @@ func (that *NatsJetStreamMQ) Start() error {
 		return err
 	}
 	that.publisher = publisher
+
+	natsConf.SetReadyCallback(func(ready bool) {
+		if that.onReady != nil {
+			that.onReady(ready)
+		}
+	})
 
 	natsConf.SetOnExit(func(event interface{}) {
 		that.onExit(event)
