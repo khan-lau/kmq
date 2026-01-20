@@ -40,6 +40,7 @@ type Configure struct {
 	SyncTime       uint64       `json:"syncTime" toml:"syncTime" yaml:"syncTime"`                   // 同步周期, 单位毫秒,不低于1000毫秒
 	SyncFile       string       `json:"syncFile" toml:"syncFile" yaml:"syncFile"`                   // 同步文件路径, 同步偏移量缓存文件路径配置
 	SendInterval   uint32       `json:"sendInterval" toml:"sendInterval" yaml:"sendInterval"`       // 发送间隔, 单位毫秒
+	SendQueueSize  uint32       `json:"sendQueueSize" toml:"sendQueueSize" yaml:"sendQueueSize"`    // 发送队列大小, 仅发送模式有效, 单位为条数
 	SendFile       string       `json:"sendFile" toml:"sendFile" yaml:"sendFile"`                   // 发送文件路径
 	DumpHex        bool         `json:"dumpHex" toml:"dumpHex" yaml:"dumpHex"`                      // 数据包是否为hexString格式; recv模式时体现在日志中; send模式时,表示 `sendFile` 中的格式是否为hexString格式
 	ResetTimestamp bool         `json:"resetTimestamp" toml:"resetTimestamp" yaml:"resetTimestamp"` // 是否重置时间戳
@@ -242,6 +243,10 @@ func (that *Configure) process() {
 			}
 
 		}
+	}
+
+	if that.SendQueueSize < 1 {
+		that.SendQueueSize = 1
 	}
 }
 

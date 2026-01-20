@@ -17,6 +17,7 @@ type RabbitMQ struct {
 	conf      *config.RabbitConfig
 	name      string // 服务名称
 	status    idl.ServiceStatus
+	chanSize  uint
 	publisher *rabbitmq.Producer
 	onReady   rabbitmq.ReadyCallbackFunc
 	logf      klog.AppLogFuncWithTag
@@ -26,13 +27,14 @@ const (
 	rabbitmq_tag = "rabbitmq_target"
 )
 
-func NewRabbitMQ(ctx *kcontext.ContextNode, name string, conf *config.RabbitConfig, logf klog.AppLogFuncWithTag) (*RabbitMQ, error) {
+func NewRabbitMQ(ctx *kcontext.ContextNode, name string, conf *config.RabbitConfig, chanSize uint, logf klog.AppLogFuncWithTag) (*RabbitMQ, error) {
 	subCtx := ctx.NewChild(kstrings.FormatString("{}_{}", rabbitmq_tag, name))
 
 	rabbitMQ := &RabbitMQ{
 		ctx:       subCtx,
 		conf:      conf,
 		name:      name,
+		chanSize:  chanSize,
 		status:    idl.ServiceStatusStopped,
 		publisher: nil,
 		logf:      logf,
@@ -86,7 +88,7 @@ func (that *RabbitMQ) Start() error {
 		SetVHost(that.conf.VHost).
 		SetProducer(rabbitProducerConfig)
 
-	publisher, err := rabbitmq.NewProducer(that.ctx, 20000, rabbitConfig, that.logf)
+	publisher, err := rabbitmq.NewProducer(that.ctx, uint(that.chanSize), rabbitConfig, that.logf)
 	if err != nil {
 		return err
 	}

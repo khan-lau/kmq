@@ -1,6 +1,7 @@
 {
   type: "send",  // 支持send recv 两种模式
   sendInterval : 5000,            // send模式的发送频率, 单位ms, 模拟发送数据时使用
+  sendQueueSize: 1,               // send模式的缓冲队列大小, 仅发送模式时有效, 默认值1, 不得小于1
   sendFile : 'conf/alarm.message',// 模拟发送的数据文件
   dumpHex: false,                 // 数据包是否为hexString格式; recv模式时体现在日志中; send模式时,表示 `sendFile` 中的格式是否为hexString格式
   resetTimestamp: false,          // 有标准点数据时, 重置时间戳为发送当前时间

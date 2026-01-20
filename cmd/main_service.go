@@ -282,7 +282,7 @@ func startMqSource(ctx *kcontext.ContextNode, toHex bool, sourceItems []*config.
 	waitGroup.Wait()
 }
 
-func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, countdown *ksync.CountDownLatch, logf klog.AppLogFuncWithTag) {
+func startMqTarget(ctx *kcontext.ContextNode, sendQueueSize uint, targetItems []*config.MQItemObj, countdown *ksync.CountDownLatch, logf klog.AppLogFuncWithTag) {
 	waitGroup := sync.WaitGroup{}
 
 	for _, item := range targetItems {
@@ -291,7 +291,7 @@ func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, c
 			switch item.MQType {
 			case "natscoremq":
 				if natsCoreConfig, ok := item.Item.(*config.NatsCoreConfig); ok {
-					natsCoreMq, err := target.NewNatsCoreMQ(ctx, "NatsCoreTarget", natsCoreConfig, logf)
+					natsCoreMq, err := target.NewNatsCoreMQ(ctx, "NatsCoreTarget", natsCoreConfig, sendQueueSize, logf)
 					if err != nil && logf != nil {
 						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create nats core mq target failed, {}", err.Error())
 					} else {
@@ -316,7 +316,7 @@ func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, c
 				}
 			case "natsjsmq":
 				if natsJsConfig, ok := item.Item.(*config.NatsJsConfig); ok {
-					natsJsMq, err := target.NewNatsJetStreamMQ(ctx, "NatsJSTarget", natsJsConfig, logf)
+					natsJsMq, err := target.NewNatsJetStreamMQ(ctx, "NatsJSTarget", natsJsConfig, sendQueueSize, logf)
 					if err != nil && logf != nil {
 						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create nats jetstream mq target failed, {}", err.Error())
 					} else {
@@ -342,7 +342,7 @@ func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, c
 				}
 			case "kafkamq":
 				if kafkaConfig, ok := item.Item.(*config.KafkaConfig); ok {
-					kafkaMq, err := target.NewKafkaMQ(ctx, "KafkaTarget", kafkaConfig, logf)
+					kafkaMq, err := target.NewKafkaMQ(ctx, "KafkaTarget", kafkaConfig, sendQueueSize, logf)
 					if err != nil && logf != nil {
 						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create kafka mq target failed, {}", err.Error())
 					} else {
@@ -367,7 +367,7 @@ func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, c
 				}
 			case "rabbitmq":
 				if rabbitConfig, ok := item.Item.(*config.RabbitConfig); ok {
-					rabbitMq, err := target.NewRabbitMQ(ctx, "RabbitTarget", rabbitConfig, logf)
+					rabbitMq, err := target.NewRabbitMQ(ctx, "RabbitTarget", rabbitConfig, sendQueueSize, logf)
 					if err != nil && logf != nil {
 						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create rabbit mq target failed, {}", err.Error())
 					} else {
@@ -391,7 +391,7 @@ func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, c
 				}
 			case "redismq":
 				if redisConfig, ok := item.Item.(*config.RedisConfig); ok {
-					redisMq, err := target.NewRedisMQ(ctx, "RedisTarget", redisConfig, logf)
+					redisMq, err := target.NewRedisMQ(ctx, "RedisTarget", redisConfig, sendQueueSize, logf)
 					if err != nil && logf != nil {
 						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create redis mq target failed, {}", err.Error())
 					} else {
@@ -415,7 +415,7 @@ func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, c
 				}
 			case "rocketmq":
 				if rocketConfig, ok := item.Item.(*config.RocketConfig); ok {
-					rocketMq, err := target.NewRocketMQ(ctx, "RocketTarget", rocketConfig, logf)
+					rocketMq, err := target.NewRocketMQ(ctx, "RocketTarget", rocketConfig, sendQueueSize, logf)
 					if err != nil && logf != nil {
 						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create rocket mq target failed, {}", err.Error())
 					} else {
@@ -439,7 +439,7 @@ func startMqTarget(ctx *kcontext.ContextNode, targetItems []*config.MQItemObj, c
 				}
 			case "mqtt3":
 				if mqttConfig, ok := item.Item.(*config.MqttConfig); ok {
-					mqttClient, err := target.NewMqttMQ(ctx, "MqttSource", mqttConfig, logf)
+					mqttClient, err := target.NewMqttMQ(ctx, "MqttSource", mqttConfig, sendQueueSize, logf)
 					if err != nil && logf != nil {
 						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create rocket mq target failed, {}", err.Error())
 					} else {

@@ -150,7 +150,7 @@ func main() {
 
 			// 消息队列target服务
 			glog.I("start manager mq target service")
-			startMqTarget(ctx, conf.Target, countDown, LogFunc)
+			startMqTarget(ctx, uint(conf.SendQueueSize), conf.Target, countDown, LogFunc)
 
 			var messages *klists.KList[*dispatch.GenericMessage]
 			if filesystem.IsFileExists(replayDataPath) { // 如果存在重放文件, 则读取重放记录

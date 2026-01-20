@@ -19,6 +19,7 @@ type RocketMQ struct {
 	conf      *config.RocketConfig
 	name      string // 服务名称
 	status    idl.ServiceStatus
+	chanSize  uint
 	publisher *rocketmq.Producer
 	onReady   rocketmq.ReadyCallbackFunc
 	logf      klog.AppLogFuncWithTag
@@ -28,7 +29,7 @@ const (
 	rocketmq_tag = "rocketmq_target"
 )
 
-func NewRocketMQ(ctx *kcontext.ContextNode, name string, conf *config.RocketConfig, logf klog.AppLogFuncWithTag) (*RocketMQ, error) {
+func NewRocketMQ(ctx *kcontext.ContextNode, name string, conf *config.RocketConfig, chanSize uint, logf klog.AppLogFuncWithTag) (*RocketMQ, error) {
 	subCtx := ctx.NewChild(kstrings.FormatString("{}_{}", rocketmq_tag, name))
 
 	rocketMQ := &RocketMQ{
@@ -36,6 +37,7 @@ func NewRocketMQ(ctx *kcontext.ContextNode, name string, conf *config.RocketConf
 		conf:      conf,
 		name:      name,
 		status:    idl.ServiceStatusStopped,
+		chanSize:  chanSize,
 		publisher: nil,
 		logf:      logf,
 	}
@@ -95,7 +97,7 @@ func (that *RocketMQ) Start() error {
 		SetNsResolver(that.conf.NsResolver).
 		SetProducer(rabbitProducerConfig)
 
-	publisher, err := rocketmq.NewProducer(that.ctx, 20000, rocketConfig, that.logf)
+	publisher, err := rocketmq.NewProducer(that.ctx, that.chanSize, rocketConfig, that.logf)
 	if err != nil {
 		return err
 	}

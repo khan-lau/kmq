@@ -21,12 +21,13 @@ type RedisMQ struct {
 	conf      *config.RedisConfig
 	name      string // 服务名称
 	status    idl.ServiceStatus
+	chanSize  uint
 	publisher *redismq.RedisPubSub
 	onReady   redismq.ReadyCallbackFunc
 	logf      klog.AppLogFuncWithTag
 }
 
-func NewRedisMQ(ctx *kcontext.ContextNode, name string, conf *config.RedisConfig, logf klog.AppLogFuncWithTag) (*RedisMQ, error) {
+func NewRedisMQ(ctx *kcontext.ContextNode, name string, conf *config.RedisConfig, chanSize uint, logf klog.AppLogFuncWithTag) (*RedisMQ, error) {
 	subCtx := ctx.NewChild(kstrings.FormatString("{}_{}", redismq_tag, name))
 
 	redisMQ := &RedisMQ{
@@ -34,6 +35,7 @@ func NewRedisMQ(ctx *kcontext.ContextNode, name string, conf *config.RedisConfig
 		conf:      conf,
 		name:      name,
 		status:    idl.ServiceStatusStopped,
+		chanSize:  chanSize,
 		publisher: nil,
 		logf:      logf,
 	}
@@ -75,7 +77,7 @@ func (that *RedisMQ) Start() error {
 		SetDB(int(that.conf.DbNum)).
 		SetRetry(int(that.conf.Retry)).
 		SetTopics(that.conf.Topics...)
-	that.publisher = redismq.NewRedisPubSub(that.ctx, 20000, redisConf, that.logf)
+	that.publisher = redismq.NewRedisPubSub(that.ctx, that.chanSize, redisConf, that.logf)
 	redisConf.SetExitCallback(func(event interface{}) {
 		that.onExit(event)
 	})

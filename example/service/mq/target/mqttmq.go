@@ -21,12 +21,13 @@ type MqttMQ struct {
 	conf      *config.MqttConfig
 	name      string // 服务名称
 	status    idl.ServiceStatus
+	chanSize  uint
 	publisher *mqtt.MqttSubPub
 	onReady   mqtt.ReadyCallbackFunc
 	logf      klog.AppLogFuncWithTag
 }
 
-func NewMqttMQ(ctx *kcontext.ContextNode, name string, conf *config.MqttConfig, logf klog.AppLogFuncWithTag) (*MqttMQ, error) {
+func NewMqttMQ(ctx *kcontext.ContextNode, name string, conf *config.MqttConfig, chanSize uint, logf klog.AppLogFuncWithTag) (*MqttMQ, error) {
 	subCtx := ctx.NewChild(kstrings.FormatString("{}_{}", redismq_tag, name))
 
 	mqttMq := &MqttMQ{
@@ -34,6 +35,7 @@ func NewMqttMQ(ctx *kcontext.ContextNode, name string, conf *config.MqttConfig, 
 		conf:      conf,
 		name:      name,
 		status:    idl.ServiceStatusStopped,
+		chanSize:  chanSize,
 		publisher: nil,
 		logf:      logf,
 	}
@@ -80,7 +82,7 @@ func (that *MqttMQ) Start() error {
 		SetWillTopic(that.conf.WillTopic).SetWillQos(byte(that.conf.WillQos)).SetWillRetain(that.conf.WillRetain).SetWillPayload([]byte(that.conf.WillPayload)).
 		SetTopics(that.conf.Topics...).SetUseTLS(that.conf.UseTLS).SetCaCertPath(that.conf.CaCertPath)
 
-	publisher, err := mqtt.NewMQTTClient(that.ctx, 20000, mqttConf, that.logf)
+	publisher, err := mqtt.NewMQTTClient(that.ctx, uint(that.chanSize), mqttConf, that.logf)
 	if err != nil {
 		return err
 	}

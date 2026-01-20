@@ -17,6 +17,7 @@ type KafkaMQ struct {
 	conf      *config.KafkaConfig
 	name      string // 服务名称
 	status    idl.ServiceStatus
+	chanSize  uint
 	publisher *kafka.AsyncProducer
 	onReady   kafka.ReadyCallbackFunc
 	logf      klog.AppLogFuncWithTag
@@ -26,7 +27,7 @@ const (
 	kafkamq_tag = "kafkamq_target"
 )
 
-func NewKafkaMQ(ctx *kcontext.ContextNode, name string, conf *config.KafkaConfig, logf klog.AppLogFuncWithTag) (*KafkaMQ, error) {
+func NewKafkaMQ(ctx *kcontext.ContextNode, name string, conf *config.KafkaConfig, chanSize uint, logf klog.AppLogFuncWithTag) (*KafkaMQ, error) {
 	subCtx := ctx.NewChild(kstrings.FormatString("{}_{}", kafkamq_tag, name))
 
 	rabbitMQ := &KafkaMQ{
@@ -34,6 +35,7 @@ func NewKafkaMQ(ctx *kcontext.ContextNode, name string, conf *config.KafkaConfig
 		conf:      conf,
 		name:      name,
 		status:    idl.ServiceStatusStopped,
+		chanSize:  chanSize,
 		publisher: nil,
 		logf:      logf,
 	}
@@ -103,7 +105,7 @@ func (that *KafkaMQ) Start() error {
 		SetNet(netConfig).
 		SetProducer(kafkaProducerConfig)
 
-	publisher, err := kafka.NewAsyncProducer(that.ctx, 20000, kafkaConfig, that.logf)
+	publisher, err := kafka.NewAsyncProducer(that.ctx, uint(that.chanSize), kafkaConfig, that.logf)
 	if err != nil {
 		return err
 	}

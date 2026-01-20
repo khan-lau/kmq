@@ -23,12 +23,13 @@ type NatsCoreMQ struct {
 	conf      *config.NatsCoreConfig
 	name      string // 服务名称
 	status    idl.ServiceStatus
+	chanSize  uint
 	publisher *nats.NatsCoreClient
 	onReady   nats.ReadyCallbackFunc
 	logf      klog.AppLogFuncWithTag
 }
 
-func NewNatsCoreMQ(ctx *kcontext.ContextNode, name string, conf *config.NatsCoreConfig, logf klog.AppLogFuncWithTag) (*NatsCoreMQ, error) {
+func NewNatsCoreMQ(ctx *kcontext.ContextNode, name string, conf *config.NatsCoreConfig, chanSize uint, logf klog.AppLogFuncWithTag) (*NatsCoreMQ, error) {
 	subCtx := ctx.NewChild(kstrings.FormatString("{}_{}", nats_core_tag, name))
 
 	{
@@ -55,6 +56,7 @@ func NewNatsCoreMQ(ctx *kcontext.ContextNode, name string, conf *config.NatsCore
 		conf:      conf,
 		name:      name,
 		status:    idl.ServiceStatusStopped,
+		chanSize:  chanSize,
 		publisher: nil,
 		logf:      logf,
 	}
@@ -111,7 +113,7 @@ func (that *NatsCoreMQ) Start() error {
 
 	natsConf.CoreNats().AddTopics(that.conf.Topics...).SetQueueGroup(that.conf.QueueGroup).SetMaxPending(that.conf.MaxPending)
 
-	publisher, err := nats.NewNatsCoreClient(that.ctx, 20000, natsConf, that.logf)
+	publisher, err := nats.NewNatsCoreClient(that.ctx, uint(that.chanSize), natsConf, that.logf)
 	if err != nil {
 		return err
 	}
@@ -199,12 +201,13 @@ type NatsJetStreamMQ struct {
 	conf      *config.NatsJsConfig
 	name      string // 服务名称
 	status    idl.ServiceStatus
+	chanSize  uint
 	publisher *nats.NatsJetStreamClient
 	onReady   nats.ReadyCallbackFunc
 	logf      klog.AppLogFuncWithTag
 }
 
-func NewNatsJetStreamMQ(ctx *kcontext.ContextNode, name string, conf *config.NatsJsConfig, logf klog.AppLogFuncWithTag) (*NatsJetStreamMQ, error) {
+func NewNatsJetStreamMQ(ctx *kcontext.ContextNode, name string, conf *config.NatsJsConfig, chanSize uint, logf klog.AppLogFuncWithTag) (*NatsJetStreamMQ, error) {
 	subCtx := ctx.NewChild(kstrings.FormatString("{}_{}", nats_core_tag, name))
 
 	{
@@ -269,6 +272,7 @@ func NewNatsJetStreamMQ(ctx *kcontext.ContextNode, name string, conf *config.Nat
 		conf:      conf,
 		name:      name,
 		status:    idl.ServiceStatusStopped,
+		chanSize:  chanSize,
 		publisher: nil,
 		logf:      logf,
 	}
@@ -339,7 +343,7 @@ func (that *NatsJetStreamMQ) Start() error {
 	// consumerConf.SetAckPolicy(consumerConf.AckPolicyFromStr(that.conf.ConsumerConfig.AckPolicy))
 	// consumerConf.SetDeliverPolicy(consumerConf.DeliverPolicyFromStr(that.conf.ConsumerConfig.DeliverPolicy))
 
-	publisher, err := nats.NewNatsJetStreamClient(that.ctx, 20000, -1, natsConf, that.logf)
+	publisher, err := nats.NewNatsJetStreamClient(that.ctx, uint(that.chanSize), -1, natsConf, that.logf)
 	if err != nil {
 		return err
 	}
