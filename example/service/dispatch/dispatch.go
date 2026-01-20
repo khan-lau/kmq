@@ -49,6 +49,7 @@ type DispatchService struct {
 //	ctx: 上下文节点，用于创建子上下文
 //	dumpHex: 是否以十六进制形式打印消息内容
 //	sendInterval: 消息发送间隔，单位毫秒
+//	chanSize: 消息通道大小
 //	maxBatchSize: 批量发送时, 单次消息最大条数, 小于等于1时, 不启用批量发送
 //	name: 服务名称
 //	mqTargets: 目标 MQ 服务列表，用于转发消息到不同的队列或主题
@@ -57,7 +58,7 @@ type DispatchService struct {
 // 返回值:
 //
 //	*DispatchService: 指向新创建的 DispatchService 实例的指针
-func NewDispatchService(ctx *kcontext.ContextNode, dumpHex bool, sendInterval uint, maxBatchSize uint, name string, mqTargets map[string]idl.ServiceInterface, logf klog.AppLogFuncWithTag) *DispatchService {
+func NewDispatchService(ctx *kcontext.ContextNode, dumpHex bool, sendInterval uint, chanSize uint, maxBatchSize uint, name string, mqTargets map[string]idl.ServiceInterface, logf klog.AppLogFuncWithTag) *DispatchService {
 	var timer *time.Timer
 	if maxBatchSize > 1 {
 		timer = time.NewTimer(time.Duration(sendInterval) * time.Millisecond)
@@ -68,7 +69,7 @@ func NewDispatchService(ctx *kcontext.ContextNode, dumpHex bool, sendInterval ui
 		ctx:          subCtx,
 		name:         name,
 		status:       idl.ServiceStatusStopped,
-		msgChan:      make(chan *GenericMessage, 20000),        // 消息通道
+		msgChan:      make(chan *GenericMessage, chanSize),     // 消息通道
 		timer:        timer,                                    // 定时器，用于触发消息发送, 毫秒
 		sendInterval: sendInterval,                             // 发送间隔，毫秒
 		dumpHex:      dumpHex,                                  // 是否以十六进制形式打印消息内容

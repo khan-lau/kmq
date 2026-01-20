@@ -166,7 +166,7 @@ func main() {
 				return
 			}
 
-			gDispatcher = dispatch.NewDispatchService(ctx, conf.DumpHex, 0, 1, "dispatch", gMqTargetManager, LogFunc)
+			gDispatcher = dispatch.NewDispatchService(ctx, conf.DumpHex, uint(conf.SendInterval), uint(conf.SendQueueSize), 1, "dispatch", gMqTargetManager, LogFunc)
 			gDispatcher.StartAsync()
 
 			msgArr := make([]*dispatch.GenericMessage, 0)
