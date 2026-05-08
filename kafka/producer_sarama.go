@@ -290,9 +290,11 @@ func (that *AsyncProducer) Start() {
 			case <-ctx.Context().Done():
 				break END_LOOP
 			case success := <-that.Producer.Successes():
-				byteArr, _ := success.Value.Encode()
 				if that.logf != nil {
-					that.logf(klog.DebugLevel, kafka_tag, "Message sent to Kafka topic {}, partition {}, offset {} msg: {}", success.Topic, success.Partition, success.Offset, string(byteArr))
+					if KafkaTraceFlag {
+						byteArr, _ := success.Value.Encode() // 比较耗时, 调试期间才需要
+						that.logf(klog.DebugLevel, kafka_tag, "Message sent to Kafka topic {}, partition {}, offset {} msg: {}", success.Topic, success.Partition, success.Offset, string(byteArr))
+					}
 				}
 			case err := <-that.Producer.Errors():
 				if that.logf != nil {

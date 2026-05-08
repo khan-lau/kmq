@@ -23,6 +23,10 @@ const (
 	kafka_tag = "kafka"
 )
 
+var (
+	KafkaTraceFlag = false
+)
+
 /////////////////////////////////////////////////////////////
 
 type ErrorCallbackFunc func(err error)
