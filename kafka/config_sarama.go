@@ -267,6 +267,8 @@ type ProducerConfig struct {
 	CompressionLevel int           // 压缩级别  默认 -1000
 	MaxMessageBytes  int           // 每条消息最大字节, 默认100M
 	RequiredAcks     string        // 发送确认: 默认 none, 可选[none, local, all]
+	ReturnAck        bool          // 是否返回消费过程中遇到的错误, 默认为false
+	ReturnError      bool          // 是否返回消费完成, 默认为false
 	FlushMessages    int           // 刷新消息数量: 每100条刷新
 	FlushFrequency   time.Duration // 缓存时间, 超过时长自动flush
 	FlushMaxMessages int           // 最大刷新消息数量: 10000条
@@ -280,6 +282,8 @@ func NewKafkaProducerConfig() *ProducerConfig {
 		CompressionLevel: -1000,
 		MaxMessageBytes:  100 * 1024 * 1024,
 		RequiredAcks:     "none",
+		ReturnAck:        false,
+		ReturnError:      false,
 		FlushMessages:    100,
 		FlushFrequency:   1000 * time.Millisecond,
 		FlushMaxMessages: 10000,
@@ -344,6 +348,19 @@ func (that *ProducerConfig) GetRequiredAcks() sarama.RequiredAcks {
 	default:
 		return sarama.NoResponse
 	}
+}
+
+func (that *ProducerConfig) SetReturn(ackStatus, errorStatus bool) *ProducerConfig {
+	that.ReturnAck = ackStatus
+	that.ReturnError = errorStatus
+	return that
+}
+
+func (that *ProducerConfig) GetReturnAck() bool {
+	return that.ReturnAck
+}
+func (that *ProducerConfig) GetReturnError() bool {
+	return that.ReturnError
 }
 
 func (that *ProducerConfig) SetFlush(limit, max int, frequency time.Duration) *ProducerConfig {

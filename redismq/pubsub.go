@@ -23,7 +23,7 @@ type RedisPubSub struct {
 
 func NewRedisPubSub(ctx *kcontext.ContextNode, chanSize uint, conf *RedisConfig, logf klog.AppLogFuncWithTag) *RedisPubSub {
 	subCtx := ctx.NewChild("redismq_pubsub")
-	redisHD := kredis.NewKRedis(subCtx.Context(), conf.Host, int(conf.Port), "", conf.Password, conf.DB)
+	redisHD := kredis.NewKRedis(subCtx, conf.Host, int(conf.Port), "", conf.Password, conf.DB)
 	redisPs := &RedisPubSub{
 		ctx:          ctx,
 		redisHandler: redisHD,
@@ -241,7 +241,7 @@ func (that *RedisPubSub) connectUtil(ctx *kcontext.ContextNode) error {
 
 func (that *RedisPubSub) dbConnect() bool {
 	if nil == that.redisHandler {
-		that.redisHandler = kredis.NewKRedis(that.ctx.Context(), that.conf.Host, int(that.conf.Port), "", that.conf.Password, int(that.conf.DB))
+		that.redisHandler = kredis.NewKRedis(that.ctx, that.conf.Host, int(that.conf.Port), "", that.conf.Password, int(that.conf.DB))
 	}
 
 	if !that.redisHandler.Ping() { //探测连接失败
