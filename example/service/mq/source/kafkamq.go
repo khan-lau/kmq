@@ -81,7 +81,7 @@ func (that *KafkaMQ) Start() error {
 		SetHeartbeatInterval(time.Duration(that.conf.Consumer.HeartbeatInterval)*time.Millisecond).
 		SetInitialOffset(that.conf.Consumer.InitialOffset).
 		SetRebalanceTimeout(time.Duration(that.conf.Consumer.RebalanceTimeout)*time.Millisecond).
-		SetFetch(that.conf.Consumer.Min, that.conf.Consumer.Max, that.conf.Consumer.Fetch).
+		SetFetch(that.conf.Consumer.Min, that.conf.Consumer.Max, that.conf.Consumer.Fetch, 250*time.Millisecond).
 		SetAssignor(that.conf.Consumer.Assignor)
 
 	if that.conf.Consumer.AutoCommit {

@@ -165,9 +165,10 @@ func (that *NetConfig) SetResolveHost(resolveHost bool) *NetConfig {
 /////////////////////////////////////////////////////////////
 
 type ConsumerConfig struct {
-	Min                int           // 每次从broker拉取的最小消息数
-	Max                int           // 每次从broker拉取的最大消息数
-	Fetch              int           // 每次从broker拉取的消息数
+	Min                int           // 每次从broker拉取的最小字节数
+	Max                int           // 每次从broker拉取的最大字节数
+	Fetch              int           // 每次从broker拉取的字节数
+	MaxWaitTime        time.Duration // 拉取消息时最大等待时间, 单位ms, 默认250ms
 	InitialOffset      int64         // 消费者偏移量, -1: 从最新的消息开始消费, -2: 重新开始消费
 	AutoCommit         bool          // 是否自动commit
 	AutoCommitInterval time.Duration // 自动commit的情况下, 多久定时commit一次, 单位ms
@@ -188,7 +189,8 @@ func NewKafkaConsumerConfig() *ConsumerConfig {
 		Min:                100,
 		Max:                500,
 		Fetch:              200,
-		InitialOffset:      OffsetNewest,
+		MaxWaitTime:        250 * time.Millisecond,
+		InitialOffset:      KAFKA_OFFSET_NEWEST,
 		AutoCommit:         true,
 		AutoCommitInterval: 5000 * time.Millisecond,
 		Assignor:           "range",
@@ -198,10 +200,11 @@ func NewKafkaConsumerConfig() *ConsumerConfig {
 	}
 }
 
-func (that *ConsumerConfig) SetFetch(min int, max int, val int) *ConsumerConfig {
+func (that *ConsumerConfig) SetFetch(min int, max int, val int, maxWaitTime time.Duration) *ConsumerConfig {
 	that.Min = min
 	that.Max = max
 	that.Fetch = val
+	that.MaxWaitTime = maxWaitTime
 	return that
 }
 
