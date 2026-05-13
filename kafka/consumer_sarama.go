@@ -1,6 +1,7 @@
 package kafka
 
 import (
+	"sync"
 	"time"
 
 	"github.com/IBM/sarama"
@@ -521,18 +522,22 @@ type privateConsumerGroupHandler struct {
 	msgChan    chan *KafkaMessage
 	autoCommit bool
 	topics     []*Topic
+
+	once sync.Once
 }
 
 // Setup 是在新的会话开始之前调用的，在 ConsumeClaim 之前。
 func (that *privateConsumerGroupHandler) Setup(session sarama.ConsumerGroupSession) error {
-	for _, topic := range that.topics {
-		for partition, offset := range topic.Partition {
-			if offset >= 0 {
-				session.ResetOffset(topic.Name, partition, offset, "")
-				session.MarkOffset(topic.Name, partition, offset, "")
+	that.once.Do(func() {
+		for _, topic := range that.topics {
+			for partition, offset := range topic.Partition {
+				if offset >= 0 {
+					session.ResetOffset(topic.Name, partition, offset, "")
+					session.MarkOffset(topic.Name, partition, offset, "")
+				}
 			}
 		}
-	}
+	})
 	return nil
 }
 
