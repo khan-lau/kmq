@@ -533,7 +533,7 @@ func (that *privateConsumerGroupHandler) Setup(session sarama.ConsumerGroupSessi
 			for partition, offset := range topic.Partition {
 				if offset >= 0 {
 					session.ResetOffset(topic.Name, partition, offset, "")
-					session.MarkOffset(topic.Name, partition, offset, "")
+					// session.MarkOffset(topic.Name, partition, offset, "")
 				}
 			}
 		}
