@@ -549,9 +549,19 @@ func (that *privateConsumerGroupHandler) Cleanup(sarama.ConsumerGroupSession) er
 // 一旦 Messages() 通道被关闭，Handler 必须完成其消息处理循环并退出。
 func (that *privateConsumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
-		that.msgChan <- &KafkaMessage{Topic: msg.Topic, Partition: msg.Partition, Offset: msg.Offset, Key: msg.Key, Value: msg.Value, session: session}
-		if that.autoCommit {
-			session.MarkMessage(msg, "")
+		kfkMsg := &KafkaMessage{Topic: msg.Topic, Partition: msg.Partition, Offset: msg.Offset, Key: msg.Key, Value: msg.Value, session: session}
+
+		// 【核心修复】：引入 select 监听，防止下游不读时 channel 产生死锁
+		select {
+		case that.msgChan <- kfkMsg:
+			// 成功送入队列，继续往下走
+			if that.autoCommit {
+				session.MarkMessage(msg, "")
+			}
+		case <-session.Context().Done():
+			// 如果外部或者 Sarama 触发了退出，而 msgChan 又满了送不进去
+			// 立刻放弃投递，直接结束函数，释放 Sarama 锁
+			return nil
 		}
 	}
 	return nil
