@@ -11,16 +11,19 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 
-	"github.com/khan-lau/kmq/example/bean/config"
-	"github.com/khan-lau/kmq/example/bean/mq"
-	"github.com/khan-lau/kmq/example/service/dispatch"
-	"github.com/khan-lau/kmq/example/service/mq/source"
-	"github.com/khan-lau/kmq/example/service/mq/target"
-	"github.com/khan-lau/kmq/kafka"
-	"github.com/khan-lau/kmq/nats"
-	"github.com/khan-lau/kmq/rabbitmq"
-	"github.com/khan-lau/kmq/rocketmq"
+	"github.com/khan-lau/kmq-utils/kafkamq"
+	"github.com/khan-lau/kmq-utils/natsmq"
+	"github.com/khan-lau/kmq-utils/rabbitmq"
+	"github.com/khan-lau/kmq-utils/rocketmq"
+	"github.com/khan-lau/kmq/internal/config"
+	"github.com/khan-lau/kmq/service/idl"
+	mqConf "github.com/khan-lau/kmq/service/mq/config"
+	"github.com/khan-lau/kmq/service/mq/offset"
+	"github.com/khan-lau/kmq/service/mq/router"
+	"github.com/khan-lau/kmq/service/mq/source"
+	"github.com/khan-lau/kmq/service/mq/target"
 	"github.com/khan-lau/kutils/container/kcontext"
 	"github.com/khan-lau/kutils/container/klists"
 	"github.com/khan-lau/kutils/container/kstrings"
@@ -31,206 +34,231 @@ import (
 	"github.com/khan-lau/kutils/kuuid"
 )
 
-func startMqSource(ctx *kcontext.ContextNode, toHex bool, sourceItems []*config.MQItemObj, offsetSync *mq.OffsetSync, logf klog.AppLogFuncWithTag) {
+func startMqSource(ctx *kcontext.ContextNode, toHex bool, sourceItems []*config.MQItemObj, offsetSync *offset.OffsetSync, logf klog.AppLogFuncWithTag) {
 	waitGroup := sync.WaitGroup{}
+
 	for _, item := range sourceItems {
 		waitGroup.Add(1)
 		func(item *config.MQItemObj) {
+			defer waitGroup.Done()
+
 			switch item.MQType {
-
 			case "natscoremq":
-				if natsCoreConfig, ok := item.Item.(*config.NatsCoreConfig); ok {
-					natsCoreMq, err := source.NewNatsCoreMQ(ctx, "NatsCoreSource", natsCoreConfig, logf)
-					if err != nil && logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create nats core mq source failed, {}", err.Error())
-					} else {
-						glog.I("start nats core source: [{}], topic: [{}]", strings.Join(natsCoreConfig.BrokerList, ", "), strings.Join(natsCoreConfig.Topics, ", "))
-
-						natsCoreMq.SetOnRecivedCallback(
-							func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-								onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, false, message)
-							},
-						)
-						gMqSourceManager[item.MQType] = natsCoreMq
-						go func(natsCoreMq *source.NatsCoreMQ) {
-							err := natsCoreMq.Start()
-							if err != nil && logf != nil {
-								logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start nats core mq source failed, {}", err.Error())
+				{
+					if natsCoreConfig, ok := item.Item.(*mqConf.NatsCoreConfig); ok {
+						natsCoreMq, err := source.NewNatsCoreMQ(ctx, "NatsCoreSource", natsCoreConfig, 20000, logf)
+						if err != nil && logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create nats core mq source failed, %s", err.Error())
+						} else {
+							if logf != nil {
+								logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "start nats core source: [%s], topic: [%s]", strings.Join(natsCoreConfig.BrokerList, ", "), strings.Join(natsCoreConfig.Topics, ", "))
 							}
-						}(natsCoreMq)
-					}
-				} else {
-					if logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "nats core source config is invalid")
+
+							natsCoreMq.SetOnRecivedCallback(
+								func(origin any, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
+									onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, false, message)
+								},
+							)
+							gMqSourceManager[item.MQType] = natsCoreMq
+							go func(natsCoreMq *source.NatsCoreMQ) {
+								err := natsCoreMq.Start()
+								if err != nil && logf != nil {
+									logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start nats core mq source failed, %s", err.Error())
+								}
+							}(natsCoreMq)
+						}
+					} else {
+						if logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "nats core source config is invalid")
+						}
 					}
 				}
 
 			case "natsjsmq":
-				if natsJsConfig, ok := item.Item.(*config.NatsJsConfig); ok {
-					// 载入topic offset
-					if kafkaOffset, ok := offsetSync.Records[item.MQType]; ok {
-					NATS_JS_END_LOOP:
-						for _, topic := range natsJsConfig.Topics {
-							if topicOffset, ok := kafkaOffset[topic]; ok {
-								for _, offset := range topicOffset {
-									natsJsConfig.ConsumerConfig.StartWithTimestamp = int64(offset)
-									break NATS_JS_END_LOOP
+				{
+					if natsJsConfig, ok := item.Item.(*mqConf.NatsJsConfig); ok {
+						// 载入topic offset
+						if kafkaOffset, ok := offsetSync.Records[item.MQType]; ok {
+						NATS_JS_END_LOOP:
+							for _, topic := range natsJsConfig.Topics {
+								if topicOffset, ok := kafkaOffset[topic]; ok {
+									for _, offset := range topicOffset {
+										natsJsConfig.ConsumerConfig.StartWithTimestamp = int64(offset)
+										break NATS_JS_END_LOOP
+									}
 								}
 							}
 						}
-					}
-					natsJsMq, err := source.NewNatsJetStreamMQ(ctx, "NatsJSSource", natsJsConfig, logf)
-					if err != nil && logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create nats jetstream mq source failed, {}", err.Error())
-					} else {
-						glog.I("start nats jetstream source: [{}], topic: [{}]", strings.Join(natsJsConfig.BrokerList, ", "), strings.Join(natsJsConfig.Topics, ", "))
-						natsJsMq.SetOnRecivedCallback(
-							func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-								onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, natsJsConfig.ConsumerConfig.AutoCommit, message)
-							},
-						)
-						gMqSourceManager[item.MQType] = natsJsMq
-						go func(natsJsMq *source.NatsJetStreamMQ) {
-							err := natsJsMq.Start()
-							if err != nil && logf != nil {
-								logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start nats jetstream mq source failed, {}", err.Error())
+						natsJsMq, err := source.NewNatsJetStreamMQ(ctx, "NatsJSSource", natsJsConfig, 20000, logf)
+						if err != nil && logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create nats jetstream mq source failed, %s", err.Error())
+						} else {
+							if logf != nil {
+								logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "start nats jetstream source: [%s], topic: [%s]", strings.Join(natsJsConfig.BrokerList, ", "), strings.Join(natsJsConfig.Topics, ", "))
 							}
-						}(natsJsMq)
-					}
+							natsJsMq.SetOnRecivedCallback(
+								func(origin any, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
+									onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, natsJsConfig.ConsumerConfig.AutoCommit == natsmq.AUTO_COMMIT_NONE, message)
+								},
+							)
+							gMqSourceManager[item.MQType] = natsJsMq
+							go func(natsJsMq *source.NatsJetStreamMQ) {
+								err := natsJsMq.Start()
+								if err != nil && logf != nil {
+									logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start nats jetstream mq source failed, %s", err.Error())
+								}
+							}(natsJsMq)
+						}
 
-				} else {
-					if logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "nats jetstream source config is invalid")
+					} else {
+						if logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "nats jetstream source config is invalid")
+						}
 					}
 				}
 
 			case "kafkamq":
-				if kafkaConfig, ok := item.Item.(*config.KafkaConfig); ok {
-					// 载入topic offset
-					if kafkaOffset, ok := offsetSync.Records[item.MQType]; ok {
-						for _, topic := range kafkaConfig.Consumer.Topics {
-							if topicOffset, ok := kafkaOffset[topic.Name]; ok {
-								for partition, offset := range topicOffset {
-									if partitionVal, err := strconv.Atoi(partition); err == nil {
-										if pos := slices.IndexFunc(topic.Partitions, func(partition *config.Partition) bool { return partition.Partition == partitionVal }); pos >= 0 {
-											topic.Partitions[pos].Offset = offset
+				{
+					if kafkaConfig, ok := item.Item.(*mqConf.KafkaConfig); ok {
+						// 载入topic offset
+						if kafkaOffset, ok := offsetSync.Records[item.MQType]; ok {
+							for _, topic := range kafkaConfig.Consumer.Topics {
+								if topicOffset, ok := kafkaOffset[topic.Name]; ok {
+									for partition, offset := range topicOffset {
+										if partitionVal, err := strconv.Atoi(partition); err == nil {
+											if pos := slices.IndexFunc(topic.Partitions, func(partition *mqConf.Partition) bool { return partition.Partition == partitionVal }); pos >= 0 {
+												topic.Partitions[pos].Offset = offset
+											}
 										}
 									}
 								}
 							}
 						}
-					}
 
-					kafkaMq, err := source.NewKafkaMQ(ctx, "KafkaSource", kafkaConfig, logf)
-					if err != nil && logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create kafka mq source failed, {}", err.Error())
-					} else {
-						glog.I("start kafka source {}, topic: {}", kafkaConfig.BrokerList, kafkaTopicsToStr(kafkaConfig.Consumer.Topics))
-
-						kafkaMq.SetOnRecivedCallback(
-							func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-								onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, kafkaConfig.Consumer.AutoCommit, message)
-							},
-						)
-						gMqSourceManager[item.MQType] = kafkaMq
-						go func(kafkaMq *source.KafkaMQ) {
-							err := kafkaMq.Start()
-							if err != nil && logf != nil {
-								logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start kafka mq source failed, {}", err.Error())
+						kafkaMq, err := source.NewKafkaMQ(ctx, "KafkaSource", kafkaConfig, 4096, logf)
+						if err != nil && logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create kafka mq source failed, %s", err.Error())
+						} else {
+							if logf != nil {
+								logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "start kafka source [%s], topic: [%s]", strings.Join(kafkaConfig.BrokerList, ", "), mqConf.KafkaTopicsToStr(kafkaConfig.Consumer.Topics))
 							}
-						}(kafkaMq)
-					}
-				} else {
-					if logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "kafka source config is invalid")
+
+							kafkaMq.SetOnRecivedCallback(
+								func(origin any, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
+									onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, kafkaConfig.Consumer.AutoCommit == kafkamq.AUTO_COMMIT_NONE, message)
+								},
+							)
+							gMqSourceManager[item.MQType] = kafkaMq
+							go func(kafkaMq *source.KafkaMQ) {
+								err := kafkaMq.Start()
+								if err != nil && logf != nil {
+									logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start kafka mq source failed, %s", err.Error())
+								}
+							}(kafkaMq)
+						}
+					} else {
+						if logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "kafka source config is invalid")
+						}
 					}
 				}
 
 			case "rabbitmq":
-				if rabbitConfig, ok := item.Item.(*config.RabbitConfig); ok {
-					// 不支持指定 topic offset
-					rabbitMq, err := source.NewRabbitMQ(ctx, "RabbitSource", rabbitConfig, logf)
-					if err != nil && logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create rabbit mq source failed, {}", err.Error())
-					} else {
-						glog.I("start rabbitmq source, {}:{}, exchange: {}, queue: {}", rabbitConfig.Host, int(rabbitConfig.Port), rabbitConfig.Consumer.Exchange, rabbitConfig.Consumer.QueueName)
-
-						rabbitMq.SetOnRecivedCallback(
-							func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-								onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, rabbitConfig.Consumer.AutoCommit, message)
-							},
-						)
-						gMqSourceManager[item.MQType] = rabbitMq
-						go func(rabbitMq *source.RabbitMQ) {
-							err := rabbitMq.Start()
-							if err != nil && logf != nil {
-								logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start rabbit mq source failed, {}", err.Error())
+				{
+					if rabbitConfig, ok := item.Item.(*mqConf.RabbitConfig); ok {
+						// 不支持指定 topic offset
+						rabbitMq, err := source.NewRabbitMQ(ctx, "RabbitSource", rabbitConfig, logf)
+						if err != nil && logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create rabbit mq source failed, %s", err.Error())
+						} else {
+							if logf != nil {
+								logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "start rabbitmq source, [%s]:%s, exchange: %s, queue: %s", strings.Join(rabbitConfig.Addrs, ", "),
+									rabbitConfig.VHost, rabbitConfig.Consumer.Exchange, rabbitConfig.Consumer.QueueName)
 							}
-						}(rabbitMq)
-					}
-				} else {
-					if logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "rabbit source config is invalid")
+
+							rabbitMq.SetOnRecivedCallback(
+								func(origin any, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
+									onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, rabbitConfig.Consumer.AutoCommit == rabbitmq.AUTO_COMMIT_NONE, message)
+								},
+							)
+							gMqSourceManager[item.MQType] = rabbitMq
+							go func(rabbitMq *source.RabbitMQ) {
+								err := rabbitMq.Start()
+								if err != nil && logf != nil {
+									logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start rabbit mq source failed, %s", err.Error())
+								}
+							}(rabbitMq)
+						}
+					} else {
+						if logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "rabbit source config is invalid")
+						}
 					}
 				}
 
 			case "redismq":
-				if redisConfig, ok := item.Item.(*config.RedisConfig); ok {
-					// 不支持offset 订阅
-					redisMq, err := source.NewRedisMQ(ctx, "RedisSource", redisConfig, logf)
-					if err != nil && logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create redis mq source failed, {}", err.Error())
-					} else {
-						glog.I("start redis source, {}:{}, topic: {}", redisConfig.Host, int(redisConfig.Port), redisConfig.Topics)
-						redisMq.SetOnRecivedCallback(
-							func(origin interface{}, name string, topic string, _ int, _ int64, _ map[string]string, message []byte) {
-								onRecved(origin, name, topic, 0, 0, nil, item.Compress, toHex, false, message)
-							},
-						)
-						gMqSourceManager[item.MQType] = redisMq
-						go func(redisMq *source.RedisMQ) {
-							err := redisMq.Start()
-							if err != nil && logf != nil {
-								logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start redis mq source failed, {}", err.Error())
+				{
+					if redisConfig, ok := item.Item.(*mqConf.RedisConfig); ok {
+						// 不支持offset 订阅
+						redisMq, err := source.NewRedisMQ(ctx, "RedisSource", redisConfig, 2000, logf)
+						if err != nil && logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create redis mq source failed, %s", err.Error())
+						} else {
+							if logf != nil {
+								logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "start redis source, [%s], topic: [%s]", strings.Join(redisConfig.Addrs, ", "), strings.Join(redisConfig.Topics, ", "))
 							}
-						}(redisMq)
-					}
-				} else {
-					if logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "redis source config is invalid")
+							redisMq.SetOnRecivedCallback(
+								func(origin any, name string, topic string, _ int, _ int64, _ map[string]string, message []byte) {
+									onRecved(origin, name, topic, 0, 0, nil, item.Compress, toHex, false, message)
+								},
+							)
+							gMqSourceManager[item.MQType] = redisMq
+							go func(redisMq *source.RedisMQ) {
+								err := redisMq.Start()
+								if err != nil && logf != nil {
+									logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start redis mq source failed, %s", err.Error())
+								}
+							}(redisMq)
+						}
+					} else {
+						if logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "redis source config is invalid")
+						}
 					}
 				}
 
 			case "rocketmq":
 				{
-					if rocketConfig, ok := item.Item.(*config.RocketConfig); ok {
+					if rocketConfig, ok := item.Item.(*mqConf.RocketConfig); ok {
 						// 载入topic offset
 						if rocketOffset, ok := offsetSync.Records[item.MQType]; ok {
 						ROCKET_END_LOOP:
 							for _, topic := range rocketConfig.Consumer.Topics {
 								if topicOffset, ok := rocketOffset[topic]; ok {
 									for _, offset := range topicOffset {
-										rocketConfig.Consumer.Timestamp = kstrings.Sprintf("{}", offset)
+										rocketConfig.Consumer.Timestamp = fmt.Sprintf("%d", offset)
 										break ROCKET_END_LOOP
 									}
 								}
 							}
 						}
-						rocketMq, err := source.NewRocketMQ(ctx, "RocketSource", rocketConfig, logf)
+						rocketMq, err := source.NewRocketMQ(ctx, "RocketSource", rocketConfig, 2000, logf)
 						if err != nil && logf != nil {
-							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create rocket mq source failed, {}", err.Error())
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create rocket mq source failed, %s", err.Error())
 						} else {
-							glog.I("start rocketmq source: {}, topic: {}", rocketConfig.Servers, rocketConfig.Consumer.Topics)
+							if logf != nil {
+								logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "start rocketmq source: [%s], topic: [%s]", strings.Join(rocketConfig.Servers, ", "), strings.Join(rocketConfig.Consumer.Topics, ", "))
+							}
 							rocketMq.SetOnRecivedCallback(
-								func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-									onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, rocketConfig.Consumer.AutoCommit, message)
+								func(origin any, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
+									onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, rocketConfig.Consumer.AutoCommit == rocketmq.AUTO_COMMIT_NONE, message)
 								},
 							)
 							gMqSourceManager[item.MQType] = rocketMq
 							go func(rocketMq *source.RocketMQ) {
 								err := rocketMq.Start()
 								if err != nil && logf != nil {
-									logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start rocket mq source failed, {}", err.Error())
+									logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start rocket mq source failed, %s", err.Error())
 								}
 							}(rocketMq)
 						}
@@ -243,15 +271,17 @@ func startMqSource(ctx *kcontext.ContextNode, toHex bool, sourceItems []*config.
 
 			case "mqtt3":
 				{
-					if mqttConfig, ok := item.Item.(*config.MqttConfig); ok {
+					if mqttConfig, ok := item.Item.(*mqConf.MqttConfig); ok {
 
-						mqttClient, err := source.NewMqttMQ(ctx, "MqttSource", mqttConfig, logf)
+						mqttClient, err := source.NewMqttMQ(ctx, "MqttSource", mqttConfig, 20000, logf)
 						if err != nil && logf != nil {
-							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create rocket mq source failed, {}", err.Error())
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create mqtt3 mq source failed, %s", err.Error())
 						} else {
-							glog.I("start rocketmq source: {}, topic: {}", mqttConfig.Broker, strings.Join(mqttConfig.Topics, ","))
+							if logf != nil {
+								logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "start mqtt3 source: %s, topic: [%s]", mqttConfig.Broker, strings.Join(mqttConfig.Topics, ","))
+							}
 							mqttClient.SetOnRecivedCallback(
-								func(origin interface{}, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
+								func(origin any, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
 									onRecved(origin, name, topic, 0, 0, nil, item.Compress, toHex, false, message)
 								},
 							)
@@ -259,23 +289,22 @@ func startMqSource(ctx *kcontext.ContextNode, toHex bool, sourceItems []*config.
 							go func(mqtt *source.MqttMQ) {
 								err := mqtt.Start()
 								if err != nil && logf != nil {
-									logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start rocket mq source failed, {}", err.Error())
+									logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start mqtt3 source failed, %s", err.Error())
 								}
 							}(mqttClient)
 						}
 					} else {
 						if logf != nil {
-							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "rocket source config is invalid")
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "mqtt3 source config is invalid")
 						}
 					}
 				}
 
 			default:
 				if logf != nil {
-					logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "unknown mq source type: {}", item.MQType)
+					logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "unknown mq source type: %s", item.MQType)
 				}
 			}
-			waitGroup.Done()
 		}(item)
 	}
 
@@ -288,185 +317,234 @@ func startMqTarget(ctx *kcontext.ContextNode, sendQueueSize uint, targetItems []
 	for _, item := range targetItems {
 		waitGroup.Add(1)
 		func(item *config.MQItemObj) {
+			defer waitGroup.Done()
+
 			switch item.MQType {
 			case "natscoremq":
-				if natsCoreConfig, ok := item.Item.(*config.NatsCoreConfig); ok {
-					natsCoreMq, err := target.NewNatsCoreMQ(ctx, "NatsCoreTarget", natsCoreConfig, sendQueueSize, logf)
-					if err != nil && logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create nats core mq target failed, {}", err.Error())
-					} else {
+				{
+					if natsCoreConfig, ok := item.Item.(*mqConf.NatsCoreConfig); ok {
+						natsCoreMq, err := target.NewNatsCoreMQ(ctx, "NatsCoreTarget", natsCoreConfig, sendQueueSize, false, logf)
+						if err != nil && logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create nats core mq target failed, %s", err.Error())
+						} else {
 
-						natsCoreMq.SetOnReady(func(ready bool) {
-							glog.I("nats core target ready")
-							countdown.CountDown()
-						})
-						glog.I("start nats core target: [{}], topic: [{}]", strings.Join(natsCoreConfig.BrokerList, ", "), strings.Join(natsCoreConfig.Topics, ", "))
-						gMqTargetManager[item.MQType] = natsCoreMq
-						go func(natsCore *target.NatsCoreMQ) {
-							err := natsCore.Start()
-							if err != nil && logf != nil {
-								logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start nats core mq target failed, {}", err.Error())
+							natsCoreMq.SetOnReady(func(ready bool) {
+								if logf != nil {
+									logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "nats core target ready")
+								}
+								countdown.CountDown()
+							})
+							if logf != nil {
+								logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "start nats core target: [%s], topic: [%s]", strings.Join(natsCoreConfig.BrokerList, ", "), strings.Join(natsCoreConfig.Topics, ", "))
 							}
-						}(natsCoreMq)
-					}
-				} else {
-					if logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "nats core target config is invalid")
+							gMqTargetManager[item.MQType] = natsCoreMq
+							go func(natsCore *target.NatsCoreMQ) {
+								err := natsCore.Start()
+								if err != nil && logf != nil {
+									logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start nats core mq target failed, %s", err.Error())
+								}
+							}(natsCoreMq)
+						}
+					} else {
+						if logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "nats core target config is invalid")
+						}
 					}
 				}
+
 			case "natsjsmq":
-				if natsJsConfig, ok := item.Item.(*config.NatsJsConfig); ok {
-					natsJsMq, err := target.NewNatsJetStreamMQ(ctx, "NatsJSTarget", natsJsConfig, sendQueueSize, logf)
-					if err != nil && logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create nats jetstream mq target failed, {}", err.Error())
-					} else {
-						glog.I("start nats jetstream target: [{}], topic: [{}]", strings.Join(natsJsConfig.BrokerList, ", "), strings.Join(natsJsConfig.Topics, ", "))
-						natsJsMq.SetOnReady(func(ready bool) {
-							glog.I("nats jetstream target ready")
-							countdown.CountDown()
-						})
-						gMqTargetManager[item.MQType] = natsJsMq
-						go func(natsJs *target.NatsJetStreamMQ) {
-							err := natsJs.Start()
-							if err != nil && logf != nil {
-								logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start nats jetstream mq target failed, {}", err.Error())
+				{
+					if natsJsConfig, ok := item.Item.(*mqConf.NatsJsConfig); ok {
+						natsJsMq, err := target.NewNatsJetStreamMQ(ctx, "NatsJSTarget", natsJsConfig, sendQueueSize, false, logf)
+						if err != nil && logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create nats jetstream mq target failed, %s", err.Error())
+						} else {
+							if logf != nil {
+								logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "start nats jetstream target: [%s], topic: [%s]", strings.Join(natsJsConfig.BrokerList, ", "), strings.Join(natsJsConfig.Topics, ", "))
 							}
-						}(natsJsMq)
-					}
+							natsJsMq.SetOnReady(func(ready bool) {
+								if logf != nil {
+									logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "nats jetstream target ready")
+								}
+								countdown.CountDown()
+							})
+							gMqTargetManager[item.MQType] = natsJsMq
+							go func(natsJs *target.NatsJetStreamMQ) {
+								err := natsJs.Start()
+								if err != nil && logf != nil {
+									logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start nats jetstream mq target failed, %s", err.Error())
+								}
+							}(natsJsMq)
+						}
 
-				} else {
-					if logf != nil {
-						// logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "nats jetstream target config is invalid, %#v", item.Item)
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "nats jetstream target config is invalid")
+					} else {
+						if logf != nil {
+							// logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "nats jetstream target config is invalid, %#v", item.Item)
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "nats jetstream target config is invalid")
+						}
 					}
 				}
+
 			case "kafkamq":
-				if kafkaConfig, ok := item.Item.(*config.KafkaConfig); ok {
-					kafkaMq, err := target.NewKafkaMQ(ctx, "KafkaTarget", kafkaConfig, sendQueueSize, logf)
-					if err != nil && logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create kafka mq target failed, {}", err.Error())
+				{
+					if kafkaConfig, ok := item.Item.(*mqConf.KafkaConfig); ok {
+						kafkaMq, err := target.NewKafkaMQ(ctx, "KafkaTarget", kafkaConfig, sendQueueSize, false, logf)
+						if err != nil && logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create kafka mq target failed, %s", err.Error())
+						} else {
+							kafkaMq.SetOnReady(func(ready bool) {
+								if logf != nil {
+									logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "kafka target ready")
+								}
+								countdown.CountDown()
+							})
+							if logf != nil {
+								logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "start kafka target: [%s], topic: [%s]", strings.Join(kafkaConfig.BrokerList, ","), mqConf.KafkaTopicsToStr(kafkaConfig.Producer.Topics))
+							}
+							gMqTargetManager[item.MQType] = kafkaMq
+							go func(kafkaMq *target.KafkaMQ) {
+								err := kafkaMq.Start()
+								if err != nil && logf != nil {
+									logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start kafka mq target failed, %s", err.Error())
+								}
+							}(kafkaMq)
+						}
 					} else {
-						kafkaMq.SetOnReady(func(ready bool) {
-							glog.I("kafka target ready")
-							countdown.CountDown()
-						})
+						if logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "kafka target config is invalid")
+						}
+					}
+				}
 
-						glog.I("start kafka target: {}, topic: {}", kafkaConfig.BrokerList, kafkaTopicsToStr(kafkaConfig.Producer.Topics))
-						gMqTargetManager[item.MQType] = kafkaMq
-						go func(kafkaMq *target.KafkaMQ) {
-							err := kafkaMq.Start()
-							if err != nil && logf != nil {
-								logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start kafka mq target failed, {}", err.Error())
-							}
-						}(kafkaMq)
-					}
-				} else {
-					if logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "kafka target config is invalid")
-					}
-				}
 			case "rabbitmq":
-				if rabbitConfig, ok := item.Item.(*config.RabbitConfig); ok {
-					rabbitMq, err := target.NewRabbitMQ(ctx, "RabbitTarget", rabbitConfig, sendQueueSize, logf)
-					if err != nil && logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create rabbit mq target failed, {}", err.Error())
-					} else {
-						rabbitMq.SetOnReady(func(ready bool) {
-							glog.I("rabbitmq target ready")
-							countdown.CountDown()
-						})
-						glog.I("start rabbitmq target, {}:{}, route: {}", rabbitConfig.Host, int(rabbitConfig.Port), rabbitConfig.Producer.Router)
-						gMqTargetManager[item.MQType] = rabbitMq
-						go func(rabbitMq *target.RabbitMQ) {
-							err := rabbitMq.Start()
-							if err != nil && logf != nil {
-								logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start rabbit mq target failed, {}", err.Error())
+				{
+					if rabbitConfig, ok := item.Item.(*mqConf.RabbitConfig); ok {
+						rabbitMq, err := target.NewRabbitMQ(ctx, "RabbitTarget", rabbitConfig, sendQueueSize, false, logf)
+						if err != nil && logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create rabbit mq target failed, %s", err.Error())
+						} else {
+							rabbitMq.SetOnReady(func(ready bool) {
+								if logf != nil {
+									logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "rabbitmq target ready")
+								}
+								countdown.CountDown()
+							})
+							if logf != nil {
+								logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "start rabbitmq target, [%s], route: %s", strings.Join(rabbitConfig.Addrs, ", "), rabbitConfig.Producer.Router)
 							}
-						}(rabbitMq)
-					}
-				} else {
-					if logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "rabbit target config is invalid")
+							gMqTargetManager[item.MQType] = rabbitMq
+							go func(rabbitMq *target.RabbitMQ) {
+								err := rabbitMq.Start()
+								if err != nil && logf != nil {
+									logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start rabbit mq target failed, %s", err.Error())
+								}
+							}(rabbitMq)
+						}
+					} else {
+						if logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "rabbit target config is invalid")
+						}
 					}
 				}
+
 			case "redismq":
-				if redisConfig, ok := item.Item.(*config.RedisConfig); ok {
-					redisMq, err := target.NewRedisMQ(ctx, "RedisTarget", redisConfig, sendQueueSize, logf)
-					if err != nil && logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create redis mq target failed, {}", err.Error())
-					} else {
-						redisMq.SetOnReady(func(ready bool) {
-							glog.I("redismq target ready")
-							countdown.CountDown()
-						})
-						glog.I("start redismq target, {}:{}, topic: {}", redisConfig.Host, int(redisConfig.Port), redisConfig.Topics)
-						gMqTargetManager[item.MQType] = redisMq
-						go func(redisMq *target.RedisMQ) {
-							err := redisMq.Start()
-							if err != nil && logf != nil {
-								logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start redis mq target failed, {}", err.Error())
+				{
+					if redisConfig, ok := item.Item.(*mqConf.RedisConfig); ok {
+						redisMq, err := target.NewRedisMQ(ctx, "RedisTarget", redisConfig, sendQueueSize, false, logf)
+						if err != nil && logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create redis mq target failed, %s", err.Error())
+						} else {
+							redisMq.SetOnReady(func(ready bool) {
+								if logf != nil {
+									logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "redismq target ready")
+								}
+								countdown.CountDown()
+							})
+							if logf != nil {
+								logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "start redismq target, [%s], topic: [%s]", strings.Join(redisConfig.Addrs, ","), strings.Join(redisConfig.Topics, ","))
 							}
-						}(redisMq)
-					}
-				} else {
-					if logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "redis target config is invalid")
+							gMqTargetManager[item.MQType] = redisMq
+							go func(redisMq *target.RedisMQ) {
+								err := redisMq.Start()
+								if err != nil && logf != nil {
+									logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start redis mq target failed, %s", err.Error())
+								}
+							}(redisMq)
+						}
+					} else {
+						if logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "redis target config is invalid")
+						}
 					}
 				}
+
 			case "rocketmq":
-				if rocketConfig, ok := item.Item.(*config.RocketConfig); ok {
-					rocketMq, err := target.NewRocketMQ(ctx, "RocketTarget", rocketConfig, sendQueueSize, logf)
-					if err != nil && logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create rocket mq target failed, {}", err.Error())
-					} else {
-						rocketMq.SetOnReady(func(ready bool) {
-							glog.I("rocketmq target ready")
-							countdown.CountDown()
-						})
-						glog.I("start rocketmq target, {}, topic: {}", rocketConfig.Servers, rocketConfig.Producer.Topics)
-						gMqTargetManager[item.MQType] = rocketMq
-						go func(rocketMq *target.RocketMQ) {
-							err := rocketMq.Start()
-							if err != nil && logf != nil {
-								logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start rocket mq target failed, {}", err.Error())
+				{
+					if rocketConfig, ok := item.Item.(*mqConf.RocketConfig); ok {
+						rocketMq, err := target.NewRocketMQ(ctx, "RocketTarget", rocketConfig, sendQueueSize, false, logf)
+						if err != nil && logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create rocket mq target failed, %s", err.Error())
+						} else {
+							rocketMq.SetOnReady(func(ready bool) {
+								if logf != nil {
+									logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "rocketmq target ready")
+								}
+								countdown.CountDown()
+							})
+							if logf != nil {
+								logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "start rocketmq target, [%s], topic: [%s]", strings.Join(rocketConfig.Servers, ","), strings.Join(rocketConfig.Producer.Topics, ","))
 							}
-						}(rocketMq)
-					}
-				} else {
-					if logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "rocket target config is invalid")
+							gMqTargetManager[item.MQType] = rocketMq
+							go func(rocketMq *target.RocketMQ) {
+								err := rocketMq.Start()
+								if err != nil && logf != nil {
+									logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start rocket mq target failed, %s", err.Error())
+								}
+							}(rocketMq)
+						}
+					} else {
+						if logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "rocket target config is invalid")
+						}
 					}
 				}
+
 			case "mqtt3":
-				if mqttConfig, ok := item.Item.(*config.MqttConfig); ok {
-					mqttClient, err := target.NewMqttMQ(ctx, "MqttSource", mqttConfig, sendQueueSize, logf)
-					if err != nil && logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create rocket mq target failed, {}", err.Error())
-					} else {
-						mqttClient.SetOnReady(func(ready bool) {
-							glog.I("mqtt3 target ready")
-							countdown.CountDown()
-						})
-						glog.I("start rocketmq target, {}, topic: {}", mqttConfig.Broker, strings.Join(mqttConfig.Topics, ","))
-						gMqTargetManager[item.MQType] = mqttClient
-						go func(mqtt *target.MqttMQ) {
-							err := mqtt.Start()
-							if err != nil && logf != nil {
-								logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start rocket mq target failed, {}", err.Error())
+				{
+					if mqttConfig, ok := item.Item.(*mqConf.MqttConfig); ok {
+						mqttClient, err := target.NewMqttMQ(ctx, "MqttSource", mqttConfig, sendQueueSize, false, logf)
+						if err != nil && logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create mqtt3 mq target failed, %s", err.Error())
+						} else {
+							mqttClient.SetOnReady(func(ready bool) {
+								if logf != nil {
+									logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "mqtt3 target ready")
+								}
+								countdown.CountDown()
+							})
+							if logf != nil {
+								logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, "start mqtt3 target, %s, topic: [%s]", mqttConfig.Broker, strings.Join(mqttConfig.Topics, ","))
 							}
-						}(mqttClient)
-					}
-				} else {
-					if logf != nil {
-						logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "rocket target config is invalid")
+							gMqTargetManager[item.MQType] = mqttClient
+							go func(mqtt *target.MqttMQ) {
+								err := mqtt.Start()
+								if err != nil && logf != nil {
+									logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "start mqtt3 mq target failed, %s", err.Error())
+								}
+							}(mqttClient)
+						}
+					} else {
+						if logf != nil {
+							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "mqtt3 target config is invalid")
+						}
 					}
 				}
+
 			default:
 				if logf != nil {
-					logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "unknown mq target type: {}", item.MQType)
+					logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "unknown mq target type: %s", item.MQType)
 				}
 			}
-			waitGroup.Done()
 		}(item)
 	}
 
@@ -485,17 +563,17 @@ func stopMqTargetManager() {
 	}
 }
 
-func loadOffsetCache(conf *config.Configure) *mq.OffsetSync {
-	offsetSync := mq.NewOffsetSync(conf.SyncTime, conf.SyncFile, LogFunc)
+func loadOffsetCache(conf *config.Configure) *offset.OffsetSync {
+	offsetSync := offset.NewOffsetSync(conf.SyncTime, conf.SyncFile, LogFunc)
 	// 载入本地缓存文件
 	if filesystem.IsFileExists(conf.SyncFile) {
 
 		if buf, err := os.ReadFile(conf.SyncFile); err != nil {
-			glog.E("read file {} error: {}", conf.SyncFile, err)
+			glog.Error("read file %s error: %v", conf.SyncFile, err)
 		} else {
 			tmap := map[string]map[string]map[string]int64{}
 			if err = json.Unmarshal(buf, &tmap); err != nil {
-				glog.E("unmarshal file {} error: {}", conf.SyncFile, err)
+				glog.Error("unmarshal file %s error: %v", conf.SyncFile, err)
 			} else {
 				catcheOffset := offsetSync.Records
 				for mqType, topicMap := range tmap {
@@ -503,7 +581,7 @@ func loadOffsetCache(conf *config.Configure) *mq.OffsetSync {
 					for topic, partitionOffset := range topicMap {
 						catcheOffset[mqType][topic] = map[string]int64{}
 						for part, offset := range partitionOffset {
-							glog.I("load offset: mqType:{} topic:{} partition{}: offset:{}", mqType, topic, part, offset)
+							glog.Info("load offset: mqType:%s topic:%s partition%d: offset:%d", mqType, topic, part, offset)
 							catcheOffset[mqType][topic][part] = offset
 						}
 					}
@@ -518,14 +596,9 @@ func loadOffsetCache(conf *config.Configure) *mq.OffsetSync {
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
-// type GenericMessage struct {
-// 	Topic   string
-// 	Message string
-// }
-
-/* 解析重放消息文件 */
-func getReplayData(toHex bool, path string) *klists.KList[*dispatch.GenericMessage] {
-	messages := klists.New[*dispatch.GenericMessage]()
+// 解析重放消息文件
+func getReplayData(toHex bool, path string) *klists.KList[*router.GenericMessage] {
+	messages := klists.New[*router.GenericMessage]()
 
 	glog.Info("Server parse file: %s", path)
 	file, err := os.Open(path)
@@ -587,13 +660,13 @@ func getReplayData(toHex bool, path string) *klists.KList[*dispatch.GenericMessa
 		}
 
 		// element 开始
-		pos := strings.Index(line, " ")
+		before, after, ok := strings.Cut(line, " ") // before: topic, after: message
 		message := ""
 		topic := ""
-		if pos > -1 {
-			topic = line[:pos]
+		if ok {
+			topic = before
 
-			rawMessage := line[pos+1:]
+			rawMessage := after
 			trimMessage := strings.TrimSpace(rawMessage)
 			msgLength := len(trimMessage)
 			if trimMessage[msgLength-1] != '"' && trimMessage[msgLength-1] != '\'' {
@@ -611,8 +684,8 @@ func getReplayData(toHex bool, path string) *klists.KList[*dispatch.GenericMessa
 			message = strings.TrimFunc(trimMessage, func(r rune) bool {
 				return r == '\'' || r == '"'
 			})
-			message = strings.Replace(message, "\\\"", "\"", -1)
-			message = strings.Replace(message, "\\\\u", "\\u", -1)
+			message = strings.ReplaceAll(message, "\\\"", "\"")
+			message = strings.ReplaceAll(message, "\\\\u", "\\u")
 			arr := strings.Split(message, ",")
 			record_count += int64(len(arr))
 
@@ -621,15 +694,15 @@ func getReplayData(toHex bool, path string) *klists.KList[*dispatch.GenericMessa
 				if tmpData, err := hex.DecodeString(message); err == nil {
 					dataStr = tmpData
 				} else {
-					glog.E("hex decode line: {} error: {}", line, err.Error())
+					glog.Error("hex decode line: %s error: %s", line, err.Error())
 					continue
 				}
 			}
 
-			messages.PushBack(&dispatch.GenericMessage{Topic: topic, Message: dataStr})
+			messages.PushBack(&router.GenericMessage{Topic: topic, Message: dataStr})
 		} else {
 			if line == "quit" || line == "exit" || line == "stop" || line == "QUIT" || line == "EXIT" || line == "STOP" {
-				messages.PushBack(&dispatch.GenericMessage{Topic: "quit", Message: []byte("")})
+				messages.PushBack(&router.GenericMessage{Topic: "quit", Message: []byte("")})
 				auto_exit = true
 			} else {
 				glog.Error("Error data: %s", line)
@@ -654,8 +727,8 @@ func getReplayData(toHex bool, path string) *klists.KList[*dispatch.GenericMessa
 	return messages
 }
 
-func generalMessage(handler *dispatch.DispatchService, resetTimestamp bool, message *dispatch.GenericMessage) {
-	content := string(message.Message)
+func generalMessage(handler *router.DispatchService, resetTimestamp bool, message *router.GenericMessage) {
+	content := *(*string)(unsafe.Pointer(&message.Message))
 	if resetTimestamp {
 		// 不是JSON
 		if !strings.HasPrefix(content, "{") && !strings.HasPrefix(content, "[") {
@@ -690,16 +763,19 @@ func generalMessage(handler *dispatch.DispatchService, resetTimestamp bool, mess
 	}
 
 	if len(message.Message) < 1 || len(message.Topic) < 1 {
-		glog.W("{}", "Message or topic is empty")
+		glog.Warrn("Message or topic is empty")
 	}
 	uuid, _ := kuuid.NewV1()
 	uuidStr := uuid.ShortString()
 END_SEND:
 	for {
-		if !handler.DoSend(&dispatch.GenericMessage{Topic: message.Topic, Message: []byte(content), Properties: map[string]string{"key": uuidStr}}) {
-			time.Sleep(50 * time.Millisecond)
-		} else {
+		bytesPtr := unsafe.Slice(unsafe.StringData(content), len(content))
+		status, err := handler.DoSend(&router.GenericMessage{Topic: message.Topic, Message: bytesPtr, Properties: map[string]string{"key": uuidStr}})
+		// 发送成功 or 源服务排水中 则直接退出发送
+		if status || err == idl.ErrSrvDraining {
 			break END_SEND
+		} else {
+			time.Sleep(50 * time.Millisecond)
 		}
 	}
 }
@@ -719,43 +795,43 @@ END_SEND:
 //   - properties map[string]string: 标签信息
 //   - isCompress bool: 是否为压缩数据
 //   - message []byte: 消息数据
-func onRecved(origin any, name string, topic string, partition int, offset int64, _ map[string]string, isCompress bool, toHex bool, autoAck bool, message []byte) {
+func onRecved(origin any, name string, topic string, partition int, offset int64, _ map[string]string, isCompress bool, toHex bool, manualAck bool, message []byte) {
 	// 源数据是否为压缩数据, 压缩数据必须是zip压缩算法
-	str := ""
+	var str string
 	if isCompress {
 		buf, err := data.UnZip(message)
 		if err != nil {
-			glog.E("onRecved: name={}, topic={}, partition={}, offset={}, uncompress error= {}", name, topic, partition, offset, err)
+			glog.Error("onRecved: name=%s, topic=%s, partition=%d, offset=%d, uncompress error= %v", name, topic, partition, offset, err)
 			return
 		}
-		str = string(buf)
+		str = *(*string)(unsafe.Pointer(&buf)) // string(buf)
 	} else {
-		str = string(message)
+		str = *(*string)(unsafe.Pointer(&message)) //string(message)
 	}
 
 	//// TODO 解析从消息中获取需要下发的topic 和 payload, 下发给下游MQ处理
 	// flag := publish(to, topic, []byte(str), nil)
 	// if !flag {
-	// 	glog.E("onRecived: name={}, topic={}, partition={}, offset={}, publish error= {}", name, topic, partition, offset, "sent to target faulted")
+	// 	glog.Error("onRecived: name=%s, topic=%s, partition=%d, offset=%d, publish error= %s", name, topic, partition, offset, "sent to target faulted")
 	// }
 
 	var err error
 	switch t := origin.(type) {
 	case *rabbitmq.Message:
-		if !autoAck {
+		if manualAck {
 			err = t.Ack(false) // false: 只确认当前这条消息; true: 批量确认 DeliveryTag <= current DeliveryTag 的所有消息
 		}
 
 	case *rocketmq.Message:
-		if !autoAck {
+		if manualAck {
 			err = t.Ack() // 批量确认
 		}
-	case *nats.NatsMessage:
-		if !autoAck {
+	case *natsmq.NatsMessage:
+		if manualAck {
 			err = t.Ack() // 如果想批量确认 需要将 AckPolicy设置为 `AckAllPolicy`
 		}
-	case *kafka.KafkaMessage:
-		if !autoAck {
+	case *kafkamq.KafkaMessage:
+		if manualAck {
 			err = t.Ack() // 确认当前消息seq之前的所有消息
 		}
 	case nil:
@@ -767,9 +843,10 @@ func onRecved(origin any, name string, topic string, partition int, offset int64
 	if err == nil {
 		dataStr := str
 		if toHex {
-			dataStr = hex.EncodeToString([]byte(str))
+			slicePtr := unsafe.Slice(unsafe.StringData(str), len(str)) // 获取字符串底层切片, 只读方式的
+			dataStr = hex.EncodeToString(slicePtr)
 		}
-		glog.D("onRecived: name={}, topic={}, partition={}, offset={}, message={}", name, topic, partition, offset, dataStr)
+		glog.Debug("onRecived: name=%s, topic=%s, partition=%d, offset=%d, message=%s", name, topic, partition, offset, dataStr)
 		switch name {
 		case "KafkaSource":
 			gOffsetSync.Set("kafkamq", topic, strconv.Itoa(partition), offset)
@@ -779,32 +856,10 @@ func onRecved(origin any, name string, topic string, partition int, offset int64
 			gOffsetSync.Set("natsjsmq", topic, strconv.Itoa(partition), offset)
 		}
 	} else {
-		glog.E("onRecived: name={}, topic={}, partition={}, offset={}, ack return error={}", name, topic, partition, offset, err)
+		glog.Error("onRecved: name=%s, topic=%s, partition=%d, offset=%d, ack return error=%v", name, topic, partition, offset, err)
 	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////////////
-
-func kafkaTopicsToStr(topics []*config.Topic) string {
-	var sb strings.Builder
-	sb.WriteString("[")
-	for i, topic := range topics {
-		if i > 0 {
-			sb.WriteString(", ")
-		}
-		sb.WriteString("topic:")
-		sb.WriteString(topic.Name)
-		sb.WriteString(", partitions:[")
-		for j, partition := range topic.Partitions {
-			if j > 0 {
-				sb.WriteString(", ")
-			}
-			sb.WriteString(kstrings.Sprintf("{}:{}", partition.Partition, partition.Offset))
-		}
-		sb.WriteString("]")
-	}
-	sb.WriteString("]")
-	return sb.String()
-}

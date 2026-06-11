@@ -3,21 +3,23 @@
   syncTime: 5000,                 // 同步周期, 单位毫秒,不低于1000毫秒
   syncFile: "conf/offset.json",   // 同步offset到文件的路径
   sendInterval : 5000,            // send模式的发送频率, 单位ms, 模拟发送数据时使用
-  sendQueueSize: 1,               // send模式的缓冲队列大小, 仅发送模式时有效, 默认值1, 不得小于1
+  sendQueueSize: 1,               // send模式的缓冲队列大小, 仅发送模式时有效, 默认值1024, 必须为2的幂, 例如 2 4 8 16 32 ...
   sendFile : 'conf/alarm.message',// 模拟发送的数据文件
   dumpHex: false,                 // 数据包是否为hexString格式; recv模式时体现在日志中; send模式时,表示 `sendFile` 中的格式是否为hexString格式
   resetTimestamp: false,          // 有标准点数据时, 重置时间戳为发送当前时间
 
 
   log: {
-    // 日志等级, (DebugLevel=-1; InfoLevel=0, WarnLevel=1; ErrorLevel=2; DPanicLevel=3; PanicLevel=4; FatalLevel=5)
-    logLevel: -1,
-    colorful: false,  // 是否需要彩色
-    maxAge: 72,       // 日志最长保留时间, 单位 小时
-    rotationTime: 24, // 日志滚动周期, 单位 小时, 24小时滚动一个文件
-    console: true,    // 是否同时输出到控制台
-    async: false,     // 是否异步输出到日志文件
-    logDir: "logs",   // 日志路径
+    logLevel: -1,                 // 日志等级, (DebugLevel=-1; InfoLevel=0, WarnLevel=1; ErrorLevel=2; DPanicLevel=3; PanicLevel=4; FatalLevel=5)
+    colorful: false,              // 是否需要彩色
+    maxAge: 72,                   // 日志最长保留时间, 单位 小时
+    maxSize: 10737418240,         // 单文件最大滚动大小, 单位 byte, 超过后强制滚动, 10G
+    rotationTime: 24,             // 日志滚动周期, 单位 小时, 24小时滚动一个文件
+    console: true,                // 是否同时输出到控制台
+    async: false,                 // 是否异步输出到日志文件
+    flushInterval: 2000,          // 异步输出日志缓冲区刷新间隔, 单位为毫秒, 默认为1s
+    bufferSize: 4194304,          // 异步输出日志缓冲区大小, 单位为字节, 默认4M
+    logDir: "logs",               // 日志路径
   },
 
 
@@ -25,7 +27,7 @@
     // 采集数据源, 支持 kafkamq rabbitmq rocketmq redismq mqtt3 natscoremq natsjsmq 消息队列
     {
       type: "natscoremq",
-      isCompress: false,
+      isCompress: false, // 是否为压缩数据
       mq: {
         clientId: "natscoremq_client01", // 客户端标识, 唯一
         user: "nats_user",
@@ -47,7 +49,7 @@
     },
     {
       type: "natsjsmq",
-      isCompress: false,
+      isCompress: false, // 是否为压缩数据
       mq: {
         clientId: "natsjsmq_client01", // 客户端标识, 唯一
         user: "nats_user",
@@ -78,7 +80,7 @@
         consumer: {
           groupId: "js_groupId",  // 持久化订阅名称，可以为空, 等同于消费者名称, 为空时表示临时消费组, 最后一个消费者断开连接时, 未处理消息被丢弃
           maxWait: -1,            // 最大等待时间，pull模式使用(暂不支持), push模式下无效
-          autoCommit: true,       // 是否自动提交消息，默认为 false
+          autoCommit: "custom",   // 自动commit设置, "custom": 客户端实现自动提交; "none": 手动提交
           ackPolicy: "all",       // 确认策略，默认`none`: 自动ack; `all`: 确认一个序列号时，会隐式确认该序列号之前的所有消息; `explicit`: 每条需要单独确认
         }
       }
@@ -91,7 +93,7 @@
         clientId: "sarama",         // clientID 必须在Kafka 集群中保证唯一，用于区分不同的客户端应用程序
         groupId: "groupId",         // 负载均衡时使用, 多个client用同一个groupID分别消费不同内容, 多个client用不同groupId则分别消费相同内容
         brokerList: ["10.50.145.34:19092"],
-        channelBufferSize: 10000,   // 通道缓冲区大小
+        channelBufferSize: 256,     // 通道缓冲区大小
         net: {
           maxOpenRequests: 5,       // 最大请求数
           dialTimeout: 30000,       // 连接超时时长 单位ms
@@ -100,16 +102,19 @@
           resolveHost: false,       // 是否使用域名, 使用集群域名时设置为true
         },
         consumer: {
-          min: 1,                   // 每次从broker拉取的最小消息数
-          max: 3,                   // 每次从broker拉取的最大消息数
-          fetch: 1,                 // 每次从broker拉取的消息数
+          maxProcessingTime: 5000,  // 消费者处理消息的最大时间, 超过后会触发再均衡, 默认100ms
+          min: 8192,                // 每次从broker拉取的最小字节数  80k
+          max: 20971520,            // 每次从broker拉取的最大字节数  20M
+          fetch: 4194304,           // 每次从broker拉取的字节数数 4M
+          maxWaitTime: 250,         // 拉取消息时最大等待时间, 单位ms
           initialOffset: -1,        // 消费者偏移量, -1: 从最新的消息开始消费, -2: 重新开始消费
-          autoCommit: false,        // 是否自动commit
-          autoCommitInterval: 5000, // 自动commit的情况下, 多久定时commit一次, 单位ms
-          assignor: "range",        // 负载均衡策略, 可选范围[sticky|roundrobin|range], 默认为range, sticky: 粘性分配策略; roundrobin: 字典轮询分配策略; range: 范围分配策略
+          autoCommit: "native",     // 自动commit设置, 支持 "native": 原生自动提交; "custom": 客户端实现自动提交; "none": 手动提交
+          autoCommitInterval: 5000, // native 自动commit的情况下, 多久定时commit一次, 单位ms
+          returnError: true,        // 是否返回消费错误信息
+          assignor: "sticky",       // 负载均衡策略, 可选范围[sticky|roundrobin|range], 默认为range, sticky: 粘性分配策略; roundrobin: 字典轮询分配策略; range: 范围分配策略
           heartbeatInterval: 5000,  // 心跳间隔时间
-          rebalanceTimeout: 60000,  // 重均衡超时时间
-          sessionTimeout: 10000,    // session超时时间
+          rebalanceTimeout: 45000,  // 重均衡超时时间
+          sessionTimeout: 20000,    // session超时时间
           topics: [
             { topic: "test_saver", partitions: [{partition: 0, offset: -1}] },
             { topic: "test_saver02", partitions: [{partition: 0, offset: -1}]},
@@ -121,8 +126,7 @@
       type: "rabbitmq",
       isCompress: true, // 是否为压缩数据
       mq: {
-        host: "10.50.145.34",
-        port: 5672,
+        addrs: ["10.50.145.34:5672"],
         user: "admin",
         password: "datangxianyi@2024",
 
@@ -132,7 +136,7 @@
           queueName: "test001",    // 队列名
           kRouterKey: "test001.#", // 路由规则名称, 消费端可以不需要
           workType: "topic",       // 工作类型 direct, fanout, topic, headers
-          autoCommit: false,       // true 自动ack, false 开发者手工ack
+          autoCommit: "custom",    // 自动commit设置, "custom": 客户端实现自动提交; "none": 手动提交
         },
       },
     },
@@ -154,7 +158,7 @@
           timestamp: "20131223171201",    // 指定时间戳开始消费, 格式 "20131223171201"
           messageBatchMaxSize: 1,         // 批量消费消息的最大数量
           maxReconsumeTimes: 1,           // 最大重消费次数
-          autoCommit: false,              // 自动ack
+          autoCommit: "native",           // 自动commit设置, 支持 "native": 原生自动提交; "custom": 客户端实现自动提交; "none": 手动提交
         },
       },
     },
@@ -162,8 +166,7 @@
       type: "redismq",
       isCompress: true, // 是否压缩
       mq: {
-        host: "10.50.145.34",
-        port: 16379,
+        addrs: ["10.50.145.34:16379"],
         retry: 500,                   // 连接失败时重试次数, 若retry值为-1, 则无限重试
         password: "WuTz@DtXyTeCh.com",
 
@@ -256,11 +259,11 @@
       type: "kafkamq",
       isCompress: true, // 是否压缩
       mq: {
-        version: "3.0.0",         // kafka版本, 指定协议支持
+        version: "3.0.0",           // kafka版本, 指定协议支持
         clientId: "sarama",         // clientID 必须在Kafka 集群中保证唯一，用于区分不同的客户端应用程序
         groupId: "groupId",         // 负载均衡时使用, 多个client用同一个groupID分别消费不同内容, 多个client用不同groupId则分别消费相同内容
         brokerList: ["10.50.145.34:9092"],
-        channelBufferSize: 10000,   // 通道缓冲区大小
+        channelBufferSize: 256,     // 通道缓冲区大小
         net: {
           maxOpenRequests: 5,       // 最大请求数
           dialTimeout: 30000,       // 连接超时时长 单位ms
@@ -271,9 +274,11 @@
         producer: {
           compression: "snappy",       // 压缩方式: 默认snappy , 可选[none, gzip, snappy, lz4, zstd]
           CompressionLevel: -1000,     // 压缩级别
-          maxMessageBytes: 1048576000, // 每条消息最大容量, 单位 字节
+          maxMessageBytes: 1048576000, // 每条消息最大容量, 单位 字节, 1000M
           requiredAcks: "local",       // 发送确认: 默认 none, 可选[none, local, all]
-          flushMessages: 100,          // 刷新消息数量, 每10条刷新一次
+          returnAck: true,             // 是否返回ack信息
+          returnError: true,           // 是否返回错误信息
+          flushMessages: 1000,         // 刷新消息数量, 每10条刷新一次
           flushFrequency: 1000,        // 刷新时间, 单位ms
           flushMaxMessages: 10000,     // 最大刷新消息数量
           retryMax: 3,                 // 重试次数: 最多重试3次
@@ -289,8 +294,7 @@
       type: "rabbitmq",
       isCompress: true, // 是否压缩
       mq: {
-        host: "10.50.145.34",
-        port: 5672,
+        addrs: ["10.50.145.34:5672"],
         user: "admin",
         password: "datangxianyi@2024",
 
@@ -326,8 +330,7 @@
       type: "redismq",
       isCompress: true, // 是否压缩
       mq: {
-        host: "10.50.145.34",
-        port: 16379,
+        addrs: ["10.50.145.34:16379"],
         retry: 500,                    // 连接失败时重试次数, 若retry值为-1, 则无限重试
         password: "WuTz@DtXyTeCh.com",
         dbNum: 0,                      // redis数据库编号

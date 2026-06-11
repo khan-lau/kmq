@@ -13,13 +13,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/khan-lau/kmq/example/bean/config"
-	"github.com/khan-lau/kmq/example/bean/mq"
-	"github.com/khan-lau/kmq/example/service/dispatch"
-	"github.com/khan-lau/kmq/example/service/idl"
+	"github.com/khan-lau/kmq/internal/config"
+	"github.com/khan-lau/kmq/service/idl"
+	"github.com/khan-lau/kmq/service/mq/offset"
+	"github.com/khan-lau/kmq/service/mq/router"
 	"github.com/khan-lau/kutils/container/kcontext"
 	"github.com/khan-lau/kutils/container/klists"
-	"github.com/khan-lau/kutils/container/kstrings"
 	"github.com/khan-lau/kutils/filesystem"
 	klog "github.com/khan-lau/kutils/klogger"
 	"github.com/khan-lau/kutils/ksync"
@@ -42,8 +41,8 @@ var ( // 全局变量
 	glog             *klog.Logger                    // 日志
 	gMqSourceManager map[string]idl.ServiceInterface // 消息队列来源服务
 	gMqTargetManager map[string]idl.ServiceInterface // 消息队列分发服务
-	gDispatcher      *dispatch.DispatchService       // 消息分发服务
-	gOffsetSync      *mq.OffsetSync                  // topic offset同步服务, 用于记录topic offset, 以便重启时恢复offset
+	gDispatcher      *router.DispatchService         // 消息分发服务
+	gOffsetSync      *offset.OffsetSync              // topic offset同步服务, 用于记录topic offset, 以便重启时恢复offset
 
 )
 
@@ -80,14 +79,14 @@ func main() {
 
 	// 若未指定配置文件名, 则默认为 "./conf.json5" 或 "./conf/conf.json5"
 	if confPath == "" {
-		confPath = getDefualtConfPath(workDir)
+		confPath = getDefaultConfPath(workDir)
 		if confPath == "" {
 			fmt.Fprintf(os.Stderr, "  Error: please specify the path of the configuration file\n")
 			showUsage()
 			os.Exit(1)
 		}
 	} else {
-		kstrings.Println("Current configure file path: {}", confPath)
+		fmt.Printf("Current configure file path: %s\n", confPath)
 	}
 
 	conf, err := config.ConfigInstance(confPath)
@@ -97,11 +96,11 @@ func main() {
 	}
 
 	initLog(conf)
-	glog.I("logger initialized")
+	glog.Info("logger initialized")
 
 	defer func() {
 		if r := recover(); r != nil {
-			glog.E("Panic recovered: %v", r)
+			glog.Error("Panic recovered: %v", r)
 			// 记录堆栈信息
 			debug.PrintStack()
 		}
@@ -121,7 +120,6 @@ func main() {
 
 	// 如果存在offset记录, 则修改conf中的topic offset
 	gOffsetSync = loadOffsetCache(conf)
-	syncTimer := time.NewTimer(time.Duration(conf.SyncTime) * time.Millisecond)
 
 	gMqSourceManager = make(map[string]idl.ServiceInterface) // 源MQ服务管理器
 	gMqTargetManager = make(map[string]idl.ServiceInterface)
@@ -131,152 +129,186 @@ func main() {
 
 	// 监听信号
 	go func() {
-		sig := <-sigChan // 阻塞等待信号
-		glog.I("Get a signal: {} - {}", sig, sig.String())
-		mainCtx.Cancel()
+		select {
+		case sig := <-sigChan: // 阻塞等待信号
+			glog.Info("Get a signal: %v - %s", sig, sig.String())
+			mainCtx.Cancel()
+		case <-mainCtx.Context().Done():
+			return // 主上下文已取消，信号监听不再需要
+		}
 	}()
 
 	syncCtx := mainCtx.NewChild("offsetSync")
 	waitGroup := &sync.WaitGroup{}
 
 	if conf.Type == "send" {
-		//  此处添加一个生产数据的服务
-		waitGroup.Add(1)
-
 		countDown := ksync.NewCountDownLatch(len(conf.Target))
 
+		//  此处添加一个生产数据的服务
+		waitGroup.Add(1)
 		go func(ctx *kcontext.ContextNode, countdown *ksync.CountDownLatch) {
 			defer waitGroup.Done()
-
 			// 消息队列target服务
-			glog.I("start manager mq target service")
+			glog.Info("start manager mq target service")
 			startMqTarget(ctx, uint(conf.SendQueueSize), conf.Target, countDown, LogFunc)
 
-			var messages *klists.KList[*dispatch.GenericMessage]
+			var messages *klists.KList[*router.GenericMessage]
 			if filesystem.IsFileExists(replayDataPath) { // 如果存在重放文件, 则读取重放记录
-				glog.I("founded test file : {}", replayDataPath)
+				glog.Info("founded test file: %s", replayDataPath)
 				messages = getReplayData(conf.DumpHex, replayDataPath)
 			} else if filesystem.IsFileExists(workReplayDataPath) { // 如果存在重放文件, 则读取重放记录
-				glog.I("founded test file : {}", workReplayDataPath)
+				glog.Info("founded test file: %s", workReplayDataPath)
 				messages = getReplayData(conf.DumpHex, workReplayDataPath)
 			} else {
 				// fmt.Printf("not found test file : %s or %s \n", replayDataPath, workReplayDataPath)
-				glog.E("error: not found replay file : {} or {}", replayDataPath, workReplayDataPath)
+				glog.Error("error: not found replay file: %s or %s", replayDataPath, workReplayDataPath)
 				mainCtx.Cancel()
 				return
 			}
 
-			gDispatcher = dispatch.NewDispatchService(ctx, conf.DumpHex, uint(conf.SendInterval), uint(conf.SendQueueSize), 1, "dispatch", gMqTargetManager, LogFunc)
+			gDispatcher = router.NewDispatchService(ctx, conf.DumpHex, uint(conf.SendInterval), uint(conf.SendQueueSize), 1, "dispatch", gMqTargetManager, LogFunc)
 			gDispatcher.StartAsync()
 
-			msgArr := make([]*dispatch.GenericMessage, 0)
+			maxRetries := 1000 // 10ms * 1000 = 10 秒
+			started := false
+			for range maxRetries {
+				if ctx.Context().Err() != nil {
+					started = false
+					return
+				}
+				if gDispatcher.Status() == idl.ServiceStatusRunning {
+					started = true
+					break
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
+
+			if !started {
+				glog.Error("dispatcher not started")
+				mainCtx.Cancel()
+				return
+			}
+
+			msgArr := make([]*router.GenericMessage, 0)
 			if messages != nil {
 				msgArr = klists.ToKSlice(messages)
 			}
-			sendCtx := mainCtx.NewChild("sendCtx")
-			go func(ctx *kcontext.ContextNode, sendInterval uint32, messages []*dispatch.GenericMessage) {
-				// 确保所有的target已经启动完成, 否则退出程序
-				err := countdown.WaitWithTimeout(15 * 60 * 1000 * time.Millisecond) // 等待startMqTarget 启动完成, 15分钟超时退出
-				if err != nil {
-					glog.E("targets init failt: {}", err)
-					root := ctx.Root()
-					if root != nil {
-						root.Cancel() // 超时退出
-					}
-					return
-				}
-				glog.I("all target is ready")
-
-				// 创建一个定时器，每隔`ScanInterval`秒执行一次
-				index := 0
-				timer := time.NewTimer(time.Duration(sendInterval) * time.Millisecond)
-				defer timer.Stop()
-			EndScanLoop:
-				for {
-					select {
-					case <-timer.C:
-						if len(messages) > 0 {
-							if len(messages) > 0 {
-								if index >= len(messages) {
-									index = 0
-								}
-								message := messages[index]
-								if message.Topic == "quit" && len(message.Message) == 0 {
-									timer.Stop()
-									err := fmt.Errorf("%s", "Quit send goroutine")
-									glog.E("{}", err)
-									break EndScanLoop
-								}
-								index++
-								generalMessage(gDispatcher, conf.ResetTimestamp, message)
-							}
-						} else {
-							glog.D("{}", "replay data is empty")
-						}
-
-						timer.Reset(time.Duration(sendInterval) * time.Millisecond) // 重置定时器
-					case <-ctx.Context().Done(): // 如果 context 被取消，退出循环
-						glog.I("{}", "Publisher send goroutine done")
-						break EndScanLoop
-					}
-				}
-				glog.I("{}", "Publisher send goroutine finish")
-
+			// 确保所有的target已经启动完成, 否则退出程序
+			err := countdown.WaitWithTimeout(15 * 60 * 1000 * time.Millisecond) // 等待startMqTarget 启动完成, 15分钟超时退出
+			if err != nil {
+				glog.Error("targets init failed: %v", err)
 				root := ctx.Root()
 				if root != nil {
-					root.Cancel()
+					root.Cancel() // 超时退出
 				}
+				return
+			}
+			glog.Info("all target is ready")
 
-			}(sendCtx, conf.SendInterval, msgArr)
-			glog.I("replay data is finished")
+			// 创建一个定时器，每隔`ScanInterval`秒执行一次
+			index := 0
+			timer := time.NewTimer(time.Duration(conf.SendInterval) * time.Millisecond)
+			defer timer.Stop()
+		EndScanLoop:
+			for {
+				select {
+				case <-timer.C:
+					if len(msgArr) > 0 {
+						if index >= len(msgArr) {
+							index = 0
+						}
+						message := msgArr[index]
+						if message.Topic == "quit" && len(message.Message) == 0 {
+							timer.Stop()
+							err := fmt.Errorf("Quit send goroutine")
+							glog.Error("%v", err)
+							break EndScanLoop
+						}
+						index++
+						generalMessage(gDispatcher, conf.ResetTimestamp, message)
+					} else {
+						glog.Debug("replay data is empty")
+					}
+
+					timer.Reset(time.Duration(conf.SendInterval) * time.Millisecond) // 重置定时器
+				case <-ctx.Context().Done(): // 如果 context 被取消，退出循环
+					glog.Info("Publisher send goroutine done")
+					break EndScanLoop
+				}
+			}
+			glog.Info("Publisher send goroutine finish")
+
+			if gDispatcher != nil {
+				glog.Info("stop dispatch service")
+				_ = gDispatcher.Stop()
+				glog.Info("dispatch service is finished")
+			}
+
+			root := ctx.Root()
+			if root != nil {
+				root.Cancel()
+			}
+
+			glog.Info("replay data is finished")
 		}(mainCtx, countDown)
 	} else {
-
 		// MQ offset sync服务, 该服务用于定时将当前offset记录到文件中, 以便重启时恢复offset
-		waitGroup.Add(1)
-
+		// waitGroup.Add(1)
 		go func(ctx *kcontext.ContextNode) {
-			defer waitGroup.Done()
-			glog.I("start offset sync service")
-			go func(ctx *kcontext.ContextNode) {
-			END_LOOP:
-				for {
-					select {
-					case <-syncTimer.C:
-						gOffsetSync.Sync(false)
-						syncTimer = time.NewTimer(time.Duration(conf.SyncTime) * time.Millisecond)
-						// glog.I("sync offset to file: {}", conf.SyncFile)
-					case <-ctx.Context().Done():
-						break END_LOOP
-					}
+			// defer waitGroup.Done()
+			glog.Info("start offset sync service")
+			// 将定时器移动到这里创建，实现真正的按需分配
+			t := time.NewTimer(time.Duration(conf.SyncTime) * time.Millisecond)
+			defer t.Stop()
+		END_LOOP:
+			for {
+				select {
+				case <-t.C:
+					gOffsetSync.Sync(false)
+					// t = time.NewTimer(time.Duration(conf.SyncTime) * time.Millisecond)
+					t.Reset(time.Duration(conf.SyncTime) * time.Millisecond)
+					// glog.Info("sync offset to file: %s", conf.SyncFile)
+				case <-ctx.Context().Done():
+					break END_LOOP
 				}
-				glog.I("offset sync service is finished")
-			}(ctx)
+			}
+			glog.Info("offset sync service is finished")
 		}(syncCtx)
 
 		// 消息队列source服务
 		waitGroup.Add(1)
 		go func(ctx *kcontext.ContextNode) {
 			defer waitGroup.Done()
-			glog.I("start manager mq source service")
+			glog.Info("start manager mq source service")
 			startMqSource(ctx, conf.DumpHex, conf.Source, gOffsetSync, LogFunc)
 		}(mainCtx)
 	}
 
 	waitGroup.Wait()
 
-	<-mainCtx.Context().Done()
+	<-mainCtx.Context().Done() // 等待退出通知 (信号或发送完毕)
+	glog.Info("main context done")
+
+	stopMqSourceManager() //先停 Source (断源), 这样做之后，DispatchService 的 queue 里的数据就不会再增加了
+	glog.Info("stop Source manager")
+
+	if gDispatcher != nil {
+		glog.Info("stop dispatch service")
+		_ = gDispatcher.Stop()
+		glog.Info("dispatch service is finished")
+	}
+
+	stopMqTargetManager() // 最后关闭 Target (拆管), 只有 Dispatcher 确认数据都送出去了，才能关 Target 客户端
+	glog.Info("stop Target manager")
 
 	//  销毁资源
 	syncCtx.Cancel() // 取消offset sync服务
 	syncCtx.Remove()
 
-	stopMqSourceManager() // 停止消息队列source服务
-	stopMqTargetManager() // 停止消息队列target服务
-
-	syncTimer.Stop() // 停止定时器
-	gOffsetSync.Sync(true)
+	if gOffsetSync != nil {
+		gOffsetSync.Sync(true)
+	}
 
 	mainCtx.Remove() // 清理主上下文
-	glog.I("{} is finished", BuildName)
+	glog.Info("%s is finished", BuildName)
 }
