@@ -5,7 +5,8 @@ go 1.24.0
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/apache/rocketmq-client-go/v2 v2.1.2
-	github.com/khan-lau/kmq-utils v0.1.0
+	github.com/khan-lau/kmq-utils v0.1.2
+	github.com/khan-lau/kutils v0.5.7
 	github.com/khan-lau/mapstructure v1.5.4
 	github.com/titanous/json5 v1.0.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -33,7 +34,6 @@ require (
 	github.com/jcmturner/gokrb5/v8 v8.4.4 // indirect
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/khan-lau/kutils v0.5.5
 	github.com/klauspost/compress v1.18.4 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible // indirect
