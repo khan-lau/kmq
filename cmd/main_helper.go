@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/khan-lau/kmq-utils/kafkamq"
+	"github.com/khan-lau/kmq-utils/rabbitmq"
 	"github.com/khan-lau/kmq/internal/config"
 	"github.com/khan-lau/kutils/container/kstrings"
 	"github.com/khan-lau/kutils/filesystem"
@@ -95,18 +97,13 @@ func LogFunc(lvl klog.Level, tag, f string, args ...any) {
 
 	skip := 1
 	switch tag {
-	case "RABBIT":
-		skip = 2
-	}
-
-	switch tag {
-	case "RABBIT":
+	case rabbitmq.RabbitLogPrefix:
 		skip = 2
 	}
 
 	switch lvl {
 	case klog.DebugLevel:
-		if tag == "kafka" {
+		if tag == kafkamq.KafkaLogTag {
 
 		} else {
 			glog.KDebug(skip, f, args...)

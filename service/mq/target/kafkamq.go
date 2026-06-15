@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	kafkamq_tag = "kafkamq_target"
+	KafkaTargetLogTag = "kafkamq_target"
 )
 
 type KafkaMQ struct {
@@ -29,7 +29,7 @@ type KafkaMQ struct {
 }
 
 func NewKafkaMQ(ctx *kcontext.ContextNode, name string, conf *config.KafkaConfig, kafkaBuffSize uint, isCompress bool, logf klog.AppLogFuncWithTag) (*KafkaMQ, error) {
-	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", kafkamq_tag, name))
+	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", KafkaTargetLogTag, name))
 
 	kafkaMQ := &KafkaMQ{
 		ctx:           subCtx,
@@ -56,7 +56,7 @@ func (that *KafkaMQ) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, kafkamq_tag, "start service %s error: %v", that.name, err)
+				that.logf(klog.ErrorLevel, KafkaTargetLogTag, "start service %s error: %v", that.name, err)
 			}
 			that.onError(that.name, err)
 		}
@@ -165,7 +165,7 @@ func (that *KafkaMQ) Broadcast(message []byte, properties map[string]string) boo
 			buffer = content
 		} else {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, kafkamq_tag, "compress message error: %v", err)
+				that.logf(klog.ErrorLevel, KafkaTargetLogTag, "compress message error: %v", err)
 			}
 			return false
 		}
@@ -180,13 +180,13 @@ func (that *KafkaMQ) Broadcast(message []byte, properties map[string]string) boo
 		}
 		// if !that.PublishMessageWithProperties(int32(topic.Partition), topic.Name, key, message, properties) {
 		// 	if that.logf != nil {
-		// 		that.logf(klog.ErrorLevel, kafkamq_tag, "publish topic %s partition %d message %s fault", topic.Name, topic.Partition, string(message))
+		// 		that.logf(klog.ErrorLevel, KafkaTargetLogTag, "publish topic %s partition %d message %s fault", topic.Name, topic.Partition, string(message))
 		// 	}
 		// }
 
 		if !that.PublishMessageWithProperties(int32(0), topic.Name, key, buffer, properties) {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, kafkamq_tag, "publish topic %s message %s fault", topic.Name, string(message))
+				that.logf(klog.ErrorLevel, KafkaTargetLogTag, "publish topic %s message %s fault", topic.Name, string(message))
 			}
 		}
 	}
@@ -198,7 +198,7 @@ func (that *KafkaMQ) Publish(topic string, message []byte, properties map[string
 	if properties != nil {
 		key = properties["key"]
 	}
-	// that.logf(klog.DebugLevel, kafkamq_tag, "publish topic %s, key %s, message %s", topic, key, string(message))
+	// that.logf(klog.DebugLevel, KafkaTargetLogTag, "publish topic %s, key %s, message %s", topic, key, string(message))
 	return that.PublishMessageWithProperties(0, topic, key, message, properties)
 }
 

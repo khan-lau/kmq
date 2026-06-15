@@ -22,7 +22,7 @@ type OffsetSync struct {
 }
 
 const (
-	offset_tag = "offset_service"
+	OffsetLogTag = "offset_service"
 )
 
 func NewOffsetSync(syncTime uint64, syncFilePath string, logf klog.AppLogFuncWithTag) *OffsetSync {
@@ -114,7 +114,7 @@ func (that *OffsetSync) Sync(force bool) {
 		syncMap = tmap
 
 		// if that.logf != nil {
-		// 	that.logf(klog.DebugLevel, offset_tag, "sync offset to %v file: %s", syncMap, that.syncFile)
+		// 	that.logf(klog.DebugLevel, OffsetLogTag, "sync offset to %v file: %s", syncMap, that.syncFile)
 		// }
 		that.recordMutext.Unlock()
 	}
@@ -125,7 +125,7 @@ func (that *OffsetSync) Sync(force bool) {
 		if err == nil {
 			_ = os.WriteFile(that.syncFile, buf, os.ModePerm)
 			if that.logf != nil {
-				that.logf(klog.DebugLevel, offset_tag, "sync offset to %s file: %s", string(buf), that.syncFile)
+				that.logf(klog.DebugLevel, OffsetLogTag, "sync offset to %s file: %s", string(buf), that.syncFile)
 			}
 		}
 	}

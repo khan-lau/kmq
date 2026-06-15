@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	mqtt_tag = "mqtt_source"
+	MqttSourceLogTag = "mqtt_source"
 )
 
 type MqttMQ struct {
@@ -27,7 +27,7 @@ type MqttMQ struct {
 }
 
 func NewMqttMQ(ctx *kcontext.ContextNode, name string, conf *config.MqttConfig, mqttBuffSize uint, logf klog.AppLogFuncWithTag) (*MqttMQ, error) {
-	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", mqtt_tag, name))
+	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", MqttSourceLogTag, name))
 
 	mqttMQ := &MqttMQ{
 		ctx:          subCtx,
@@ -57,7 +57,7 @@ func (that *MqttMQ) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, mqtt_tag, "start service %s error: %v", that.name, err)
+				that.logf(klog.ErrorLevel, MqttSourceLogTag, "start service %s error: %v", that.name, err)
 			}
 			that.onError(that.name, err)
 		}

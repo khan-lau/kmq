@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	nats_core_tag = "nats_core_source"
-	nats_js_tag   = "nats_js_source"
+	NatsCoreSourceLogTag = "nats_core_source"
+	NatsJSSourceLogTag   = "nats_js_source"
 )
 
 type NatsCoreMQ struct {
@@ -31,7 +31,7 @@ type NatsCoreMQ struct {
 }
 
 func NewNatsCoreMQ(ctx *kcontext.ContextNode, name string, conf *config.NatsCoreConfig, coreBuffSize uint, logf klog.AppLogFuncWithTag) (*NatsCoreMQ, error) {
-	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", nats_core_tag, name))
+	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", NatsCoreSourceLogTag, name))
 
 	{
 		// 检查配置参数
@@ -81,7 +81,7 @@ func (that *NatsCoreMQ) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, nats_core_tag, "start service %s error: %v", that.name, err)
+				that.logf(klog.ErrorLevel, NatsCoreSourceLogTag, "start service %s error: %v", that.name, err)
 			}
 			that.onError(that.name, err)
 		}
@@ -195,7 +195,7 @@ type NatsJetStreamMQ struct {
 }
 
 func NewNatsJetStreamMQ(ctx *kcontext.ContextNode, name string, conf *config.NatsJsConfig, jsBuffSize uint, logf klog.AppLogFuncWithTag) (*NatsJetStreamMQ, error) {
-	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", nats_js_tag, name))
+	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", NatsJSSourceLogTag, name))
 
 	{
 		// 检查配置参数
@@ -276,7 +276,7 @@ func (that *NatsJetStreamMQ) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, nats_js_tag, "start service %s error: %v", that.name, err)
+				that.logf(klog.ErrorLevel, NatsJSSourceLogTag, "start service %s error: %v", that.name, err)
 			}
 			that.onError(that.name, err)
 		}

@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	redismq_tag = "redismq_target"
+	RedisTargetLogTag = "redismq_target"
 )
 
 type RedisMQ struct {
@@ -29,7 +29,7 @@ type RedisMQ struct {
 }
 
 func NewRedisMQ(ctx *kcontext.ContextNode, name string, conf *config.RedisConfig, redisBuffSize uint, isCompress bool, logf klog.AppLogFuncWithTag) (*RedisMQ, error) {
-	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", redismq_tag, name))
+	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", RedisTargetLogTag, name))
 
 	redisMQ := &RedisMQ{
 		ctx:           subCtx,
@@ -60,7 +60,7 @@ func (that *RedisMQ) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, redismq_tag, "start service %s error: %v", that.name, err)
+				that.logf(klog.ErrorLevel, RedisTargetLogTag, "start service %s error: %v", that.name, err)
 			}
 			that.onError(that.name, err)
 		}
@@ -126,7 +126,7 @@ func (that *RedisMQ) Broadcast(message []byte, properties map[string]string) boo
 			buffer = content
 		} else {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, rabbitmq_tag, "compress message error: %v", err)
+				that.logf(klog.ErrorLevel, RedisTargetLogTag, "compress message error: %v", err)
 			}
 			return false
 		}
@@ -136,7 +136,7 @@ func (that *RedisMQ) Broadcast(message []byte, properties map[string]string) boo
 	for _, topic := range that.conf.Topics {
 		if !that.PublishMessage(topic, string(buffer)) {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, redismq_tag, "publish topic %s message %s fault", topic, string(message))
+				that.logf(klog.ErrorLevel, RedisTargetLogTag, "publish topic %s message %s fault", topic, string(message))
 			}
 		}
 	}

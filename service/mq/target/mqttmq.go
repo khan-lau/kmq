@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	mqtt_tag = "mqtt_target"
+	MqttTargetLogTag = "mqtt_target"
 )
 
 type MqttMQ struct {
@@ -30,7 +30,7 @@ type MqttMQ struct {
 }
 
 func NewMqttMQ(ctx *kcontext.ContextNode, name string, conf *config.MqttConfig, mqttBuffSize uint, isCompress bool, logf klog.AppLogFuncWithTag) (*MqttMQ, error) {
-	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", redismq_tag, name))
+	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", MqttTargetLogTag, name))
 
 	mqttMq := &MqttMQ{
 		ctx:          subCtx,
@@ -57,7 +57,7 @@ func (that *MqttMQ) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, mqtt_tag, "start service %s error: %v", that.name, err)
+				that.logf(klog.ErrorLevel, MqttTargetLogTag, "start service %s error: %v", that.name, err)
 			}
 			that.onError(that.name, err)
 		}
@@ -147,7 +147,7 @@ func (that *MqttMQ) Broadcast(message []byte, properties map[string]string) bool
 			buffer = content
 		} else {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, rabbitmq_tag, "compress message error: %v", err)
+				that.logf(klog.ErrorLevel, MqttTargetLogTag, "compress message error: %v", err)
 			}
 			return false
 		}
@@ -157,7 +157,7 @@ func (that *MqttMQ) Broadcast(message []byte, properties map[string]string) bool
 	for _, topic := range that.conf.Topics {
 		if !that.PublishMessage(topic, string(buffer)) {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, mqtt_tag, "publish topic %s message %s fault", topic, string(message))
+				that.logf(klog.ErrorLevel, MqttTargetLogTag, "publish topic %s message %s fault", topic, string(message))
 			}
 		}
 	}

@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	nats_core_tag = "nats_core_target"
-	nats_js_tag   = "nats_js_target"
+	NatsCoreTargetLogTag = "nats_core_target"
+	NatsJSTargetLogTag   = "nats_js_target"
 )
 
 type NatsCoreMQ struct {
@@ -31,7 +31,7 @@ type NatsCoreMQ struct {
 }
 
 func NewNatsCoreMQ(ctx *kcontext.ContextNode, name string, conf *config.NatsCoreConfig, coreBuffSize uint, isCompress bool, logf klog.AppLogFuncWithTag) (*NatsCoreMQ, error) {
-	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", nats_core_tag, name))
+	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", NatsCoreTargetLogTag, name))
 
 	{
 		// 检查配置参数
@@ -77,7 +77,7 @@ func (that *NatsCoreMQ) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, nats_core_tag, "start service %s error: %v", that.name, err)
+				that.logf(klog.ErrorLevel, NatsCoreTargetLogTag, "start service %s error: %v", that.name, err)
 			}
 			that.onError(that.name, err)
 		}
@@ -168,7 +168,7 @@ func (that *NatsCoreMQ) Broadcast(message []byte, properties map[string]string) 
 			buffer = content
 		} else {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, rabbitmq_tag, "compress message error: %v", err)
+				that.logf(klog.ErrorLevel, NatsCoreTargetLogTag, "compress message error: %v", err)
 			}
 			return false
 		}
@@ -178,7 +178,7 @@ func (that *NatsCoreMQ) Broadcast(message []byte, properties map[string]string) 
 	for _, topic := range that.conf.Topics {
 		if !that.PublishMessage(topic, string(buffer)) {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, nats_core_tag, "publish topic %s message %s fault", topic, string(message))
+				that.logf(klog.ErrorLevel, NatsCoreTargetLogTag, "publish topic %s message %s fault", topic, string(message))
 			}
 		}
 	}
@@ -224,7 +224,7 @@ type NatsJetStreamMQ struct {
 }
 
 func NewNatsJetStreamMQ(ctx *kcontext.ContextNode, name string, conf *config.NatsJsConfig, jsBuffSize uint, isCompress bool, logf klog.AppLogFuncWithTag) (*NatsJetStreamMQ, error) {
-	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", nats_core_tag, name))
+	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", NatsJSTargetLogTag, name))
 
 	{
 		// 检查配置参数
@@ -308,7 +308,7 @@ func (that *NatsJetStreamMQ) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, nats_js_tag, "start service %s error: %v", that.name, err)
+				that.logf(klog.ErrorLevel, NatsJSTargetLogTag, "start service %s error: %v", that.name, err)
 			}
 			that.onError(that.name, err)
 		}
@@ -416,7 +416,7 @@ func (that *NatsJetStreamMQ) Broadcast(message []byte, properties map[string]str
 			buffer = content
 		} else {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, rabbitmq_tag, "compress message error: %v", err)
+				that.logf(klog.ErrorLevel, NatsJSTargetLogTag, "compress message error: %v", err)
 			}
 			return false
 		}
@@ -426,7 +426,7 @@ func (that *NatsJetStreamMQ) Broadcast(message []byte, properties map[string]str
 	for _, topic := range that.conf.Topics {
 		if !that.PublishMessage(topic, string(buffer)) {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, nats_js_tag, "publish topic %s message %s fault", topic, string(message))
+				that.logf(klog.ErrorLevel, NatsJSTargetLogTag, "publish topic %s message %s fault", topic, string(message))
 			}
 		}
 	}

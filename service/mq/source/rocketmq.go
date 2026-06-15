@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	rocketmq_tag = "rocketmq_source"
+	RocketSourceLogTag = "rocketmq_source"
 )
 
 type RocketMQ struct {
@@ -29,7 +29,7 @@ type RocketMQ struct {
 }
 
 func NewRocketMQ(ctx *kcontext.ContextNode, name string, conf *config.RocketConfig, rocketBuffSize uint, logf klog.AppLogFuncWithTag) (*RocketMQ, error) {
-	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", rocketmq_tag, name))
+	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", RocketSourceLogTag, name))
 
 	rocketMQ := &RocketMQ{
 		ctx:            subCtx,
@@ -59,7 +59,7 @@ func (that *RocketMQ) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, rocketmq_tag, "start service %s error: %v", that.name, err)
+				that.logf(klog.ErrorLevel, RocketSourceLogTag, "start service %s error: %v", that.name, err)
 			}
 			that.onError(that.name, err)
 		}

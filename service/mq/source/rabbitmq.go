@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	rabbitmq_tag = "rabbitmq_source"
+	RabbitSourceLogTag = "rabbitmq_source"
 )
 
 type RabbitMQ struct {
@@ -27,7 +27,7 @@ type RabbitMQ struct {
 }
 
 func NewRabbitMQ(ctx *kcontext.ContextNode, name string, conf *mqConf.RabbitConfig, logf klog.AppLogFuncWithTag) (*RabbitMQ, error) {
-	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", rabbitmq_tag, name))
+	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", RabbitSourceLogTag, name))
 
 	rabbitMQ := &RabbitMQ{
 		ctx:        subCtx,
@@ -56,7 +56,7 @@ func (that *RabbitMQ) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, rabbitmq_tag, "start service %s error: %v", that.name, err)
+				that.logf(klog.ErrorLevel, RabbitSourceLogTag, "start service %s error: %v", that.name, err)
 			}
 			that.onError(that.name, err)
 		}

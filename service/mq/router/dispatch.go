@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	dispatch_tag = "dispatch_service"
+	DispatchLogTag = "dispatch_service"
 )
 
 //////////////////////////////////////////////////////////////
@@ -79,7 +79,7 @@ func NewDispatchService(ctx *kcontext.ContextNode, dumpHex bool, sendInterval ui
 	queue, err := ksync.NewLockedRingBuffer[*GenericMessage](uint64(queueSize))
 	if err != nil {
 		if logf != nil {
-			logf(klog.ErrorLevel, dispatch_tag, "create ring buffer error: %v", err)
+			logf(klog.ErrorLevel, DispatchLogTag, "create ring buffer error: %v", err)
 		}
 		return nil
 	}
@@ -115,17 +115,17 @@ func (that *DispatchService) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, dispatch_tag, "start service %s error: %v", that.name, err)
+				that.logf(klog.ErrorLevel, DispatchLogTag, "start service %s error: %v", that.name, err)
 			}
 			that.onError(that.name, err)
 		}
 
 		if that.logf != nil {
-			that.logf(klog.DebugLevel, dispatch_tag, "service %s start async", that.name)
+			that.logf(klog.DebugLevel, DispatchLogTag, "service %s start async", that.name)
 		}
 
 		if that.logf != nil {
-			that.logf(klog.DebugLevel, dispatch_tag, "service %s start async done", that.name)
+			that.logf(klog.DebugLevel, DispatchLogTag, "service %s start async done", that.name)
 		}
 	}()
 }
@@ -139,7 +139,7 @@ func (that *DispatchService) Start() error {
 		return fmt.Errorf("service %s mqTargets is empty", that.name)
 	} else {
 		if that.logf != nil {
-			that.logf(klog.DebugLevel, dispatch_tag, "service %s mqTargets: %d", that.name, len(that.mqTargets))
+			that.logf(klog.DebugLevel, DispatchLogTag, "service %s mqTargets: %d", that.name, len(that.mqTargets))
 		}
 	}
 
@@ -151,7 +151,7 @@ func (that *DispatchService) Start() error {
 	var workerWg sync.WaitGroup // 使用局部 WaitGroup 控制子协程（搬运工）
 	workerWg.Add(1)
 
-	subCtx := that.ctx.NewChild(dispatch_tag + "_start")
+	subCtx := that.ctx.NewChild(DispatchLogTag + "_start")
 	go func(ctx *kcontext.ContextNode) {
 		defer workerWg.Done()
 
@@ -209,7 +209,7 @@ func (that *DispatchService) Start() error {
 
 					// 处理消息
 					// if that.logf != nil {
-					// 	that.logf(klog.DebugLevel, dispatch_tag, "service %s transform topic: %s message: %s", that.name, msg.Topic, string(msg.Message))
+					// 	that.logf(klog.DebugLevel, DispatchLogTag, "service %s transform topic: %s message: %s", that.name, msg.Topic, string(msg.Message))
 					// }
 
 					tmpRatio := max(cap(that.buffer)/2, 1) // 计算缓冲区的一半，至少为1
@@ -244,7 +244,7 @@ func (that *DispatchService) Start() error {
 
 		}
 		if that.logf != nil {
-			that.logf(klog.InfoLevel, dispatch_tag, "service %s goroutine done", that.name)
+			that.logf(klog.InfoLevel, DispatchLogTag, "service %s goroutine done", that.name)
 		}
 	}(subCtx)
 
@@ -258,7 +258,7 @@ func (that *DispatchService) Start() error {
 	}
 
 	if that.logf != nil {
-		that.logf(klog.InfoLevel, dispatch_tag, "service %s done", that.name)
+		that.logf(klog.InfoLevel, DispatchLogTag, "service %s done", that.name)
 	}
 	subCtx.Cancel()
 	subCtx.Remove()
@@ -293,7 +293,7 @@ func (that *DispatchService) Stop() error {
 	that.status = idl.ServiceStatusStopped // 设置服务状态为停止状态
 
 	if that.logf != nil {
-		that.logf(klog.InfoLevel, dispatch_tag, "service %s is stopped", that.name)
+		that.logf(klog.InfoLevel, DispatchLogTag, "service %s is stopped", that.name)
 	}
 
 	return nil
@@ -361,11 +361,11 @@ func (that *DispatchService) send(msg *GenericMessage) {
 	if !that.publish(msg.Topic, msg.Message, msg.Properties) {
 		if that.logf != nil {
 
-			that.logf(klog.ErrorLevel, dispatch_tag, "service %s send fault, topic: %s, message: %s", that.name, msg.Topic, msgStr)
+			that.logf(klog.ErrorLevel, DispatchLogTag, "service %s send fault, topic: %s, message: %s", that.name, msg.Topic, msgStr)
 		}
 	} else {
 		if that.logf != nil {
-			that.logf(klog.DebugLevel, dispatch_tag, "service %s sent topic: %s, message: %s", that.name, msg.Topic, msgStr)
+			that.logf(klog.DebugLevel, DispatchLogTag, "service %s sent topic: %s, message: %s", that.name, msg.Topic, msgStr)
 		}
 	}
 }

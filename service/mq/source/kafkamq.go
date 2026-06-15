@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	kafkamq_tag = "kafkamq_source"
+	KafkaSourceLogTag = "kafkamq_source"
 )
 
 type KafkaMQ struct {
@@ -27,7 +27,7 @@ type KafkaMQ struct {
 }
 
 func NewKafkaMQ(ctx *kcontext.ContextNode, name string, conf *config.KafkaConfig, kafkaBuffSize uint, logf klog.AppLogFuncWithTag) (*KafkaMQ, error) {
-	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", kafkamq_tag, name))
+	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", KafkaSourceLogTag, name))
 
 	rabbitMQ := &KafkaMQ{
 		ctx:           subCtx,
@@ -57,7 +57,7 @@ func (that *KafkaMQ) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, kafkamq_tag, "start service %s error: %v", that.name, err)
+				that.logf(klog.ErrorLevel, KafkaSourceLogTag, "start service %s error: %v", that.name, err)
 			}
 			that.onError(that.name, err)
 		}

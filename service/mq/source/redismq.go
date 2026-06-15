@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	redismq_tag = "redismq_source"
+	RedisSourceLogTag = "redismq_source"
 )
 
 type RedisMQ struct {
@@ -29,7 +29,7 @@ type RedisMQ struct {
 }
 
 func NewRedisMQ(ctx *kcontext.ContextNode, name string, conf *config.RedisConfig, redisBuffSize uint, logf klog.AppLogFuncWithTag) (*RedisMQ, error) {
-	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", redismq_tag, name))
+	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", RedisSourceLogTag, name))
 
 	redisMQ := &RedisMQ{
 		ctx:           subCtx,
@@ -55,7 +55,7 @@ func (that *RedisMQ) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, redismq_tag, "start service %s error: %v", that.name, err)
+				that.logf(klog.ErrorLevel, RedisSourceLogTag, "start service %s error: %v", that.name, err)
 			}
 			that.onError(that.name, err)
 		}

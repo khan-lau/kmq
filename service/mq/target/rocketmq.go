@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	rocketmq_tag = "rocketmq_target"
+	RocketTargetLogTag = "rocketmq_target"
 )
 
 type RocketMQ struct {
@@ -30,7 +30,7 @@ type RocketMQ struct {
 }
 
 func NewRocketMQ(ctx *kcontext.ContextNode, name string, conf *config.RocketConfig, rocketBuffSize uint, isCompress bool, logf klog.AppLogFuncWithTag) (*RocketMQ, error) {
-	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", rocketmq_tag, name))
+	subCtx := ctx.NewChild(fmt.Sprintf("%s_%s", RocketTargetLogTag, name))
 
 	rocketMQ := &RocketMQ{
 		ctx:            subCtx,
@@ -57,7 +57,7 @@ func (that *RocketMQ) StartAsync() {
 		err := that.Start()
 		if err != nil {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, rocketmq_tag, "start service %s error: %v", that.name, err)
+				that.logf(klog.ErrorLevel, RocketTargetLogTag, "start service %s error: %v", that.name, err)
 			}
 			that.onError(that.name, err)
 		}
@@ -154,7 +154,7 @@ func (that *RocketMQ) Broadcast(message []byte, properties map[string]string) bo
 			buffer = content
 		} else {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, kafkamq_tag, "compress message error: %v", err)
+				that.logf(klog.ErrorLevel, RocketTargetLogTag, "compress message error: %v", err)
 			}
 			return false
 		}
@@ -165,7 +165,7 @@ func (that *RocketMQ) Broadcast(message []byte, properties map[string]string) bo
 	for _, topic := range that.conf.Producer.Topics {
 		if !that.Publish(topic, buffer, properties) {
 			if that.logf != nil {
-				that.logf(klog.ErrorLevel, redismq_tag, "publish topic %s message %s fault", topic, string(message))
+				that.logf(klog.ErrorLevel, RocketTargetLogTag, "publish topic %s message %s fault", topic, string(message))
 			}
 		}
 	}
