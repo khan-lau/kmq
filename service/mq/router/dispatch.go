@@ -166,28 +166,6 @@ func (that *DispatchService) Start() error {
 	END_LOOP:
 		for {
 			select {
-			case <-ctx.Context().Done():
-				// 清理 buffer 残留
-				that.mutex.Lock()
-				if len(that.buffer) > 0 {
-					lastBuff := make([]*GenericMessage, len(that.buffer))
-					copy(lastBuff, that.buffer)
-					that.buffer = that.buffer[:0]
-					that.mutex.Unlock()
-					that.sendArray(lastBuff)
-				} else {
-					that.mutex.Unlock()
-				}
-
-				drainBuffer := make([]*GenericMessage, that.queueSize)
-				n := that.queue.DequeueToWait(drainBuffer, 5000*time.Millisecond)
-				if n > 0 {
-					for _, msg := range drainBuffer[:n] {
-						that.send(msg) // 退出时建议直接单条发送，确保可靠性
-					}
-				}
-
-				break END_LOOP
 			case <-timerCh:
 				// 处理定时器消息
 				var buffCopy []*GenericMessage
@@ -204,40 +182,66 @@ func (that *DispatchService) Start() error {
 				that.timer.Reset(time.Duration(that.sendInterval) * time.Millisecond) // 重置定时器，继续等待下一次触发
 
 			default:
-				if msg, ok := that.queue.TryDequeue(); ok {
-					idleCount = 0 // 有数据，重置空闲计数
-
-					// 处理消息
-					// if that.logf != nil {
-					// 	that.logf(klog.DebugLevel, DispatchLogTag, "service %s transform topic: %s message: %s", that.name, msg.Topic, string(msg.Message))
-					// }
-
-					tmpRatio := max(cap(that.buffer)/2, 1) // 计算缓冲区的一半，至少为1
-
-					// 批量发送数组
-					if tmpRatio > 1 {
-						var buffCopy []*GenericMessage
-						that.mutex.Lock()                 // 加锁
-						if len(that.buffer) >= tmpRatio { // 检查缓冲区是否已满
-							buffCopy = make([]*GenericMessage, len(that.buffer)) // 创建一个新切片
-							copy(buffCopy, that.buffer)
-							that.buffer = that.buffer[:0] // 清空缓冲区
-						}
-						that.buffer = append(that.buffer, msg) // 将消息添加到缓冲区
+				// 排水模式
+				if that.draining.Load() {
+					// 清理 buffer 残留
+					that.mutex.Lock()
+					if len(that.buffer) > 0 {
+						lastBuff := make([]*GenericMessage, len(that.buffer))
+						copy(lastBuff, that.buffer)
+						that.buffer = that.buffer[:0]
 						that.mutex.Unlock()
+						that.sendArray(lastBuff)
+					} else {
+						that.mutex.Unlock()
+					}
 
-						if len(buffCopy) > 0 { // 检查缓冲区是否为空
-							that.sendArray(buffCopy)
+					drainBuffer := make([]*GenericMessage, that.queueSize)
+					n := that.queue.DequeueToWait(drainBuffer, 5000*time.Millisecond)
+					if n > 0 {
+						for _, msg := range drainBuffer[:n] {
+							that.send(msg) // 退出时建议直接单条发送，确保可靠性
+						}
+					}
+
+					break END_LOOP
+				} else {
+					// 正常模式
+					if msg, ok := that.queue.TryDequeue(); ok {
+						idleCount = 0 // 有数据，重置空闲计数
+
+						// 处理消息
+						// if that.logf != nil {
+						// 	that.logf(klog.DebugLevel, DispatchLogTag, "service %s transform topic: %s message: %s", that.name, msg.Topic, string(msg.Message))
+						// }
+
+						tmpRatio := max(cap(that.buffer)/2, 1) // 计算缓冲区的一半，至少为1
+
+						// 批量发送数组
+						if tmpRatio > 1 {
+							var buffCopy []*GenericMessage
+							that.mutex.Lock()                 // 加锁
+							if len(that.buffer) >= tmpRatio { // 检查缓冲区是否已满
+								buffCopy = make([]*GenericMessage, len(that.buffer)) // 创建一个新切片
+								copy(buffCopy, that.buffer)
+								that.buffer = that.buffer[:0] // 清空缓冲区
+							}
+							that.buffer = append(that.buffer, msg) // 将消息添加到缓冲区
+							that.mutex.Unlock()
+
+							if len(buffCopy) > 0 { // 检查缓冲区是否为空
+								that.sendArray(buffCopy)
+							}
+						} else {
+							// 单条直接发送
+							that.send(msg)
 						}
 					} else {
-						// 单条直接发送
-						that.send(msg)
-					}
-				} else {
-					// 没拿到数据，开始退避
-					idleCount++ // 连续 1000 次没拿到数据（大概经过了微秒级的尝试）
-					if idleCount > 1000 {
-						time.Sleep(10 * time.Millisecond) // 进入休眠，防止 CPU 空转 100%, 这里设置 10ms 是延迟与功耗的平衡点
+						// 没拿到数据，开始退避
+						idleCount++ // 连续 1000 次没拿到数据（大概经过了微秒级的尝试）
+						if idleCount > 1000 {
+							time.Sleep(10 * time.Millisecond) // 进入休眠，防止 CPU 空转 100%, 这里设置 10ms 是延迟与功耗的平衡点
+						}
 					}
 				}
 			}
