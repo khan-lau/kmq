@@ -34,6 +34,15 @@ import (
 	"github.com/khan-lau/kutils/kuuid"
 )
 
+// startMqSource 启动MQ源
+//
+// 参数:
+//   - ctx: 上下文对象
+//   - recvQueueSize: 接收队列大小, 2的次幂; 2 4 8 16 32 ....
+//   - toHex: 是否十六进制格式
+//   - sourceItems: MQ配置项列表
+//   - offsetSync: 偏移量同步对象
+//   - logf: 日志记录函数
 func startMqSource(ctx *kcontext.ContextNode, recvQueueSize uint, toHex bool, sourceItems []*config.MQItemObj, offsetSync *offset.OffsetSync, logf klog.AppLogFuncWithTag) {
 	waitGroup := sync.WaitGroup{}
 
@@ -311,6 +320,14 @@ func startMqSource(ctx *kcontext.ContextNode, recvQueueSize uint, toHex bool, so
 	waitGroup.Wait()
 }
 
+// startMqTarget 启动MQ转发目标服务
+//
+// 参数:
+//   - ctx: 上下文对象
+//   - sendQueueSize: 发送队列大小, 2的次幂; 2 4 8 16 32 ....
+//   - targetItems: MQ配置项列表
+//   - countdown: 计数器, 用于计数MQ目标服务的数量
+//   - logf: 日志记录函数
 func startMqTarget(ctx *kcontext.ContextNode, sendQueueSize uint, targetItems []*config.MQItemObj, countdown *ksync.CountDownLatch, logf klog.AppLogFuncWithTag) {
 	waitGroup := sync.WaitGroup{}
 
