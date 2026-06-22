@@ -78,6 +78,13 @@ func (that *RedisMQ) Start() error {
 		SetDB(int(that.conf.DbNum)).
 		SetRetry(int(that.conf.Retry)).
 		SetTopics(that.conf.Topics...)
+
+	redisConf.SetReadyCallback(func(ready bool) {
+		if that.onReady != nil {
+			that.onReady(ready)
+		}
+	})
+
 	that.publisher = redismq.NewRedisPub(that.ctx, that.redisBuffSize, redisConf, that.logf)
 	redisConf.SetExitCallback(func(event any) {
 		that.onExit(event)

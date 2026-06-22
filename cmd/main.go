@@ -280,7 +280,7 @@ func main() {
 		go func(ctx *kcontext.ContextNode) {
 			defer waitGroup.Done()
 			glog.Info("start manager mq source service")
-			startMqSource(ctx, conf.DumpHex, conf.Source, gOffsetSync, LogFunc)
+			startMqSource(ctx, 4096, conf.DumpHex, conf.Source, gOffsetSync, LogFunc)
 		}(mainCtx)
 	}
 

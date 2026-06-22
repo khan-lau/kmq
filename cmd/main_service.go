@@ -34,7 +34,7 @@ import (
 	"github.com/khan-lau/kutils/kuuid"
 )
 
-func startMqSource(ctx *kcontext.ContextNode, toHex bool, sourceItems []*config.MQItemObj, offsetSync *offset.OffsetSync, logf klog.AppLogFuncWithTag) {
+func startMqSource(ctx *kcontext.ContextNode, recvQueueSize uint, toHex bool, sourceItems []*config.MQItemObj, offsetSync *offset.OffsetSync, logf klog.AppLogFuncWithTag) {
 	waitGroup := sync.WaitGroup{}
 
 	for _, item := range sourceItems {
@@ -46,7 +46,7 @@ func startMqSource(ctx *kcontext.ContextNode, toHex bool, sourceItems []*config.
 			case "natscoremq":
 				{
 					if natsCoreConfig, ok := item.Item.(*mqConf.NatsCoreConfig); ok {
-						natsCoreMq, err := source.NewNatsCoreMQ(ctx, "NatsCoreSource", natsCoreConfig, 20000, logf)
+						natsCoreMq, err := source.NewNatsCoreMQ(ctx, "NatsCoreSource", natsCoreConfig, recvQueueSize, logf)
 						if err != nil && logf != nil {
 							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create nats core mq source failed, %s", err.Error())
 						} else {
@@ -89,7 +89,7 @@ func startMqSource(ctx *kcontext.ContextNode, toHex bool, sourceItems []*config.
 								}
 							}
 						}
-						natsJsMq, err := source.NewNatsJetStreamMQ(ctx, "NatsJSSource", natsJsConfig, 20000, logf)
+						natsJsMq, err := source.NewNatsJetStreamMQ(ctx, "NatsJSSource", natsJsConfig, recvQueueSize, logf)
 						if err != nil && logf != nil {
 							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create nats jetstream mq source failed, %s", err.Error())
 						} else {
@@ -135,7 +135,7 @@ func startMqSource(ctx *kcontext.ContextNode, toHex bool, sourceItems []*config.
 							}
 						}
 
-						kafkaMq, err := source.NewKafkaMQ(ctx, "KafkaSource", kafkaConfig, 4096, logf)
+						kafkaMq, err := source.NewKafkaMQ(ctx, "KafkaSource", kafkaConfig, recvQueueSize, logf)
 						if err != nil && logf != nil {
 							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create kafka mq source failed, %s", err.Error())
 						} else {
@@ -200,7 +200,7 @@ func startMqSource(ctx *kcontext.ContextNode, toHex bool, sourceItems []*config.
 				{
 					if redisConfig, ok := item.Item.(*mqConf.RedisConfig); ok {
 						// 不支持offset 订阅
-						redisMq, err := source.NewRedisMQ(ctx, "RedisSource", redisConfig, 2000, logf)
+						redisMq, err := source.NewRedisMQ(ctx, "RedisSource", redisConfig, recvQueueSize, logf)
 						if err != nil && logf != nil {
 							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create redis mq source failed, %s", err.Error())
 						} else {
@@ -242,7 +242,7 @@ func startMqSource(ctx *kcontext.ContextNode, toHex bool, sourceItems []*config.
 								}
 							}
 						}
-						rocketMq, err := source.NewRocketMQ(ctx, "RocketSource", rocketConfig, 2000, logf)
+						rocketMq, err := source.NewRocketMQ(ctx, "RocketSource", rocketConfig, recvQueueSize, logf)
 						if err != nil && logf != nil {
 							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create rocket mq source failed, %s", err.Error())
 						} else {
@@ -273,7 +273,7 @@ func startMqSource(ctx *kcontext.ContextNode, toHex bool, sourceItems []*config.
 				{
 					if mqttConfig, ok := item.Item.(*mqConf.MqttConfig); ok {
 
-						mqttClient, err := source.NewMqttMQ(ctx, "MqttSource", mqttConfig, 20000, logf)
+						mqttClient, err := source.NewMqttMQ(ctx, "MqttSource", mqttConfig, recvQueueSize, logf)
 						if err != nil && logf != nil {
 							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create mqtt3 mq source failed, %s", err.Error())
 						} else {
