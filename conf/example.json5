@@ -273,7 +273,7 @@
         },
         producer: {
           compression: "snappy",       // 压缩方式: 默认snappy , 可选[none, gzip, snappy, lz4, zstd]
-          CompressionLevel: -1000,     // 压缩级别
+          CompressionLevel: -1000,     // 压缩级别, `lz4` `snappy` 不支持level参数, gzip zstd 使用 1-9参数代表低到高压缩率
           maxMessageBytes: 1048576000, // 每条消息最大容量, 单位 字节, 1000M
           requiredAcks: "local",       // 发送确认: 默认 none, 可选[none, local, all]
           returnAck: true,             // 是否返回ack信息
