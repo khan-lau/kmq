@@ -405,6 +405,10 @@ func startMqTarget(ctx *kcontext.ContextNode, sendQueueSize uint, targetItems []
 			case "kafkamq":
 				{
 					if kafkaConfig, ok := item.Item.(*mqConf.KafkaConfig); ok {
+						// if kafkaConfig.Net.MaxOpenRequests > 1 {
+						// 	kafkaConfig.Producer.Idempotent = true
+						// }
+
 						kafkaMq, err := target.NewKafkaMQ(ctx, "KafkaTarget", kafkaConfig, sendQueueSize, false, logf)
 						if err != nil && logf != nil {
 							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create kafka mq target failed, %s", err.Error())
@@ -754,7 +758,7 @@ func generalMessage(handler *router.DispatchService, resetTimestamp bool, messag
 			if len(records) > 0 {
 				distRecord := make([]string, 0, len(records))
 				for _, record := range records {
-					record := kstrings.TrimSpace(record)
+					record = kstrings.TrimSpace(record)
 					tmpArr := strings.Split(record, "@")
 					if len(tmpArr) == 2 {
 						pointName := tmpArr[0]
@@ -833,28 +837,8 @@ func onRecved(origin any, name string, topic string, partition int, offset int64
 	// }
 
 	var err error
-	switch t := origin.(type) {
-	case *rabbitmq.Message:
-		if manualAck {
-			err = t.Ack(false) // false: 只确认当前这条消息; true: 批量确认 DeliveryTag <= current DeliveryTag 的所有消息
-		}
-
-	case *rocketmq.Message:
-		if manualAck {
-			err = t.Ack() // 批量确认
-		}
-	case *natsmq.NatsMessage:
-		if manualAck {
-			err = t.Ack() // 如果想批量确认 需要将 AckPolicy设置为 `AckAllPolicy`
-		}
-	case *kafkamq.KafkaMessage:
-		if manualAck {
-			err = t.Ack() // 确认当前消息seq之前的所有消息
-		}
-	case nil:
-		// 不支持ack的MQ 直接忽略
-	default:
-		// 其他
+	if !manualAck {
+		err = messageAck(origin)
 	}
 
 	if err == nil {
@@ -880,3 +864,20 @@ func onRecved(origin any, name string, topic string, partition int, offset int64
 ///////////////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////////////
+
+func messageAck(origin any) error {
+	var err error
+	switch t := origin.(type) {
+	case *rabbitmq.Message:
+		err = t.Ack(false) // false: 只确认当前这条消息; true: 批量确认 DeliveryTag <= current DeliveryTag 的所有消息
+	case *rocketmq.Message:
+		err = t.Ack() // 批量确认
+	case *kafkamq.KafkaMessage:
+		err = t.Ack() // 确认当前消息seq之前的所有消息
+	case nil:
+		// 不支持ack的MQ 直接忽略
+	default:
+		// 其他
+	}
+	return err
+}

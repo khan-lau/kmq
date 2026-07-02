@@ -80,7 +80,7 @@ func (that *KafkaMQ) Start() error {
 		SetMaxMessageBytes(that.conf.Producer.MaxMessageBytes).
 		SetRequiredAcks(that.conf.Producer.RequiredAcks).
 		SetReturn(that.conf.Producer.ReturnAck, that.conf.Producer.ReturnError).
-		SetFlush(that.conf.Producer.FlushMessages, that.conf.Producer.FlushFrequency, time.Duration(that.conf.Producer.FlushMaxMessages)*time.Millisecond).
+		SetFlush(that.conf.Producer.FlushMessages, that.conf.Producer.FlushMaxMessages, time.Duration(that.conf.Producer.FlushFrequency)*time.Millisecond).
 		SetRetry(that.conf.Producer.RetryMax).
 		SetTimeout(time.Duration(that.conf.Producer.Timeout) * time.Millisecond)
 

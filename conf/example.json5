@@ -41,7 +41,6 @@
         pingInterval: 60000,       // 心跳间隔, 单位ms
         maxPingsOut: 3,            // 最大允许的连续无应答心跳次数
         useTls: false,             // 是否使用tls链路
-
         topics: ["nats.core.topic_001"], // 订阅的topic 列表
         queueGroup: "core_queue",  // 消费组名称, 用于负载均衡, 允许空字符串, 为空时为广播模式, 非空时为负载均衡模式, core模式下 没有 类似kafka的通过key的hash实现的负载均衡模式
         maxPending: 100000,        // 最大消息缓冲数量
@@ -63,7 +62,6 @@
         pingInterval: 60000,       // 心跳间隔, 单位ms
         maxPingsOut: 3,            // 最大允许的连续无应答心跳次数
         useTls: false,             // 是否使用tls链路
-
         topics: ["ntas.js.topic_001"], // 不支持直接使用`>`接收全部topic, 需要逐个topic订阅
         queueName: "js_queue01",    // 队列名称, jetstream名称, 必须不可为空, 命名不可包含 ` `, `.`, `*`, `>`, `\`, `/` 及非可见字符
         storageType: "memory",      // 存储类型，默认为 "memory", 可选 "file", 与管理员确认类型
@@ -276,6 +274,7 @@
           CompressionLevel: -1000,     // 压缩级别, `lz4` `snappy` 不支持level参数, gzip zstd 使用 1-9参数代表低到高压缩率
           maxMessageBytes: 1048576000, // 每条消息最大容量, 单位 字节, 1000M
           requiredAcks: "local",       // 发送确认: 默认 none, 可选[none, local, all]
+          idempotent: true,            // 是否开启幂等性, 默认为false, 开启后, 消息会在 Net.MaxOpenRequests大于1时, 按顺序发送, 但性能会有小幅下降
           returnAck: true,             // 是否返回ack信息
           returnError: true,           // 是否返回错误信息
           flushMessages: 1000,         // 刷新消息数量, 每10条刷新一次

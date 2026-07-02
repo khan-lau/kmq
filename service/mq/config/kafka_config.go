@@ -29,6 +29,7 @@ type Producer struct {
 	CompressionLevel int      `json:"CompressionLevel" toml:"CompressionLevel" yaml:"CompressionLevel"`
 	MaxMessageBytes  int      `json:"maxMessageBytes" toml:"maxMessageBytes" yaml:"maxMessageBytes"`
 	RequiredAcks     string   `json:"requiredAcks" toml:"requiredAcks" yaml:"requiredAcks"`
+	Idempotent       bool     `json:"idempotent" toml:"idempotent" yaml:"idempotent"`    // 是否开启幂等性, 默认为false, 开启后, 消息会在 Net.MaxOpenRequests大于1时, 按顺序发送, 但性能会有小幅下降
 	ReturnAck        bool     `json:"returnAck" toml:"returnAck" yaml:"returnAck"`       // 是否返回ack信息
 	ReturnError      bool     `json:"returnError" toml:"returnError" yaml:"returnError"` // 是否返回错误信息
 	FlushMessages    int      `json:"flushMessages" toml:"flushMessages" yaml:"flushMessages"`

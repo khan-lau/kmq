@@ -166,7 +166,8 @@ func main() {
 				return
 			}
 
-			gDispatcher = router.NewDispatchService(ctx, conf.DumpHex, uint(conf.SendInterval), uint(conf.SendQueueSize), 1, "dispatch", gMqTargetManager, LogFunc)
+			gDispatcher = router.NewDispatchService(ctx, conf.DumpHex, uint(conf.SendInterval), uint(conf.SendQueueSize),
+				1, "dispatch", gMqTargetManager, LogFunc)
 			gDispatcher.StartAsync()
 
 			maxRetries := 1000 // 10ms * 1000 = 10 秒
