@@ -81,14 +81,8 @@ func (that *RabbitMQ) Start() error {
 		SetAddrs(that.conf.Addrs...).
 		SetVHost(that.conf.VHost).SetConsumer(rabbitConsumerConfig)
 
-	rabbitConfig.SetExitCallback(func(event any) {
-		that.onExit(event)
-	})
-
-	rabbitConfig.SetErrorCallback(func(err error) {
-		that.onError(that.name, err)
-	})
-
+	rabbitConfig.SetExitCallback(func(event any) { that.onExit(event) })
+	rabbitConfig.SetErrorCallback(func(err error) { that.onError(that.name, err) })
 	rabbitConfig.Consumer.SetMessageHandler(func(voidObj any, msg *rabbitmq.Message) {
 		that.OnRecved(msg, msg.RoutingKey, 0, msg.Timestamp.UnixMilli(), nil, []byte(msg.Body))
 	})

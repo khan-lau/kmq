@@ -104,24 +104,20 @@ func (that *KafkaMQ) Start() error {
 		SetNet(netConfig).
 		SetProducer(kafkaProducerConfig)
 
-	publisher, err := kafkamq.NewAsyncProducer(that.ctx, that.kafkaBuffSize, kafkaConfig, that.logf)
-	if err != nil {
-		return err
-	}
-
 	kafkaConfig.SetReadyCallback(func(ready bool) {
 		if that.onReady != nil {
 			that.onReady(ready)
 		}
 	})
 
-	kafkaConfig.SetExitCallback(func(event any) {
-		that.onExit(event)
-	})
+	kafkaConfig.SetExitCallback(func(event any) { that.onExit(event) })
+	kafkaConfig.SetErrorCallback(func(err error) { that.onError(that.name, err) })
 
-	kafkaConfig.SetErrorCallback(func(err error) {
-		that.onError(that.name, err)
-	})
+	publisher, err := kafkamq.NewAsyncProducer(that.ctx, that.kafkaBuffSize, kafkaConfig, that.logf)
+	if err != nil {
+		return err
+	}
+
 	that.publisher = publisher
 	go func() {
 		// sleep 500ms, 等待服务启动完成
@@ -208,7 +204,7 @@ func (that *KafkaMQ) PublishMessage(partition int32, topic, key string, value []
 	}
 
 	// that.publisher
-	return that.publisher.PublisDataWithProperties(partition, topic, key, value, nil)
+	return that.publisher.PublishDataWithProperties(partition, topic, key, value, nil)
 }
 
 // PublishMessageWithProperties 带属性的发布消息
@@ -223,7 +219,7 @@ func (that *KafkaMQ) PublishMessageWithProperties(partition int32, topic, key st
 	if that.status != idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
 		return false
 	}
-	return that.publisher.PublisDataWithProperties(partition, topic, key, value, properties)
+	return that.publisher.PublishDataWithProperties(partition, topic, key, value, properties)
 }
 
 func (that *KafkaMQ) onError(obj any, err error) {

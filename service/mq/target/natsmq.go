@@ -109,25 +109,21 @@ func (that *NatsCoreMQ) Start() error {
 
 	natsConf.CoreNats().AddTopics(that.conf.Topics...).SetQueueGroup(that.conf.QueueGroup).SetMaxPending(that.conf.MaxPending)
 
-	publisher, err := natsmq.NewNatsCoreClient(that.ctx, that.coreBuffSize, natsConf, that.logf)
-	if err != nil {
-		return err
-	}
-	that.publisher = publisher
-
 	natsConf.SetReadyCallback(func(ready bool) {
 		if that.onReady != nil {
 			that.onReady(ready)
 		}
 	})
 
-	natsConf.SetOnExit(func(event any) {
-		that.onExit(event)
-	})
+	natsConf.SetOnExit(func(event any) { that.onExit(event) })
+	natsConf.SetOnError(func(err error) { that.onError(that.name, err) })
 
-	natsConf.SetOnError(func(err error) {
-		that.onError(that.name, err)
-	})
+	publisher, err := natsmq.NewNatsCoreClient(that.ctx, that.coreBuffSize, natsConf, that.logf)
+	if err != nil {
+		return err
+	}
+	that.publisher = publisher
+
 	go func() {
 		// sleep 500ms, 等待服务启动完成
 		time.Sleep(500 * time.Millisecond)

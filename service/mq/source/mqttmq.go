@@ -70,7 +70,7 @@ func (that *MqttMQ) Start() error {
 	}
 
 	mqttConf := mqtt.New().
-		AddBorker(that.conf.Broker).
+		AddBroker(that.conf.Broker).
 		SetClientId(that.conf.ClientID).
 		SetUsername(that.conf.UserName).SetPassword(that.conf.Password).
 		SetKeepAlive((time.Duration(that.conf.KeepAlive) * time.Millisecond)).

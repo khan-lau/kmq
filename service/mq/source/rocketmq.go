@@ -113,22 +113,16 @@ func (that *RocketMQ) Start() error {
 		SetNsResolver(that.conf.NsResolver).
 		SetConsumer(rocketConsumerConfig)
 
+	rocketConfig.SetExitCallback(func(event any) { that.onExit(event) })
+	rocketConfig.SetErrorCallback(func(err error) { that.onError(that.name, err) })
+	rocketConfig.Consumer.SetMainHandler(func(voidObj any, msg *rocketmq.Message) {
+		that.OnRecved(msg, msg.Topic, 0, int64(msg.StoreTimestamp), msg.GetProperties(), msg.Body)
+	})
+
 	subscriber, err := rocketmq.NewPushConsumer(that.ctx, that.rocketBuffSize, rocketConfig, that.logf)
 	if err != nil {
 		return err
 	}
-
-	rocketConfig.SetExitCallback(func(event any) {
-		that.onExit(event)
-	})
-
-	rocketConfig.SetErrorCallback(func(err error) {
-		that.onError(that.name, err)
-	})
-
-	rocketConfig.Consumer.SetMainHandler(func(voidObj any, msg *rocketmq.Message) {
-		that.OnRecved(msg, msg.Topic, 0, int64(msg.StoreTimestamp), msg.GetProperties(), msg.Body)
-	})
 
 	that.subscriber = subscriber
 	go func() {

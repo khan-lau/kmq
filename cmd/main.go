@@ -18,7 +18,6 @@ import (
 	"github.com/khan-lau/kmq/service/mq/offset"
 	"github.com/khan-lau/kmq/service/mq/router"
 	"github.com/khan-lau/kutils/container/kcontext"
-	"github.com/khan-lau/kutils/container/klists"
 	"github.com/khan-lau/kutils/filesystem"
 	klog "github.com/khan-lau/kutils/klogger"
 	"github.com/khan-lau/kutils/ksync"
@@ -152,7 +151,7 @@ func main() {
 			glog.Info("start manager mq target service")
 			startMqTarget(ctx, uint(conf.SendQueueSize), conf.Target, countDown, LogFunc)
 
-			var messages *klists.KList[*router.GenericMessage]
+			var messages []*router.GenericMessage
 			if filesystem.IsFileExists(replayDataPath) { // 如果存在重放文件, 则读取重放记录
 				glog.Info("founded test file: %s", replayDataPath)
 				messages = getReplayData(conf.DumpHex, replayDataPath)
@@ -190,10 +189,6 @@ func main() {
 				return
 			}
 
-			msgArr := make([]*router.GenericMessage, 0)
-			if messages != nil {
-				msgArr = klists.ToKSlice(messages)
-			}
 			// 确保所有的target已经启动完成, 否则退出程序
 			err := countdown.WaitWithTimeout(15 * 60 * 1000 * time.Millisecond) // 等待startMqTarget 启动完成, 15分钟超时退出
 			if err != nil {
@@ -214,11 +209,11 @@ func main() {
 			for {
 				select {
 				case <-timer.C:
-					if len(msgArr) > 0 {
-						if index >= len(msgArr) {
+					if len(messages) > 0 {
+						if index >= len(messages) {
 							index = 0
 						}
-						message := msgArr[index]
+						message := messages[index]
 						if message.Topic == "quit" && len(message.Message) == 0 {
 							timer.Stop()
 							err := fmt.Errorf("Quit send goroutine")

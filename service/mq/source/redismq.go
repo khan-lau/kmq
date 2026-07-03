@@ -74,19 +74,17 @@ func (that *RedisMQ) Start() error {
 		SetRetry(int(that.conf.Retry)).
 		SetTopics(that.conf.Topics...)
 
-	redisConf.SetExitCallback(func(event any) {
-		that.onExit(event)
-	})
-
-	redisConf.SetErrorCallback(func(err error) {
-		that.onError(that.name, err)
-	})
-
+	redisConf.SetExitCallback(func(event any) { that.onExit(event) })
+	redisConf.SetErrorCallback(func(err error) { that.onError(that.name, err) })
 	redisConf.SetMessageHandler(func(voidObj any, msg *kredis.RedisMessage) {
 		that.OnRecved(nil, msg.Topic, 0, 0, nil, []byte(msg.Message))
 	})
 
-	that.subscriber = redismq.NewRedisSub(that.ctx, that.redisBuffSize, redisConf, that.logf)
+	var err error
+	that.subscriber, err = redismq.NewRedisSub(that.ctx, that.redisBuffSize, redisConf, that.logf)
+	if err != nil {
+		return err
+	}
 
 	go func() {
 		// sleep 500ms, 等待服务启动完成

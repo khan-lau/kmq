@@ -70,7 +70,7 @@ func (that *MqttMQ) Start() error {
 	}
 
 	mqttConf := mqtt.New().
-		AddBorker(that.conf.Broker).
+		AddBroker(that.conf.Broker).
 		SetClientId(that.conf.ClientID).
 		SetUsername(that.conf.UserName).SetPassword(that.conf.Password).
 		SetKeepAlive((time.Duration(that.conf.KeepAlive) * time.Millisecond)).
@@ -80,16 +80,17 @@ func (that *MqttMQ) Start() error {
 		SetWillTopic(that.conf.WillTopic).SetWillQos(byte(that.conf.WillQos)).SetWillRetain(that.conf.WillRetain).SetWillPayload([]byte(that.conf.WillPayload)).
 		SetTopics(that.conf.Topics...).SetUseTLS(that.conf.UseTLS).SetCaCertPath(that.conf.CaCertPath)
 
-	publisher, err := mqtt.NewMqttClient(that.ctx, that.mqttBuffSize, mqttConf, that.logf)
-	if err != nil {
-		return err
-	}
-
 	mqttConf.SetReadyCallback(func(ready bool) {
 		if that.onReady != nil {
 			that.onReady(ready)
 		}
 	})
+
+	publisher, err := mqtt.NewMqttClient(that.ctx, that.mqttBuffSize, mqttConf, that.logf)
+	if err != nil {
+		return err
+	}
+
 	// mqttConf.SetOnAuthedCallback(func(client *mqtt.MqttClient, isAuthed bool) {
 	// 	if isAuthed {
 	// 		// 连接且鉴权成功, 开始发送循环
@@ -105,7 +106,7 @@ func (that *MqttMQ) Start() error {
 	that.status = idl.ServiceStatusRunning //设置服务状态为运行状态
 	err = that.publisher.Start()
 	if err != nil {
-		return fmt.Errorf("service %s start failed", that.name)
+		return fmt.Errorf("service %s start failed, error: %v", that.name, err)
 	}
 	return nil
 }

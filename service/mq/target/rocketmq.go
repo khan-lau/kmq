@@ -69,18 +69,18 @@ func (that *RocketMQ) Start() error {
 		return fmt.Errorf("service %s is not stopped, status=%v", that.name, that.status)
 	}
 
-	rabbitProducerConfig := rocketmq.NewRocketProducerConfig().
+	rocketProducerConfig := rocketmq.NewRocketProducerConfig().
 		SetTopics(that.conf.Producer.Topics...).
 		SetTimeout((time.Duration(that.conf.Producer.Timeout) * time.Millisecond)).
 		SetRetry(that.conf.Producer.Retry).
 		SetAsyncSend(that.conf.Producer.AsyncSend)
 	switch that.conf.Producer.QueueSelector {
 	case "RandomQueueSelector":
-		rabbitProducerConfig.SetQueueSelector(producer.NewRandomQueueSelector())
+		rocketProducerConfig.SetQueueSelector(producer.NewRandomQueueSelector())
 	case "RoundRobinQueueSelector":
-		rabbitProducerConfig.SetQueueSelector(producer.NewRoundRobinQueueSelector())
+		rocketProducerConfig.SetQueueSelector(producer.NewRoundRobinQueueSelector())
 	case "ManualQueueSelector":
-		rabbitProducerConfig.SetQueueSelector(producer.NewManualQueueSelector())
+		rocketProducerConfig.SetQueueSelector(producer.NewManualQueueSelector())
 	default: // NewManualQueueSelector
 		return fmt.Errorf("unknown queue selector: %s", that.conf.Producer.QueueSelector)
 	}
@@ -92,25 +92,21 @@ func (that *RocketMQ) Start() error {
 		SetCredentialsKey(that.conf.AccessKey, that.conf.SecretKey).
 		SetServers(that.conf.Servers...).
 		SetNsResolver(that.conf.NsResolver).
-		SetProducer(rabbitProducerConfig)
-
-	publisher, err := rocketmq.NewProducer(that.ctx, that.rocketBuffSize, rocketConfig, that.logf)
-	if err != nil {
-		return err
-	}
+		SetProducer(rocketProducerConfig)
 
 	rocketConfig.SetReadyCallback(func(ready bool) {
 		if that.onReady != nil {
 			that.onReady(ready)
 		}
 	})
-	rocketConfig.SetExitCallback(func(event any) {
-		that.onExit(event)
-	})
+	rocketConfig.SetExitCallback(func(event any) { that.onExit(event) })
+	rocketConfig.SetErrorCallback(func(err error) { that.onError(that.name, err) })
 
-	rocketConfig.SetErrorCallback(func(err error) {
-		that.onError(that.name, err)
-	})
+	publisher, err := rocketmq.NewProducer(that.ctx, that.rocketBuffSize, rocketConfig, that.logf)
+	if err != nil {
+		return err
+	}
+
 	that.publisher = publisher
 	go func() {
 		// sleep 500ms, 等待服务启动完成

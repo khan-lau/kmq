@@ -271,7 +271,7 @@
         },
         producer: {
           compression: "snappy",       // 压缩方式: 默认snappy , 可选[none, gzip, snappy, lz4, zstd]
-          CompressionLevel: -1000,     // 压缩级别, `lz4` `snappy` 不支持level参数, gzip zstd 使用 1-9参数代表低到高压缩率
+          compressionLevel: -1000,     // 压缩级别, `lz4` `snappy` 不支持level参数, gzip zstd 使用 1-9参数代表低到高压缩率
           maxMessageBytes: 1048576000, // 每条消息最大容量, 单位 字节, 1000M
           requiredAcks: "local",       // 发送确认: 默认 none, 可选[none, local, all]
           idempotent: true,            // 是否开启幂等性, 默认为false, 开启后, 消息会在 Net.MaxOpenRequests大于1时, 按顺序发送, 但性能会有小幅下降
@@ -302,6 +302,7 @@
           exchange: "exange_001", // 交换规则名
           router: "test001.#",    // 路由名称, rabbit的多通道发送由其支持的router完成, 可以把router配置为发送到多个queue
           workType: "topic",      // direct, fanout, topic, headers
+          returnAck: false,       // 是否返回确认消息
         },
       },
     },

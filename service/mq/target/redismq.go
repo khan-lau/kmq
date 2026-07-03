@@ -85,14 +85,15 @@ func (that *RedisMQ) Start() error {
 		}
 	})
 
-	that.publisher = redismq.NewRedisPub(that.ctx, that.redisBuffSize, redisConf, that.logf)
-	redisConf.SetExitCallback(func(event any) {
-		that.onExit(event)
-	})
+	redisConf.SetExitCallback(func(event any) { that.onExit(event) })
+	redisConf.SetErrorCallback(func(err error) { that.onError(that.name, err) })
 
-	redisConf.SetErrorCallback(func(err error) {
-		that.onError(that.name, err)
-	})
+	var err error
+	that.publisher, err = redismq.NewRedisPub(that.ctx, that.redisBuffSize, redisConf, that.logf)
+	if err != nil {
+		return err
+	}
+
 	go func() {
 		// sleep 500ms, 等待服务启动完成
 		time.Sleep(500 * time.Millisecond)

@@ -114,14 +114,8 @@ func (that *KafkaMQ) Start() error {
 		SetNet(netConfig).
 		SetConsumer(kafkaConsumerConfig)
 
-	kafkaConfig.SetExitCallback(func(event any) {
-		that.onExit(event)
-	})
-
-	kafkaConfig.SetErrorCallback(func(err error) {
-		that.onError(that.name, err)
-	})
-
+	kafkaConfig.SetExitCallback(func(event any) { that.onExit(event) })
+	kafkaConfig.SetErrorCallback(func(err error) { that.onError(that.name, err) })
 	kafkaConfig.Consumer.SetMessageHandler(func(voidObj any, msg *kafkamq.KafkaMessage) {
 		keyMap := map[string]string{"key": string(msg.Key)}
 		that.OnRecved(msg, msg.Topic, int(msg.Partition), msg.Offset, keyMap, msg.Value)

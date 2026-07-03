@@ -11,9 +11,10 @@ type RabbitConsumerConfig struct {
 }
 
 type RabbitProducerConfig struct {
-	Exchange string `json:"exchange" toml:"exchange" yaml:"exchange"` // 交换机名称
-	Router   string `json:"router" toml:"router" yaml:"router"`       // 路由键
-	WorkType string `json:"workType" toml:"workType" yaml:"workType"` // 工作模式
+	Exchange  string `json:"exchange" toml:"exchange" yaml:"exchange"`    // 交换机名称
+	Router    string `json:"router" toml:"router" yaml:"router"`          // 路由键
+	WorkType  string `json:"workType" toml:"workType" yaml:"workType"`    // 工作模式
+	ReturnAck bool   `json:"returnAck" toml:"returnAck" yaml:"returnAck"` // 是否返回确认消息
 }
 
 type RabbitConfig struct {

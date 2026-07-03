@@ -68,15 +68,11 @@ func (that *RabbitMQ) Start() error {
 		return fmt.Errorf("service %s is not stopped, status=%v", that.name, that.status)
 	}
 
-	// rabbitConsumerConfig := rabbitmq.NewConsumerConfig().
-	// 	SetExchange(that.conf.Consumer.Exchange).
-	// 	SetQueueName(that.conf.Consumer.QueueName).
-	// 	SetRouterKey(that.conf.Consumer.KRouterKey).
-	// 	SetWorkType(that.conf.Consumer.WorkType)
 	rabbitProducerConfig := rabbitmq.NewProducerConfig().
 		SetExchange(that.conf.Producer.Exchange).
 		SetRouter(that.conf.Producer.Router).
-		SetWorkType(that.conf.Producer.WorkType)
+		SetWorkType(that.conf.Producer.WorkType).
+		SetReturnAck(that.conf.Producer.ReturnAck)
 
 	rabbitConfig := rabbitmq.NewRabbitConfig().
 		SetUser(that.conf.User).
@@ -85,24 +81,20 @@ func (that *RabbitMQ) Start() error {
 		SetVHost(that.conf.VHost).
 		SetProducer(rabbitProducerConfig)
 
-	publisher, err := rabbitmq.NewProducer(that.ctx, that.rabbitBuffSize, rabbitConfig, that.logf)
-	if err != nil {
-		return err
-	}
-
 	rabbitConfig.SetReadyCallback(func(ready bool) {
 		if that.onReady != nil {
 			that.onReady(ready)
 		}
 	})
 
-	rabbitConfig.SetExitCallback(func(event any) {
-		that.onExit(event)
-	})
+	rabbitConfig.SetExitCallback(func(event any) { that.onExit(event) })
+	rabbitConfig.SetErrorCallback(func(err error) { that.onError(that.name, err) })
 
-	rabbitConfig.SetErrorCallback(func(err error) {
-		that.onError(that.name, err)
-	})
+	publisher, err := rabbitmq.NewProducer(that.ctx, that.rabbitBuffSize, rabbitConfig, that.logf)
+	if err != nil {
+		return err
+	}
+
 	that.publisher = publisher
 	go func() {
 		// sleep 500ms, 等待服务启动完成

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -25,7 +26,6 @@ import (
 	"github.com/khan-lau/kmq/service/mq/source"
 	"github.com/khan-lau/kmq/service/mq/target"
 	"github.com/khan-lau/kutils/container/kcontext"
-	"github.com/khan-lau/kutils/container/klists"
 	"github.com/khan-lau/kutils/container/kstrings"
 	"github.com/khan-lau/kutils/data"
 	"github.com/khan-lau/kutils/filesystem"
@@ -618,8 +618,8 @@ func loadOffsetCache(conf *config.Configure) *offset.OffsetSync {
 ///////////////////////////////////////////////////////////////////////////////////////
 
 // 解析重放消息文件
-func getReplayData(toHex bool, path string) *klists.KList[*router.GenericMessage] {
-	messages := klists.New[*router.GenericMessage]()
+func getReplayData(toHex bool, path string) []*router.GenericMessage {
+	messages := make([]*router.GenericMessage, 0, 2048)
 
 	glog.Info("Server parse file: %s", path)
 	file, err := os.Open(path)
@@ -636,8 +636,7 @@ func getReplayData(toHex bool, path string) *klists.KList[*router.GenericMessage
 	}
 
 	length := fileInfo.Size()
-	// reader := bufio.NewReaderSize(file, 5*1024*1024) // 缓冲区
-	reader := bufio.NewReaderSize(file, 64*1024) // 缓冲区
+	reader := bufio.NewReaderSize(file, 512*1024) // 缓冲区
 
 	if length < 1 {
 		glog.Error("parse test.message error, document is empty")
@@ -646,28 +645,32 @@ func getReplayData(toHex bool, path string) *klists.KList[*router.GenericMessage
 
 	var firstErr error = nil
 	var header string = ""
-	record_count := int64(0)
+	recordCount := int64(0)
+	lineNum := 0
 	auto_exit := false
 
 	for {
 		firstErr = nil
-		line, err := reader.ReadString('\n')
-		if nil != err && len(line) == 0 {
+		// line, err := reader.ReadString('\n')
+		lineBytes, err := reader.ReadSlice('\n')
+		lineNum++
+
+		if nil != err && len(lineBytes) == 0 {
 			// firstErr = err
 			break
 		}
 
-		line = strings.TrimSpace(line)
+		lineBytes = bytes.TrimSpace(lineBytes)
 		//忽略行注释 与 空行
-		if strings.HasPrefix(line, "//") || strings.HasPrefix(line, "#") || len(line) == 0 {
+		if len(lineBytes) == 0 || lineBytes[0] == '#' || (lineBytes[0] == '/' && len(lineBytes) > 1 && lineBytes[1] == '/') {
 			continue
 		}
 
 		// 处理 header
-		if strings.HasPrefix(line, "test.message") {
+		if bytes.HasPrefix(lineBytes, []byte("test.message")) {
 			// 一个document只允许一个 header
 			if header == "" {
-				header = line
+				header = string(lineBytes) // header 只执行一次
 				continue
 			} else {
 				firstErr = fmt.Errorf("parse test.message error, document has many header")
@@ -681,52 +684,47 @@ func getReplayData(toHex bool, path string) *klists.KList[*router.GenericMessage
 		}
 
 		// element 开始
-		before, after, ok := strings.Cut(line, " ") // before: topic, after: message
-		message := ""
 		topic := ""
-		if ok {
-			topic = before
-
-			rawMessage := after
-			trimMessage := strings.TrimSpace(rawMessage)
-			msgLength := len(trimMessage)
-			if trimMessage[msgLength-1] != '"' && trimMessage[msgLength-1] != '\'' {
-				// 如果行尾包含注释, 则去掉注释部分
-				commentPos := strings.LastIndex(trimMessage, "#")
-				if commentPos > -1 {
-					trimMessage = trimMessage[:commentPos]
-				}
-				commentPos = strings.LastIndex(trimMessage, "//")
-				if commentPos > -1 {
-					trimMessage = trimMessage[:commentPos]
-				}
+		idx := bytes.IndexByte(lineBytes, ' ')
+		if idx > -1 {
+			topic = string(lineBytes[:idx]) // topic 通常很短，影响不大
+			secField := bytes.TrimSpace(lineBytes[idx+1:])
+			// 处理注释（# 或 //）
+			if commentIdx := bytes.LastIndexByte(secField, '#'); commentIdx != -1 {
+				secField = bytes.TrimSpace(secField[:commentIdx])
+			} else if commentIdx := bytes.LastIndex(secField, []byte("//")); commentIdx != -1 {
+				secField = bytes.TrimSpace(secField[:commentIdx])
 			}
 
-			message = strings.TrimFunc(trimMessage, func(r rune) bool {
-				return r == '\'' || r == '"'
-			})
-			message = strings.ReplaceAll(message, "\\\"", "\"")
-			message = strings.ReplaceAll(message, "\\\\u", "\\u")
-			arr := strings.Split(message, ",")
-			record_count += int64(len(arr))
+			// 去掉引号
+			secField = bytes.Trim(secField, `'"`)
 
-			dataStr := []byte(message)
+			var finalData []byte
 			if toHex {
-				if tmpData, err := hex.DecodeString(message); err == nil {
-					dataStr = tmpData
+				if decoded, err := hex.DecodeString(string(secField)); err == nil {
+					finalData = decoded
 				} else {
-					glog.Error("hex decode line: %s error: %s", line, err.Error())
+					glog.Error("hex decode line: %d error: %s", lineNum, err.Error())
 					continue
 				}
+			} else {
+				s := string(secField)
+				// 只有包含转义字符时才执行替换
+				if strings.Contains(s, `\"`) || strings.Contains(s, `\\u`) {
+					s = strings.ReplaceAll(s, `\"`, `"`)
+					s = strings.ReplaceAll(s, `\\u`, `\u`)
+				}
+				finalData = []byte(s)
 			}
-
-			messages.PushBack(&router.GenericMessage{Topic: topic, Message: dataStr})
+			messages = append(messages, &router.GenericMessage{Topic: topic, Message: finalData})
+			recordCount += int64(bytes.Count(secField, []byte{','}) + 1)
 		} else {
-			if line == "quit" || line == "exit" || line == "stop" || line == "QUIT" || line == "EXIT" || line == "STOP" {
-				messages.PushBack(&router.GenericMessage{Topic: "quit", Message: []byte("")})
+			lineStr := string(lineBytes)
+			if lineStr == "quit" || lineStr == "exit" || lineStr == "stop" || lineStr == "QUIT" || lineStr == "EXIT" || lineStr == "STOP" {
+				messages = append(messages, &router.GenericMessage{Topic: "quit", Message: []byte("")})
 				auto_exit = true
 			} else {
-				glog.Error("Error data: %s", line)
+				glog.Error("Error data: %s", lineStr)
 				continue
 			}
 		}
@@ -737,11 +735,11 @@ func getReplayData(toHex bool, path string) *klists.KList[*router.GenericMessage
 		return nil
 	}
 
-	if messages.Len() > 0 {
+	if len(messages) > 0 {
 		if auto_exit {
-			glog.Info("parse %s success, message count: %d, records: %d", path, messages.Len()-1, record_count)
+			glog.Info("parse %s success, message count: %d, records: %d", path, len(messages)-1, recordCount)
 		} else {
-			glog.Info("parse %s success, message count: %d, records: %d", path, messages.Len(), record_count)
+			glog.Info("parse %s success, message count: %d, records: %d", path, len(messages), recordCount)
 		}
 	}
 
@@ -749,49 +747,82 @@ func getReplayData(toHex bool, path string) *klists.KList[*router.GenericMessage
 }
 
 func generalMessage(handler *router.DispatchService, resetTimestamp bool, message *router.GenericMessage) {
+	if len(message.Message) == 0 || len(message.Topic) == 0 {
+		glog.Warrn("Message or topic is empty") // 修正拼写
+		return
+	}
 	content := *(*string)(unsafe.Pointer(&message.Message))
 	if resetTimestamp {
 		// 不是JSON
 		if !strings.HasPrefix(content, "{") && !strings.HasPrefix(content, "[") {
-			// 一条消息中包含多条记录, 每条记录都需要重置时间戳
-			records := strings.Split(content, ",")
-			if len(records) > 0 {
-				distRecord := make([]string, 0, len(records))
-				for _, record := range records {
-					record = kstrings.TrimSpace(record)
-					tmpArr := strings.Split(record, "@")
-					if len(tmpArr) == 2 {
-						pointName := tmpArr[0]
-						originData := tmpArr[1]
-						tmpArr2 := strings.Split(originData, ":")
-						if len(tmpArr2) >= 3 {
 
-							timestamp, _ := strconv.ParseInt(tmpArr2[2], 10, 64)
-							newTimestamp := time.Now().Unix()
-							if timestamp > 9999999999 { // 根据原来记录中的时间戳的精度确定新的时间戳用秒还是毫秒
-								newTimestamp = time.Now().UnixMilli()
-							}
-							tmpArr2[2] = fmt.Sprintf("%d", newTimestamp)
-							dataStr := strings.Join(tmpArr2, ":")
-							record = fmt.Sprintf("%s@%s", pointName, dataStr)
-							distRecord = append(distRecord, record)
-						}
-					}
+			// 使用 Builder 减少内存分配
+			var sb strings.Builder
+			sb.Grow(len(content) + 128) // 预分配容量，减少 realloc
+
+			records := strings.Split(content, ",") // 一条消息中包含多条记录, 每条记录都需要重置时间戳
+			for i, record := range records {
+				if i > 0 {
+					sb.WriteByte(',')
 				}
-				content = strings.Join(distRecord, ",")
+				record = kstrings.TrimSpace(record)
+				if record == "" {
+					continue
+				}
+				tmpArr := strings.Split(record, "@")
+				if len(tmpArr) != 2 {
+					continue
+				}
+
+				pointName := tmpArr[0]
+				originData := tmpArr[1]
+				tmpArr2 := strings.Split(originData, ":")
+				if len(tmpArr2) < 3 {
+					continue // 不符合格式也丢弃
+				}
+
+				// 重置时间戳
+				timestamp, _ := strconv.ParseInt(tmpArr2[2], 10, 64)
+				newTimestamp := time.Now().Unix()
+				if timestamp > 9999999999 {
+					newTimestamp = time.Now().UnixMilli()
+				}
+				tmpArr2[2] = fmt.Sprintf("%d", newTimestamp)
+
+				// 手动拼接
+				sb.WriteString(pointName)
+				sb.WriteByte('@')
+				for j, part := range tmpArr2 {
+					if j > 0 {
+						sb.WriteByte(':')
+					}
+					sb.WriteString(part)
+				}
 			}
+
+			content = sb.String()
 		}
 	}
 
-	if len(message.Message) < 1 || len(message.Topic) < 1 {
-		glog.Warrn("Message or topic is empty")
+	// 防止重置后 content 为空
+	if len(content) == 0 {
+		glog.Warrn("Message content is empty, origin content=%s", content)
+		return
 	}
+
 	uuid, _ := kuuid.NewV1()
 	uuidStr := uuid.ShortString()
+
+	// 复用 GenericMessage 结构体（减少对象分配）
+	sendMsg := &router.GenericMessage{
+		Topic:      message.Topic,
+		Properties: map[string]string{"key": uuidStr}, // 仍然每次创建，后面可进一步优化
+	}
 END_SEND:
 	for {
 		bytesPtr := unsafe.Slice(unsafe.StringData(content), len(content))
-		status, err := handler.DoSend(&router.GenericMessage{Topic: message.Topic, Message: bytesPtr, Properties: map[string]string{"key": uuidStr}})
+		sendMsg.Message = bytesPtr
+		status, err := handler.DoSend(sendMsg)
 		// 发送成功 or 源服务排水中 则直接退出发送
 		if status || err == idl.ErrSrvDraining {
 			break END_SEND

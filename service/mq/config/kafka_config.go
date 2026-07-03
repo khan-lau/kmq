@@ -26,7 +26,7 @@ type Net struct {
 type Producer struct {
 	Topics           []*Topic `json:"topics" toml:"topics" yaml:"topics"`
 	Compression      string   `json:"compression" toml:"compression" yaml:"compression"`
-	CompressionLevel int      `json:"CompressionLevel" toml:"CompressionLevel" yaml:"CompressionLevel"`
+	CompressionLevel int      `json:"compressionLevel" toml:"compressionLevel" yaml:"compressionLevel"`
 	MaxMessageBytes  int      `json:"maxMessageBytes" toml:"maxMessageBytes" yaml:"maxMessageBytes"`
 	RequiredAcks     string   `json:"requiredAcks" toml:"requiredAcks" yaml:"requiredAcks"`
 	Idempotent       bool     `json:"idempotent" toml:"idempotent" yaml:"idempotent"`    // 是否开启幂等性, 默认为false, 开启后, 消息会在 Net.MaxOpenRequests大于1时, 按顺序发送, 但性能会有小幅下降
