@@ -5,8 +5,8 @@ go 1.24.0
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/apache/rocketmq-client-go/v2 v2.1.2
-	github.com/khan-lau/kmq-utils v0.1.5
-	github.com/khan-lau/kutils v0.5.8
+	github.com/khan-lau/kmq-utils v0.1.6
+	github.com/khan-lau/kutils v0.5.9
 	github.com/khan-lau/mapstructure v1.5.4
 	github.com/titanous/json5 v1.0.0
 	gopkg.in/yaml.v3 v3.0.1

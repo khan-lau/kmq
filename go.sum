@@ -91,10 +91,10 @@ github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnr
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/jtolds/gls v4.20.0+incompatible h1:xdiiI2gbIgH/gLH7ADydsJ1uDOEzR8yvV7C0MuV77Wo=
 github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfVYBRgL+9YlvaHOwJU=
-github.com/khan-lau/kmq-utils v0.1.5 h1:i91DRdz8aVjWFhjL7xOJCCH/Qse+ZVWppEpnGfkkij0=
-github.com/khan-lau/kmq-utils v0.1.5/go.mod h1:qxvD8oNHun7NhzAV3P8nXKcLuu6m24/wx6tcMscHnnM=
-github.com/khan-lau/kutils v0.5.8 h1:2BlSBBok3p/DD/jSpRmxj45d9DPtW5HY7SfwT2Joeug=
-github.com/khan-lau/kutils v0.5.8/go.mod h1:/bDePwU741Rec49MkO/n42HZZFVMrzjQf0aU3mrB81g=
+github.com/khan-lau/kmq-utils v0.1.6 h1:pOefQVYq/B1ArjtbMa9c46Jj+arzb+IrAutKiijGrqo=
+github.com/khan-lau/kmq-utils v0.1.6/go.mod h1:VyXMzH6+M4srR/nOqzsrSs/eNDPLi3pEpcX6XaG+nrQ=
+github.com/khan-lau/kutils v0.5.9 h1:r54B85P6+qcWeCpYH/2mY4ziFepRlGdb4eIWIkioIJE=
+github.com/khan-lau/kutils v0.5.9/go.mod h1:/bDePwU741Rec49MkO/n42HZZFVMrzjQf0aU3mrB81g=
 github.com/khan-lau/mapstructure v1.5.4 h1:WdrX7VFVIZYaWb0Yh1j9vMVniFIC6YnwB5FLQfybzyk=
 github.com/khan-lau/mapstructure v1.5.4/go.mod h1:yva/B/9nivtdAsS268tK9gFHaqIlCgRd79YWqM4muQY=
 github.com/klauspost/compress v1.18.4 h1:RPhnKRAQ4Fh8zU2FY/6ZFDwTVTxgJ/EMydqSTzE9a2c=

@@ -207,7 +207,7 @@ func (that *DispatchService) Start() error {
 					break END_LOOP
 				} else {
 					// 正常模式
-					if msg, ok := that.queue.TryDequeue(); ok {
+					if msg, ok, isValid := that.queue.TryDequeue(); ok && isValid {
 						idleCount = 0 // 有数据，重置空闲计数
 
 						// 处理消息
@@ -236,6 +236,8 @@ func (that *DispatchService) Start() error {
 							// 单条直接发送
 							that.send(msg)
 						}
+					} else if !isValid {
+						break END_LOOP // 队列已关闭或缓冲区为nil, 则直接返回
 					} else {
 						// 没拿到数据，开始退避
 						idleCount++ // 连续 1000 次没拿到数据（大概经过了微秒级的尝试）
