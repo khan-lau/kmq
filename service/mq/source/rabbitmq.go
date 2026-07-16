@@ -55,9 +55,7 @@ func (that *RabbitMQ) StartAsync() {
 	go func() {
 		err := that.Start()
 		if err != nil {
-			if that.logf != nil {
-				that.logf(klog.ErrorLevel, RabbitSourceLogTag, "start service %s error: %v", that.name, err)
-			}
+			that.log(klog.ErrorLevel, "start service %s error: %v", that.name, err)
 			that.onError(that.name, err)
 		}
 	}()
@@ -137,5 +135,14 @@ func (that *RabbitMQ) onExit(obj any) {
 func (that *RabbitMQ) OnRecved(origin any, topic string, partition int, offset int64, properties map[string]string, message []byte) {
 	if that.OnRecivedCallback != nil {
 		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, properties, message)
+	}
+}
+
+// log 日志记录, 会自动添加 RabbitSourceLogTag
+//
+//go:inline
+func (that *RabbitMQ) log(level klog.Level, format string, args ...any) {
+	if that.logf != nil {
+		that.logf(level, RabbitSourceLogTag, format, args...)
 	}
 }

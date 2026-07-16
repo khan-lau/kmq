@@ -56,9 +56,7 @@ func (that *MqttMQ) StartAsync() {
 	go func() {
 		err := that.Start()
 		if err != nil {
-			if that.logf != nil {
-				that.logf(klog.ErrorLevel, MqttTargetLogTag, "start service %s error: %v", that.name, err)
-			}
+			that.log(klog.ErrorLevel, "start service %s error: %v", that.name, err)
 			that.onError(that.name, err)
 		}
 	}()
@@ -147,9 +145,7 @@ func (that *MqttMQ) Broadcast(message []byte, properties map[string]string) bool
 		if content, err := kdata.Zip([]byte(message)); err == nil {
 			buffer = content
 		} else {
-			if that.logf != nil {
-				that.logf(klog.ErrorLevel, MqttTargetLogTag, "compress message error: %v", err)
-			}
+			that.log(klog.ErrorLevel, "compress message error: %v", err)
 			return false
 		}
 	} else {
@@ -157,9 +153,7 @@ func (that *MqttMQ) Broadcast(message []byte, properties map[string]string) bool
 	}
 	for _, topic := range that.conf.Topics {
 		if !that.PublishMessage(topic, string(buffer)) {
-			if that.logf != nil {
-				that.logf(klog.ErrorLevel, MqttTargetLogTag, "publish topic %s message %s fault", topic, string(message))
-			}
+			that.log(klog.ErrorLevel, "publish topic %s message %s fault", topic, string(message))
 		}
 	}
 	return true
@@ -215,4 +209,13 @@ func (that *MqttMQ) publish(msg *mqtt.MqttMessage) bool {
 func (that *MqttMQ) SetOnReady(callback mqtt.ReadyCallbackFunc) *MqttMQ {
 	that.onReady = callback
 	return that
+}
+
+// log 日志记录, 会自动添加 MqttTargetLogTag
+//
+//go:inline
+func (that *MqttMQ) log(level klog.Level, format string, args ...any) {
+	if that.logf != nil {
+		that.logf(level, MqttTargetLogTag, format, args...)
+	}
 }

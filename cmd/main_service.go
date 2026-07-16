@@ -87,13 +87,15 @@ func startMqSource(ctx *kcontext.ContextNode, recvQueueSize uint, toHex bool, so
 				{
 					if natsJsConfig, ok := item.Item.(*mqConf.NatsJsConfig); ok {
 						// 载入topic offset
-						if kafkaOffset, ok := offsetSync.Records[item.MQType]; ok {
-						NATS_JS_END_LOOP:
-							for _, topic := range natsJsConfig.Topics {
-								if topicOffset, ok := kafkaOffset[topic]; ok {
-									for _, offset := range topicOffset {
-										natsJsConfig.ConsumerConfig.StartWithTimestamp = int64(offset)
-										break NATS_JS_END_LOOP
+						if offsetSync != nil {
+							if kafkaOffset, ok := offsetSync.Records[item.MQType]; ok {
+							NATS_JS_END_LOOP:
+								for _, topic := range natsJsConfig.Topics {
+									if topicOffset, ok := kafkaOffset[topic]; ok {
+										for _, offset := range topicOffset {
+											natsJsConfig.ConsumerConfig.StartWithTimestamp = int64(offset)
+											break NATS_JS_END_LOOP
+										}
 									}
 								}
 							}
@@ -130,20 +132,21 @@ func startMqSource(ctx *kcontext.ContextNode, recvQueueSize uint, toHex bool, so
 				{
 					if kafkaConfig, ok := item.Item.(*mqConf.KafkaConfig); ok {
 						// 载入topic offset
-						if kafkaOffset, ok := offsetSync.Records[item.MQType]; ok {
-							for _, topic := range kafkaConfig.Consumer.Topics {
-								if topicOffset, ok := kafkaOffset[topic.Name]; ok {
-									for partition, offset := range topicOffset {
-										if partitionVal, err := strconv.Atoi(partition); err == nil {
-											if pos := slices.IndexFunc(topic.Partitions, func(partition *mqConf.Partition) bool { return partition.Partition == partitionVal }); pos >= 0 {
-												topic.Partitions[pos].Offset = offset
+						if offsetSync != nil {
+							if kafkaOffset, ok := offsetSync.Records[item.MQType]; ok {
+								for _, topic := range kafkaConfig.Consumer.Topics {
+									if topicOffset, ok := kafkaOffset[topic.Name]; ok {
+										for partition, offset := range topicOffset {
+											if partitionVal, err := strconv.Atoi(partition); err == nil {
+												if pos := slices.IndexFunc(topic.Partitions, func(partition *mqConf.Partition) bool { return partition.Partition == partitionVal }); pos >= 0 {
+													topic.Partitions[pos].Offset = offset
+												}
 											}
 										}
 									}
 								}
 							}
 						}
-
 						kafkaMq, err := source.NewKafkaMQ(ctx, "KafkaSource", kafkaConfig, recvQueueSize, logf)
 						if err != nil && logf != nil {
 							logf(klog.ErrorLevel, DEFAULT_LOGGER_TAG, "create kafka mq source failed, %s", err.Error())
@@ -240,13 +243,15 @@ func startMqSource(ctx *kcontext.ContextNode, recvQueueSize uint, toHex bool, so
 				{
 					if rocketConfig, ok := item.Item.(*mqConf.RocketConfig); ok {
 						// 载入topic offset
-						if rocketOffset, ok := offsetSync.Records[item.MQType]; ok {
-						ROCKET_END_LOOP:
-							for _, topic := range rocketConfig.Consumer.Topics {
-								if topicOffset, ok := rocketOffset[topic]; ok {
-									for _, offset := range topicOffset {
-										rocketConfig.Consumer.Timestamp = fmt.Sprintf("%d", offset)
-										break ROCKET_END_LOOP
+						if offsetSync != nil {
+							if rocketOffset, ok := offsetSync.Records[item.MQType]; ok {
+							ROCKET_END_LOOP:
+								for _, topic := range rocketConfig.Consumer.Topics {
+									if topicOffset, ok := rocketOffset[topic]; ok {
+										for _, offset := range topicOffset {
+											rocketConfig.Consumer.Timestamp = fmt.Sprintf("%d", offset)
+											break ROCKET_END_LOOP
+										}
 									}
 								}
 							}
@@ -881,11 +886,17 @@ func onRecved(origin any, name string, topic string, partition int, offset int64
 		glog.Debug("onRecived: name=%s, topic=%s, partition=%d, offset=%d, message=%s", name, topic, partition, offset, dataStr)
 		switch name {
 		case "KafkaSource":
-			gOffsetSync.Set("kafkamq", topic, strconv.Itoa(partition), offset)
+			if gOffsetSync != nil {
+				gOffsetSync.Set("kafkamq", topic, strconv.Itoa(partition), offset)
+			}
 		case "RocketSource":
-			gOffsetSync.Set("rocketmq", topic, strconv.Itoa(partition), offset)
+			if gOffsetSync != nil {
+				gOffsetSync.Set("rocketmq", topic, strconv.Itoa(partition), offset)
+			}
 		case "NatsJSSource":
-			gOffsetSync.Set("natsjsmq", topic, strconv.Itoa(partition), offset)
+			if gOffsetSync != nil {
+				gOffsetSync.Set("natsjsmq", topic, strconv.Itoa(partition), offset)
+			}
 		}
 	} else {
 		glog.Error("onRecved: name=%s, topic=%s, partition=%d, offset=%d, ack return error=%v", name, topic, partition, offset, err)

@@ -80,9 +80,7 @@ func (that *NatsCoreMQ) StartAsync() {
 	go func() {
 		err := that.Start()
 		if err != nil {
-			if that.logf != nil {
-				that.logf(klog.ErrorLevel, NatsCoreSourceLogTag, "start service %s error: %v", that.name, err)
-			}
+			that.log(klog.ErrorLevel, "start service %s error: %v", that.name, err)
 			that.onError(that.name, err)
 		}
 	}()
@@ -169,6 +167,15 @@ func (that *NatsCoreMQ) onExit(obj any) {
 func (that *NatsCoreMQ) OnRecved(origin any, topic string, partition int, offset int64, properties map[string]string, message []byte) {
 	if that.OnRecivedCallback != nil {
 		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, properties, message)
+	}
+}
+
+// log 日志记录, 会自动添加 NatsCoreSourceLogTag
+//
+//go:inline
+func (that *NatsCoreMQ) log(level klog.Level, format string, args ...any) {
+	if that.logf != nil {
+		that.logf(level, NatsCoreSourceLogTag, format, args...)
 	}
 }
 
@@ -269,9 +276,7 @@ func (that *NatsJetStreamMQ) StartAsync() {
 	go func() {
 		err := that.Start()
 		if err != nil {
-			if that.logf != nil {
-				that.logf(klog.ErrorLevel, NatsJSSourceLogTag, "start service %s error: %v", that.name, err)
-			}
+			that.log(klog.ErrorLevel, "start service %s error: %v", that.name, err)
 			that.onError(that.name, err)
 		}
 	}()
@@ -383,5 +388,14 @@ func (that *NatsJetStreamMQ) onExit(obj any) {
 func (that *NatsJetStreamMQ) OnRecved(origin any, topic string, partition int, offset int64, properties map[string]string, message []byte) {
 	if that.OnRecivedCallback != nil {
 		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, properties, message)
+	}
+}
+
+// log 日志记录, 会自动添加 NatsJSSourceLogTag
+//
+//go:inline
+func (that *NatsJetStreamMQ) log(level klog.Level, format string, args ...any) {
+	if that.logf != nil {
+		that.logf(level, NatsJSSourceLogTag, format, args...)
 	}
 }

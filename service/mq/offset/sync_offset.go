@@ -113,9 +113,7 @@ func (that *OffsetSync) Sync(force bool) {
 		that.modified = false
 		syncMap = tmap
 
-		// if that.logf != nil {
-		// 	that.logf(klog.DebugLevel, OffsetLogTag, "sync offset to %v file: %s", syncMap, that.syncFile)
-		// }
+		// that.log(klog.DebugLevel, "sync offset to %v file: %s", syncMap, that.syncFile)
 		that.recordMutext.Unlock()
 	}
 
@@ -124,9 +122,7 @@ func (that *OffsetSync) Sync(force bool) {
 		buf, err := json.Marshal(syncMap)
 		if err == nil {
 			_ = os.WriteFile(that.syncFile, buf, os.ModePerm)
-			if that.logf != nil {
-				that.logf(klog.DebugLevel, OffsetLogTag, "sync offset to %s file: %s", string(buf), that.syncFile)
-			}
+			that.log(klog.DebugLevel, "sync offset to %s file: %s", string(buf), that.syncFile)
 		}
 	}
 
@@ -140,4 +136,13 @@ func (that *OffsetSync) ToJson() string {
 		return ""
 	}
 	return string(buf)
+}
+
+// log 日志记录, 会自动添加 OffsetLogTag
+//
+//go:inline
+func (that *OffsetSync) log(level klog.Level, format string, args ...any) {
+	if that.logf != nil {
+		that.logf(level, OffsetLogTag, format, args...)
+	}
 }

@@ -55,9 +55,7 @@ func (that *KafkaMQ) StartAsync() {
 	go func() {
 		err := that.Start()
 		if err != nil {
-			if that.logf != nil {
-				that.logf(klog.ErrorLevel, KafkaTargetLogTag, "start service %s error: %v", that.name, err)
-			}
+			that.log(klog.ErrorLevel, "start service %s error: %v", that.name, err)
 			that.onError(that.name, err)
 		}
 	}()
@@ -160,9 +158,7 @@ func (that *KafkaMQ) Broadcast(message []byte, properties map[string]string) boo
 		if content, err := kdata.Zip([]byte(message)); err == nil {
 			buffer = content
 		} else {
-			if that.logf != nil {
-				that.logf(klog.ErrorLevel, KafkaTargetLogTag, "compress message error: %v", err)
-			}
+			that.log(klog.ErrorLevel, "compress message error: %v", err)
 			return false
 		}
 	} else {
@@ -175,15 +171,11 @@ func (that *KafkaMQ) Broadcast(message []byte, properties map[string]string) boo
 			key = properties["key"]
 		}
 		// if !that.PublishMessageWithProperties(int32(topic.Partition), topic.Name, key, message, properties) {
-		// 	if that.logf != nil {
-		// 		that.logf(klog.ErrorLevel, KafkaTargetLogTag, "publish topic %s partition %d message %s fault", topic.Name, topic.Partition, string(message))
-		// 	}
+		// 	that.log(klog.ErrorLevel,  "publish topic %s partition %d message %s fault", topic.Name, topic.Partition, string(message))
 		// }
 
 		if !that.PublishMessageWithProperties(int32(0), topic.Name, key, buffer, properties) {
-			if that.logf != nil {
-				that.logf(klog.ErrorLevel, KafkaTargetLogTag, "publish topic %s message %s fault", topic.Name, string(message))
-			}
+			that.log(klog.ErrorLevel, "publish topic %s message %s fault", topic.Name, string(message))
 		}
 	}
 	return true
@@ -194,7 +186,7 @@ func (that *KafkaMQ) Publish(topic string, message []byte, properties map[string
 	if properties != nil {
 		key = properties["key"]
 	}
-	// that.logf(klog.DebugLevel, KafkaTargetLogTag, "publish topic %s, key %s, message %s", topic, key, string(message))
+	// that.log(klog.DebugLevel, "publish topic %s, key %s, message %s", topic, key, string(message))
 	return that.PublishMessageWithProperties(0, topic, key, message, properties)
 }
 
@@ -230,4 +222,13 @@ func (that *KafkaMQ) onExit(obj any) {
 func (that *KafkaMQ) SetOnReady(callback kafkamq.ReadyCallbackFunc) *KafkaMQ {
 	that.onReady = callback
 	return that
+}
+
+// log 日志记录, 会自动添加 KafkaTargetLogTag
+//
+//go:inline
+func (that *KafkaMQ) log(level klog.Level, format string, args ...any) {
+	if that.logf != nil {
+		that.logf(level, KafkaTargetLogTag, format, args...)
+	}
 }

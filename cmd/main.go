@@ -260,9 +260,11 @@ func main() {
 			for {
 				select {
 				case <-t.C:
-					gOffsetSync.Sync(false)
-					// t = time.NewTimer(time.Duration(conf.SyncTime) * time.Millisecond)
-					t.Reset(time.Duration(conf.SyncTime) * time.Millisecond)
+					if gOffsetSync != nil {
+						// t = time.NewTimer(time.Duration(conf.SyncTime) * time.Millisecond)
+						t.Reset(time.Duration(conf.SyncTime) * time.Millisecond)
+					}
+
 					// glog.Info("sync offset to file: %s", conf.SyncFile)
 				case <-ctx.Context().Done():
 					break END_LOOP

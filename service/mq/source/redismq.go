@@ -54,9 +54,7 @@ func (that *RedisMQ) StartAsync() {
 	go func() {
 		err := that.Start()
 		if err != nil {
-			if that.logf != nil {
-				that.logf(klog.ErrorLevel, RedisSourceLogTag, "start service %s error: %v", that.name, err)
-			}
+			that.log(klog.ErrorLevel, "start service %s error: %v", that.name, err)
 			that.onError(that.name, err)
 		}
 	}()
@@ -134,4 +132,13 @@ func (that *RedisMQ) OnRecved(origin any, topic string, partition int, offset in
 
 func (that *RedisMQ) SetOnRecivedCallback(callback idl.OnRecived) {
 	that.OnRecivedCallback = callback
+}
+
+// log 日志记录, 会自动添加 RedisSourceLogTag
+//
+//go:inline
+func (that *RedisMQ) log(level klog.Level, format string, args ...any) {
+	if that.logf != nil {
+		that.logf(level, RedisSourceLogTag, format, args...)
+	}
 }

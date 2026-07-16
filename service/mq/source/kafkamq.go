@@ -56,9 +56,7 @@ func (that *KafkaMQ) StartAsync() {
 	go func() {
 		err := that.Start()
 		if err != nil {
-			if that.logf != nil {
-				that.logf(klog.ErrorLevel, KafkaSourceLogTag, "start service %s error: %v", that.name, err)
-			}
+			that.log(klog.ErrorLevel, "start service %s error: %v", that.name, err)
 			that.onError(that.name, err)
 		}
 	}()
@@ -170,5 +168,14 @@ func (that *KafkaMQ) onExit(obj any) {
 func (that *KafkaMQ) OnRecved(origin any, topic string, partition int, offset int64, properties map[string]string, message []byte) {
 	if that.OnRecivedCallback != nil {
 		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, properties, message)
+	}
+}
+
+// log 日志记录, 会自动添加 KafkaSourceLogTag
+//
+//go:inline
+func (that *KafkaMQ) log(level klog.Level, format string, args ...any) {
+	if that.logf != nil {
+		that.logf(level, KafkaSourceLogTag, format, args...)
 	}
 }

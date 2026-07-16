@@ -59,9 +59,7 @@ func (that *RedisMQ) StartAsync() {
 	go func() {
 		err := that.Start()
 		if err != nil {
-			if that.logf != nil {
-				that.logf(klog.ErrorLevel, RedisTargetLogTag, "start service %s error: %v", that.name, err)
-			}
+			that.log(klog.ErrorLevel, "start service %s error: %v", that.name, err)
 			that.onError(that.name, err)
 		}
 	}()
@@ -133,9 +131,7 @@ func (that *RedisMQ) Broadcast(message []byte, properties map[string]string) boo
 		if content, err := kdata.Zip([]byte(message)); err == nil {
 			buffer = content
 		} else {
-			if that.logf != nil {
-				that.logf(klog.ErrorLevel, RedisTargetLogTag, "compress message error: %v", err)
-			}
+			that.log(klog.ErrorLevel, "compress message error: %v", err)
 			return false
 		}
 	} else {
@@ -143,9 +139,7 @@ func (that *RedisMQ) Broadcast(message []byte, properties map[string]string) boo
 	}
 	for _, topic := range that.conf.Topics {
 		if !that.PublishMessage(topic, string(buffer)) {
-			if that.logf != nil {
-				that.logf(klog.ErrorLevel, RedisTargetLogTag, "publish topic %s message %s fault", topic, string(message))
-			}
+			that.log(klog.ErrorLevel, "publish topic %s message %s fault", topic, string(message))
 		}
 	}
 	return true
@@ -171,4 +165,13 @@ func (that *RedisMQ) onExit(obj any) {
 func (that *RedisMQ) SetOnReady(callback redismq.ReadyCallbackFunc) *RedisMQ {
 	that.onReady = callback
 	return that
+}
+
+// log 日志记录, 会自动添加 RedisTargetLogTag
+//
+//go:inline
+func (that *RedisMQ) log(level klog.Level, format string, args ...any) {
+	if that.logf != nil {
+		that.logf(level, RedisTargetLogTag, format, args...)
+	}
 }

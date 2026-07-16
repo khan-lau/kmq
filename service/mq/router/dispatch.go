@@ -114,19 +114,11 @@ func (that *DispatchService) StartAsync() {
 	go func() {
 		err := that.Start()
 		if err != nil {
-			if that.logf != nil {
-				that.logf(klog.ErrorLevel, DispatchLogTag, "start service %s error: %v", that.name, err)
-			}
+			that.log(klog.ErrorLevel, "start service %s error: %v", that.name, err)
 			that.onError(that.name, err)
 		}
 
-		if that.logf != nil {
-			that.logf(klog.DebugLevel, DispatchLogTag, "service %s start async", that.name)
-		}
-
-		if that.logf != nil {
-			that.logf(klog.DebugLevel, DispatchLogTag, "service %s start async done", that.name)
-		}
+		that.log(klog.DebugLevel, "service %s start async done", that.name)
 	}()
 }
 
@@ -138,9 +130,7 @@ func (that *DispatchService) Start() error {
 	if len(that.mqTargets) == 0 {
 		return fmt.Errorf("service %s mqTargets is empty", that.name)
 	} else {
-		if that.logf != nil {
-			that.logf(klog.DebugLevel, DispatchLogTag, "service %s mqTargets: %d", that.name, len(that.mqTargets))
-		}
+		that.log(klog.DebugLevel, "service %s mqTargets: %d", that.name, len(that.mqTargets))
 	}
 
 	that.wg.Add(1) // 成员变量 wg 只负责追踪 Start 函数本身的生命周期
@@ -210,10 +200,8 @@ func (that *DispatchService) Start() error {
 					if msg, ok, isValid := that.queue.TryDequeue(); ok && isValid {
 						idleCount = 0 // 有数据，重置空闲计数
 
-						// 处理消息
-						// if that.logf != nil {
-						// 	that.logf(klog.DebugLevel, DispatchLogTag, "service %s transform topic: %s message: %s", that.name, msg.Topic, string(msg.Message))
-						// }
+						// // 处理消息
+						// that.log(klog.DebugLevel, "service %s transform topic: %s message: %s", that.name, msg.Topic, string(msg.Message))
 
 						tmpRatio := max(cap(that.buffer)/2, 1) // 计算缓冲区的一半，至少为1
 
@@ -247,11 +235,8 @@ func (that *DispatchService) Start() error {
 					}
 				}
 			}
-
 		}
-		if that.logf != nil {
-			that.logf(klog.InfoLevel, DispatchLogTag, "service %s goroutine done", that.name)
-		}
+		that.log(klog.InfoLevel, "service %s goroutine done", that.name)
 	}(subCtx)
 
 	that.status = idl.ServiceStatusRunning //设置服务状态为运行状态
@@ -263,9 +248,7 @@ func (that *DispatchService) Start() error {
 		that.timer.Stop()
 	}
 
-	if that.logf != nil {
-		that.logf(klog.InfoLevel, DispatchLogTag, "service %s done", that.name)
-	}
+	that.log(klog.InfoLevel, "service %s done", that.name)
 	subCtx.Cancel()
 	subCtx.Remove()
 
@@ -298,10 +281,7 @@ func (that *DispatchService) Stop() error {
 	that.wg.Wait()                         // 只需要等待 Start 函数返回即可, 因为 Start 会在内部等待 workerWg 完成排水，所以这里是安全的
 	that.status = idl.ServiceStatusStopped // 设置服务状态为停止状态
 
-	if that.logf != nil {
-		that.logf(klog.InfoLevel, DispatchLogTag, "service %s is stopped", that.name)
-	}
-
+	that.log(klog.InfoLevel, "service %s is stopped", that.name)
 	return nil
 }
 
@@ -365,14 +345,9 @@ func (that *DispatchService) send(msg *GenericMessage) {
 		msgStr = string(msg.Message)
 	}
 	if !that.publish(msg.Topic, msg.Message, msg.Properties) {
-		if that.logf != nil {
-
-			that.logf(klog.ErrorLevel, DispatchLogTag, "service %s send fault, topic: %s, message: %s", that.name, msg.Topic, msgStr)
-		}
+		that.log(klog.ErrorLevel, "service %s send fault, topic: %s, message: %s", that.name, msg.Topic, msgStr)
 	} else {
-		if that.logf != nil {
-			that.logf(klog.DebugLevel, DispatchLogTag, "service %s sent topic: %s, message: %s", that.name, msg.Topic, msgStr)
-		}
+		that.log(klog.DebugLevel, "service %s sent topic: %s, message: %s", that.name, msg.Topic, msgStr)
 	}
 }
 
@@ -406,3 +381,12 @@ func (that *DispatchService) publish(topic string, message []byte, properties ma
 }
 
 ////////////////////////////////////////////////////////////
+
+// log 日志记录, 会自动添加 DispatchLogTag
+//
+//go:inline
+func (that *DispatchService) log(level klog.Level, format string, args ...any) {
+	if that.logf != nil {
+		that.logf(level, DispatchLogTag, format, args...)
+	}
+}
