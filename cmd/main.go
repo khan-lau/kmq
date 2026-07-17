@@ -252,25 +252,36 @@ func main() {
 		// waitGroup.Add(1)
 		go func(ctx *kcontext.ContextNode) {
 			// defer waitGroup.Done()
-			glog.Info("start offset sync service")
+			glog.Info("start offset sync service, sync interval %d ms", conf.SyncTime)
+
 			// 将定时器移动到这里创建，实现真正的按需分配
-			t := time.NewTimer(time.Duration(conf.SyncTime) * time.Millisecond)
-			defer t.Stop()
+			var timerChan <-chan time.Time
+			var t *time.Timer
+			if conf.SyncTime > 0 {
+				t = time.NewTimer(time.Duration(conf.SyncTime) * time.Millisecond)
+				timerChan = t.C // 只有大于 0 时才赋值通道
+			}
+
 		END_LOOP:
 			for {
 				select {
-				case <-t.C:
+				case <-timerChan:
 					if gOffsetSync != nil {
-						// t = time.NewTimer(time.Duration(conf.SyncTime) * time.Millisecond)
-						t.Reset(time.Duration(conf.SyncTime) * time.Millisecond)
+						gOffsetSync.Sync(false)
+						if t != nil {
+							t.Reset(time.Duration(conf.SyncTime) * time.Millisecond)
+						}
+						// glog.Info("sync offset to file: %s", conf.SyncFile)
 					}
-
-					// glog.Info("sync offset to file: %s", conf.SyncFile)
 				case <-ctx.Context().Done():
 					break END_LOOP
 				}
 			}
+			if t != nil {
+				t.Stop()
+			}
 			glog.Info("offset sync service is finished")
+
 		}(syncCtx)
 
 		// 消息队列source服务
