@@ -89,7 +89,7 @@ func showUsage() {
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
-func LogFunc(lvl klog.Level, tag, f string, args ...any) {
+func LogFunc(lvl klog.Level, tag string, skipFix int, f string, args ...any) {
 	if nil == glog {
 		glog = klog.LoggerInstanceOnlyConsole(int8(klog.DebugLevel))
 		glog.Warrn("Not init logger")
@@ -101,6 +101,7 @@ func LogFunc(lvl klog.Level, tag, f string, args ...any) {
 		skip = 2
 	}
 
+	skip += skipFix
 	switch lvl {
 	case klog.DebugLevel:
 		if tag == kafkamq.KafkaLogTag {

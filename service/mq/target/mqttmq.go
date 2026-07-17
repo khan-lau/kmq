@@ -216,6 +216,6 @@ func (that *MqttMQ) SetOnReady(callback mqtt.ReadyCallbackFunc) *MqttMQ {
 //go:inline
 func (that *MqttMQ) log(level klog.Level, format string, args ...any) {
 	if that.logf != nil {
-		that.logf(level, MqttTargetLogTag, format, args...)
+		that.logf(level, MqttTargetLogTag, 1, format, args...)
 	}
 }

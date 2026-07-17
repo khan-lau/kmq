@@ -149,7 +149,7 @@ func (that *MqttMQ) OnRecved(origin any, topic string, partition int, offset int
 //go:inline
 func (that *MqttMQ) log(level klog.Level, format string, args ...any) {
 	if that.logf != nil {
-		that.logf(level, MqttSourceLogTag, format, args...)
+		that.logf(level, MqttSourceLogTag, 1, format, args...)
 	}
 }
 

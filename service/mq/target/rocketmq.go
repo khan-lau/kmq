@@ -189,6 +189,6 @@ func (that *RocketMQ) SetOnReady(callback rocketmq.ReadyCallbackFunc) *RocketMQ 
 //go:inline
 func (that *RocketMQ) log(level klog.Level, format string, args ...any) {
 	if that.logf != nil {
-		that.logf(level, RocketTargetLogTag, format, args...)
+		that.logf(level, RocketTargetLogTag, 1, format, args...)
 	}
 }

@@ -79,7 +79,7 @@ func NewDispatchService(ctx *kcontext.ContextNode, dumpHex bool, sendInterval ui
 	queue, err := ksync.NewLockedRingBuffer[*GenericMessage](uint64(queueSize))
 	if err != nil {
 		if logf != nil {
-			logf(klog.ErrorLevel, DispatchLogTag, "create ring buffer error: %v", err)
+			logf(klog.ErrorLevel, DispatchLogTag, 0, "create ring buffer error: %v", err)
 		}
 		return nil
 	}
@@ -387,6 +387,6 @@ func (that *DispatchService) publish(topic string, message []byte, properties ma
 //go:inline
 func (that *DispatchService) log(level klog.Level, format string, args ...any) {
 	if that.logf != nil {
-		that.logf(level, DispatchLogTag, format, args...)
+		that.logf(level, DispatchLogTag, 1, format, args...)
 	}
 }

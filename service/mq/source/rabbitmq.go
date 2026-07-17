@@ -143,6 +143,6 @@ func (that *RabbitMQ) OnRecved(origin any, topic string, partition int, offset i
 //go:inline
 func (that *RabbitMQ) log(level klog.Level, format string, args ...any) {
 	if that.logf != nil {
-		that.logf(level, RabbitSourceLogTag, format, args...)
+		that.logf(level, RabbitSourceLogTag, 1, format, args...)
 	}
 }

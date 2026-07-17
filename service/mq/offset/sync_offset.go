@@ -143,6 +143,6 @@ func (that *OffsetSync) ToJson() string {
 //go:inline
 func (that *OffsetSync) log(level klog.Level, format string, args ...any) {
 	if that.logf != nil {
-		that.logf(level, OffsetLogTag, format, args...)
+		that.logf(level, OffsetLogTag, 1, format, args...)
 	}
 }

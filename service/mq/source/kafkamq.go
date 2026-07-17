@@ -176,6 +176,6 @@ func (that *KafkaMQ) OnRecved(origin any, topic string, partition int, offset in
 //go:inline
 func (that *KafkaMQ) log(level klog.Level, format string, args ...any) {
 	if that.logf != nil {
-		that.logf(level, KafkaSourceLogTag, format, args...)
+		that.logf(level, KafkaSourceLogTag, 1, format, args...)
 	}
 }

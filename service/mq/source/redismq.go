@@ -139,6 +139,6 @@ func (that *RedisMQ) SetOnRecivedCallback(callback idl.OnRecived) {
 //go:inline
 func (that *RedisMQ) log(level klog.Level, format string, args ...any) {
 	if that.logf != nil {
-		that.logf(level, RedisSourceLogTag, format, args...)
+		that.logf(level, RedisSourceLogTag, 1, format, args...)
 	}
 }

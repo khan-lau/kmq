@@ -171,6 +171,6 @@ func (that *RabbitMQ) SetOnReady(callback rabbitmq.ReadyCallbackFunc) *RabbitMQ 
 //go:inline
 func (that *RabbitMQ) log(level klog.Level, format string, args ...any) {
 	if that.logf != nil {
-		that.logf(level, RabbitTargetLogTag, format, args...)
+		that.logf(level, RabbitTargetLogTag, 1, format, args...)
 	}
 }

@@ -172,6 +172,6 @@ func (that *RedisMQ) SetOnReady(callback redismq.ReadyCallbackFunc) *RedisMQ {
 //go:inline
 func (that *RedisMQ) log(level klog.Level, format string, args ...any) {
 	if that.logf != nil {
-		that.logf(level, RedisTargetLogTag, format, args...)
+		that.logf(level, RedisTargetLogTag, 1, format, args...)
 	}
 }

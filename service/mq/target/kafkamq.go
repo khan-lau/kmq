@@ -229,6 +229,6 @@ func (that *KafkaMQ) SetOnReady(callback kafkamq.ReadyCallbackFunc) *KafkaMQ {
 //go:inline
 func (that *KafkaMQ) log(level klog.Level, format string, args ...any) {
 	if that.logf != nil {
-		that.logf(level, KafkaTargetLogTag, format, args...)
+		that.logf(level, KafkaTargetLogTag, 1, format, args...)
 	}
 }

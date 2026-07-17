@@ -175,7 +175,7 @@ func (that *NatsCoreMQ) OnRecved(origin any, topic string, partition int, offset
 //go:inline
 func (that *NatsCoreMQ) log(level klog.Level, format string, args ...any) {
 	if that.logf != nil {
-		that.logf(level, NatsCoreSourceLogTag, format, args...)
+		that.logf(level, NatsCoreSourceLogTag, 1, format, args...)
 	}
 }
 
@@ -396,6 +396,6 @@ func (that *NatsJetStreamMQ) OnRecved(origin any, topic string, partition int, o
 //go:inline
 func (that *NatsJetStreamMQ) log(level klog.Level, format string, args ...any) {
 	if that.logf != nil {
-		that.logf(level, NatsJSSourceLogTag, format, args...)
+		that.logf(level, NatsJSSourceLogTag, 1, format, args...)
 	}
 }

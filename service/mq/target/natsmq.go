@@ -202,7 +202,7 @@ func (that *NatsCoreMQ) SetOnReady(callback natsmq.ReadyCallbackFunc) *NatsCoreM
 //go:inline
 func (that *NatsCoreMQ) log(level klog.Level, format string, args ...any) {
 	if that.logf != nil {
-		that.logf(level, NatsCoreTargetLogTag, format, args...)
+		that.logf(level, NatsCoreTargetLogTag, 1, format, args...)
 	}
 }
 
@@ -453,6 +453,6 @@ func (that *NatsJetStreamMQ) SetOnReady(callback natsmq.ReadyCallbackFunc) *Nats
 //go:inline
 func (that *NatsJetStreamMQ) log(level klog.Level, format string, args ...any) {
 	if that.logf != nil {
-		that.logf(level, NatsJSTargetLogTag, format, args...)
+		that.logf(level, NatsJSTargetLogTag, 1, format, args...)
 	}
 }

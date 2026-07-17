@@ -175,6 +175,6 @@ func (that *RocketMQ) OnRecved(origin any, topic string, partition int, offset i
 //go:inline
 func (that *RocketMQ) log(level klog.Level, format string, args ...any) {
 	if that.logf != nil {
-		that.logf(level, RocketSourceLogTag, format, args...)
+		that.logf(level, RocketSourceLogTag, 1, format, args...)
 	}
 }
