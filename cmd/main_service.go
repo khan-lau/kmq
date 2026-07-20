@@ -34,6 +34,10 @@ import (
 	"github.com/khan-lau/kutils/kuuid"
 )
 
+const (
+	DEFAULT_IDLE_COMMIT_TIMER = 5000 * time.Millisecond // 默认空闲提交定时器, 5s
+)
+
 var (
 	gOffset = int64(0)
 
@@ -587,13 +591,16 @@ func startMqTarget(ctx *kcontext.ContextNode, sendQueueSize uint, targetItems []
 }
 
 func stopMqSourceManager() {
-	gIdleCommitTimer.Stop()
 	for _, v := range gMqSourceManager {
 		if v != nil {
 			_ = v.Stop()
 		}
 	}
+	if gIdleCommitTimer != nil {
+		gIdleCommitTimer.Stop()
+	}
 }
+
 func stopMqTargetManager() {
 	for _, v := range gMqTargetManager {
 		_ = v.Stop()
@@ -631,7 +638,7 @@ func loadOffsetCache(conf *config.Configure) *offset.OffsetSync {
 
 // 在 init() 或 main() 开头添加初始化
 func initIdleCommit() {
-	gIdleCommitTimer = time.AfterFunc(5*time.Second, func() {
+	gIdleCommitTimer = time.AfterFunc(DEFAULT_IDLE_COMMIT_TIMER, func() {
 		gIdleTimerMu.Lock()
 		if gLastOrigin != nil {
 			if err := messageAck(gLastOrigin); err == nil {
@@ -900,11 +907,11 @@ func onRecved(origin any, name string, topic string, partition int, offset int64
 	// }
 
 	var err error
-	if manualAck {
+	if manualAck && gIdleCommitTimer != nil {
 		// 重置空闲提交定时器：有新消息进来，推迟到 5s 后触发
 		gIdleTimerMu.Lock()
 		gLastOrigin = origin
-		gIdleCommitTimer.Reset(5 * time.Second)
+		gIdleCommitTimer.Reset(DEFAULT_IDLE_COMMIT_TIMER)
 		gIdleTimerMu.Unlock()
 
 		if gOffset%500 == 0 { // 每500条消息确认一次偏移量
