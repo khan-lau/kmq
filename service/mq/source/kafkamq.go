@@ -72,6 +72,7 @@ func (that *KafkaMQ) Start() error {
 		SetMaxOpenRequests(that.conf.Net.MaxOpenRequests).
 		SetReadTimeout(time.Duration(that.conf.Net.ReadTimeout) * time.Millisecond).
 		SetWriteTimeout(time.Duration(that.conf.Net.WriteTimeout) * time.Millisecond).
+		SetKeepAlive(time.Duration(that.conf.Net.KeepAlive) * time.Millisecond).
 		SetResolveHost(that.conf.Net.ResolveHost)
 
 	kafkaConsumerConfig := kafkamq.NewKafkaConsumerConfig().
@@ -86,8 +87,8 @@ func (that *KafkaMQ) Start() error {
 	switch that.conf.Consumer.AutoCommit {
 	case kafkamq.AUTO_COMMIT_NATIVE:
 		kafkaConsumerConfig.NativeAutoCommit(time.Duration(that.conf.Consumer.AutoCommitInterval) * time.Millisecond)
-	case kafkamq.AUTO_COMMIT_CUSTOM:
-		kafkaConsumerConfig.CustomAutoCommit()
+	// case kafkamq.AUTO_COMMIT_CUSTOM:
+	// 	kafkaConsumerConfig.CustomAutoCommit()
 	default:
 		kafkaConsumerConfig.DisableAutoCommit()
 	}

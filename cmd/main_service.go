@@ -34,6 +34,14 @@ import (
 	"github.com/khan-lau/kutils/kuuid"
 )
 
+var (
+	gOffset = int64(0)
+
+	gIdleCommitTimer *time.Timer // 空闲定时器, 用于确认偏移量
+	gIdleTimerMu     sync.Mutex  // 空闲定时器互斥锁
+	gLastOrigin      any         // 最后一个消息的origin
+)
+
 // startMqSource 启动MQ源
 //
 // 参数:
@@ -323,6 +331,7 @@ func startMqSource(ctx *kcontext.ContextNode, recvQueueSize uint, toHex bool, so
 	}
 
 	waitGroup.Wait()
+	initIdleCommit()
 }
 
 // startMqTarget 启动MQ转发目标服务
@@ -578,11 +587,13 @@ func startMqTarget(ctx *kcontext.ContextNode, sendQueueSize uint, targetItems []
 }
 
 func stopMqSourceManager() {
+	gIdleCommitTimer.Stop()
 	for _, v := range gMqSourceManager {
-		_ = v.Stop()
+		if v != nil {
+			_ = v.Stop()
+		}
 	}
 }
-
 func stopMqTargetManager() {
 	for _, v := range gMqTargetManager {
 		_ = v.Stop()
@@ -616,6 +627,20 @@ func loadOffsetCache(conf *config.Configure) *offset.OffsetSync {
 		}
 	}
 	return offsetSync
+}
+
+// 在 init() 或 main() 开头添加初始化
+func initIdleCommit() {
+	gIdleCommitTimer = time.AfterFunc(5*time.Second, func() {
+		gIdleTimerMu.Lock()
+		if gLastOrigin != nil {
+			if err := messageAck(gLastOrigin); err == nil {
+				glog.Info("idle commit: offset=%d", gOffset)
+			}
+		}
+		gIdleTimerMu.Unlock()
+	})
+	gIdleCommitTimer.Stop()
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -853,6 +878,8 @@ END_SEND:
 //   - isCompress bool: 是否为压缩数据
 //   - message []byte: 消息数据
 func onRecved(origin any, name string, topic string, partition int, offset int64, _ map[string]string, isCompress bool, toHex bool, manualAck bool, message []byte) {
+	gOffset = offset
+
 	// 源数据是否为压缩数据, 压缩数据必须是zip压缩算法
 	var str string
 	if isCompress {
@@ -873,8 +900,16 @@ func onRecved(origin any, name string, topic string, partition int, offset int64
 	// }
 
 	var err error
-	if !manualAck {
-		err = messageAck(origin)
+	if manualAck {
+		// 重置空闲提交定时器：有新消息进来，推迟到 5s 后触发
+		gIdleTimerMu.Lock()
+		gLastOrigin = origin
+		gIdleCommitTimer.Reset(5 * time.Second)
+		gIdleTimerMu.Unlock()
+
+		if gOffset%500 == 0 { // 每500条消息确认一次偏移量
+			err = messageAck(origin)
+		}
 	}
 
 	if err == nil {
@@ -885,18 +920,23 @@ func onRecved(origin any, name string, topic string, partition int, offset int64
 		}
 		glog.Debug("onRecived: name=%s, topic=%s, partition=%d, offset=%d, message=%s", name, topic, partition, offset, dataStr)
 		switch name {
+		case "NatsJSSource":
+			if gOffsetSync != nil {
+				gOffsetSync.Set("natsjsmq", topic, strconv.Itoa(partition), offset)
+			}
 		case "KafkaSource":
 			if gOffsetSync != nil {
 				gOffsetSync.Set("kafkamq", topic, strconv.Itoa(partition), offset)
+			}
+		case "RabbitSource":
+			if gOffsetSync != nil {
+				gOffsetSync.Set("rabbitmq", topic, strconv.Itoa(partition), offset)
 			}
 		case "RocketSource":
 			if gOffsetSync != nil {
 				gOffsetSync.Set("rocketmq", topic, strconv.Itoa(partition), offset)
 			}
-		case "NatsJSSource":
-			if gOffsetSync != nil {
-				gOffsetSync.Set("natsjsmq", topic, strconv.Itoa(partition), offset)
-			}
+
 		}
 	} else {
 		glog.Error("onRecved: name=%s, topic=%s, partition=%d, offset=%d, ack return error=%v", name, topic, partition, offset, err)
@@ -910,6 +950,8 @@ func onRecved(origin any, name string, topic string, partition int, offset int64
 func messageAck(origin any) error {
 	var err error
 	switch t := origin.(type) {
+	case *natsmq.NatsMessage: // 点表更新消息
+		err = t.Ack()
 	case *rabbitmq.Message:
 		err = t.Ack(false) // false: 只确认当前这条消息; true: 批量确认 DeliveryTag <= current DeliveryTag 的所有消息
 	case *rocketmq.Message:

@@ -8,7 +8,7 @@ MAIN_PROG= cmd/main_helper.go \
 		cmd/main_service.go \
 		cmd/main.go
 
-Version=0.5.8
+Version=0.5.9
 Author=Liu Kun
 
 DEBUG=-w -s

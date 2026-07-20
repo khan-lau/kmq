@@ -97,6 +97,7 @@
           dialTimeout: 30000,       // 连接超时时长 单位ms
           readTimeout: 120000,      // 读超时时长 单位ms
           writeTimeout: 10000,      // 写超时时长 单位ms
+          keepAlive: 30000,         // 保持连接超时时长 单位ms
           resolveHost: false,       // 是否使用域名, 使用集群域名时设置为true
         },
         consumer: {
@@ -267,6 +268,7 @@
           dialTimeout: 30000,       // 连接超时时长 单位ms
           readTimeout: 120000,      // 读超时时长 单位ms
           writeTimeout: 10000,      // 写超时时长 单位ms
+          keepAlive: 30000,         // 保持连接超时时长 单位ms
           resolveHost: false,       // 是否使用域名, 使用集群域名时设置为true
         },
         producer: {

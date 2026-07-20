@@ -16,11 +16,12 @@ type Partition struct {
 }
 
 type Net struct {
-	MaxOpenRequests int  `json:"maxOpenRequests" toml:"maxOpenRequests" yaml:"maxOpenRequests"`
-	DialTimeout     int  `json:"dialTimeout" toml:"dialTimeout" yaml:"dialTimeout"`
-	ReadTimeout     int  `json:"readTimeout" toml:"readTimeout" yaml:"readTimeout"`
-	WriteTimeout    int  `json:"writeTimeout" toml:"writeTimeout" yaml:"writeTimeout"`
-	ResolveHost     bool `json:"resolveHost" toml:"resolveHost" yaml:"resolveHost"`
+	MaxOpenRequests int  `json:"maxOpenRequests" toml:"maxOpenRequests" yaml:"maxOpenRequests"` // 最大并发请求数
+	DialTimeout     int  `json:"dialTimeout" toml:"dialTimeout" yaml:"dialTimeout"`             // 连接超时时间, 单位ms
+	ReadTimeout     int  `json:"readTimeout" toml:"readTimeout" yaml:"readTimeout"`             // 读超超时时间, 单位ms
+	WriteTimeout    int  `json:"writeTimeout" toml:"writeTimeout" yaml:"writeTimeout"`          // 写超超时时间, 单位ms
+	KeepAlive       int  `json:"keepAlive" toml:"keepAlive" yaml:"keepAlive"`                   // 保持连接时间间隔, 单位ms
+	ResolveHost     bool `json:"resolveHost" toml:"resolveHost" yaml:"resolveHost"`             // 是否解析主机
 }
 
 type Producer struct {

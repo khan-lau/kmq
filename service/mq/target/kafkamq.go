@@ -71,6 +71,7 @@ func (that *KafkaMQ) Start() error {
 		SetMaxOpenRequests(that.conf.Net.MaxOpenRequests).
 		SetReadTimeout(time.Duration(that.conf.Net.ReadTimeout) * time.Millisecond).
 		SetWriteTimeout(time.Duration(that.conf.Net.WriteTimeout) * time.Millisecond).
+		SetKeepAlive(time.Duration(that.conf.Net.KeepAlive) * time.Millisecond).
 		SetResolveHost(that.conf.Net.ResolveHost)
 
 	kafkaProducerConfig := kafkamq.NewKafkaProducerConfig().
