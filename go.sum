@@ -105,10 +105,10 @@ github.com/khan-lau/file-rotatelogs v0.1.3 h1:Vv4UF4Y+movZL4vQkS8IvG2rcJeU7XbLw6
 github.com/khan-lau/file-rotatelogs v0.1.3/go.mod h1:YU9AcyE3TaxgB0FspyTmkdbKpzlw1SelPSu4Ym/+2xU=
 github.com/khan-lau/kconfig v0.1.0 h1:mkmFyAgvcv/wQVNd9fgAcTWucu+EkfTEgkXRELq35Gc=
 github.com/khan-lau/kconfig v0.1.0/go.mod h1:zl4YOG0lZZKRPevNWSBAUt3jLe+Pz/dTlrj0V8XcS0U=
-github.com/khan-lau/kmq-utils v0.1.10 h1:di2Imjpe1zDrw71jxuwbdcDCxaxSoLVixnUNlr1gCKk=
-github.com/khan-lau/kmq-utils v0.1.10/go.mod h1:HivYI7lEYy0yTa3W2EH+Rv43lmX+3X16DT5KLztC5Ws=
-github.com/khan-lau/kutils v0.6.2 h1:YFU+sgoHqoJZRt3Tz2pr2YBWbcQ50OUA+WuONCf4DDU=
-github.com/khan-lau/kutils v0.6.2/go.mod h1:DgToQS+SXwTp9+Jgokd9bYTJqRchLYiaPJGjenTeZXM=
+github.com/khan-lau/kmq-utils v0.2.0 h1:wLivhEbDr4RGrgWlQEUpcoRB6nSH40Dbqlauo4giWTk=
+github.com/khan-lau/kmq-utils v0.2.0/go.mod h1:jrP7V1VQbdeB4hAFo9BEGkP8jlr9056xy2w6sTFiRPo=
+github.com/khan-lau/kutils v0.6.3 h1:d7zYJpgLSGDWANPyjvdQn1j5HHrWpsXjNXNrSsujnX0=
+github.com/khan-lau/kutils v0.6.3/go.mod h1:DgToQS+SXwTp9+Jgokd9bYTJqRchLYiaPJGjenTeZXM=
 github.com/khan-lau/mapstructure v1.5.4 h1:WdrX7VFVIZYaWb0Yh1j9vMVniFIC6YnwB5FLQfybzyk=
 github.com/khan-lau/mapstructure v1.5.4/go.mod h1:yva/B/9nivtdAsS268tK9gFHaqIlCgRd79YWqM4muQY=
 github.com/klauspost/compress v1.18.4 h1:RPhnKRAQ4Fh8zU2FY/6ZFDwTVTxgJ/EMydqSTzE9a2c=
