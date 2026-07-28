@@ -110,7 +110,7 @@ func (that *MqttMQ) Start() error {
 }
 
 func (that *MqttMQ) Restart() error {
-	if that.status != idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
+	if that.status == idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
 		err := that.Stop()
 		if err != nil {
 			return err
@@ -187,7 +187,7 @@ func (that *MqttMQ) Publish(topic string, message []byte, attr map[string]string
 			}
 		}
 	}
-	msg := &mqtt.MqttMessage{Topic: topic, Qos: qos, Retained: retained, Payload: message}
+	msg := mqtt.MqttMessage{Topic: topic, Qos: qos, Retained: retained, Payload: message}
 
 	return that.publish(msg)
 }
@@ -196,10 +196,10 @@ func (that *MqttMQ) PublishMessage(topic string, message string) bool {
 	if that.status != idl.ServiceStatusRunning {
 		return false
 	}
-	return that.publisher.PublishMessage(topic, message)
+	return that.publisher.PublishMessage(topic, []byte(message))
 }
 
-func (that *MqttMQ) publish(msg *mqtt.MqttMessage) bool {
+func (that *MqttMQ) publish(msg mqtt.MqttMessage) bool {
 	if that.status != idl.ServiceStatusRunning {
 		return false
 	}

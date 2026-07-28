@@ -113,7 +113,7 @@ func (that *NatsCoreMQ) Start() error {
 
 	natsConf.SetOnExit(func(event any) { that.onExit(event) })
 	natsConf.SetOnError(func(err error) { that.onError(that.name, err) })
-	natsConf.CoreNats().SetMainHandler(func(voidObj any, msg *natsmq.NatsMessage) {
+	natsConf.CoreNats().SetMainHandler(func(voidObj any, msg natsmq.NatsMessage) {
 		that.OnRecved(msg, msg.Topic, 0, msg.Seq, nil, []byte(msg.Payload))
 	})
 
@@ -135,7 +135,7 @@ func (that *NatsCoreMQ) Start() error {
 }
 
 func (that *NatsCoreMQ) Restart() error {
-	if that.status != idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
+	if that.status == idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
 		err := that.Stop()
 		if err != nil {
 			return err
@@ -341,7 +341,7 @@ func (that *NatsJetStreamMQ) Start() error {
 		that.onError(that.name, err)
 	})
 
-	natsConf.JetStream().SetMainHandler(func(voidObj any, msg *natsmq.NatsMessage) {
+	natsConf.JetStream().SetMainHandler(func(voidObj any, msg natsmq.NatsMessage) {
 		that.OnRecved(msg, msg.Topic, 0, msg.Seq, nil, []byte(msg.Payload))
 	})
 
@@ -356,7 +356,7 @@ func (that *NatsJetStreamMQ) Start() error {
 }
 
 func (that *NatsJetStreamMQ) Restart() error {
-	if that.status != idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
+	if that.status == idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
 		err := that.Stop()
 		if err != nil {
 			return err

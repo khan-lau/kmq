@@ -74,7 +74,7 @@ func (that *RedisMQ) Start() error {
 
 	redisConf.SetExitCallback(func(event any) { that.onExit(event) })
 	redisConf.SetErrorCallback(func(err error) { that.onError(that.name, err) })
-	redisConf.SetMessageHandler(func(voidObj any, msg *kredis.RedisMessage) {
+	redisConf.SetMessageHandler(func(voidObj any, msg kredis.RedisMessage) {
 		that.OnRecved(nil, msg.Topic, 0, 0, nil, []byte(msg.Message))
 	})
 
@@ -95,7 +95,7 @@ func (that *RedisMQ) Start() error {
 }
 
 func (that *RedisMQ) Restart() error {
-	if that.status != idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
+	if that.status == idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
 		err := that.Stop()
 		if err != nil {
 			return err

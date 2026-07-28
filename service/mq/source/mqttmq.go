@@ -78,7 +78,7 @@ func (that *MqttMQ) Start() error {
 		SetWillTopic(that.conf.WillTopic).SetWillQos(byte(that.conf.WillQos)).SetWillRetain(that.conf.WillRetain).SetWillPayload([]byte(that.conf.WillPayload)).
 		SetTopics(that.conf.Topics...).SetUseTLS(that.conf.UseTLS).SetCaCertPath(that.conf.CaCertPath)
 
-	mqttConf.SetMessageHandler(func(voidObj any, msg *mqtt.MqttMessage) {
+	mqttConf.SetMessageHandler(func(voidObj any, msg mqtt.MqttMessage) {
 		that.OnRecved(nil, msg.Topic, 0, int64(msg.MessageID), nil, msg.Payload)
 	})
 
@@ -109,7 +109,7 @@ func (that *MqttMQ) Start() error {
 }
 
 func (that *MqttMQ) Restart() error {
-	if that.status != idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
+	if that.status == idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
 		err := that.Stop()
 		if err != nil {
 			return err

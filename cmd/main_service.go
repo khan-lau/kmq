@@ -783,9 +783,9 @@ func getReplayData(toHex bool, path string) []*router.GenericMessage {
 	return messages
 }
 
-func generalMessage(handler *router.DispatchService, resetTimestamp bool, message *router.GenericMessage) {
+func generalMessage(handler *router.Pipeline, resetTimestamp bool, message *router.GenericMessage) {
 	if len(message.Message) == 0 || len(message.Topic) == 0 {
-		glog.Warrn("Message or topic is empty") // 修正拼写
+		glog.Warn("Message or topic is empty") // 修正拼写
 		return
 	}
 	content := *(*string)(unsafe.Pointer(&message.Message))
@@ -843,7 +843,7 @@ func generalMessage(handler *router.DispatchService, resetTimestamp bool, messag
 
 	// 防止重置后 content 为空
 	if len(content) == 0 {
-		glog.Warrn("Message content is empty, origin content=%s", content)
+		glog.Warn("Message content is empty, origin content=%s", content)
 		return
 	}
 
@@ -851,7 +851,7 @@ func generalMessage(handler *router.DispatchService, resetTimestamp bool, messag
 	uuidStr := uuid.ShortString()
 
 	// 复用 GenericMessage 结构体（减少对象分配）
-	sendMsg := &router.GenericMessage{
+	sendMsg := router.GenericMessage{
 		Topic:      message.Topic,
 		Properties: map[string]string{"key": uuidStr}, // 仍然每次创建，后面可进一步优化
 	}
@@ -859,7 +859,7 @@ END_SEND:
 	for {
 		bytesPtr := unsafe.Slice(unsafe.StringData(content), len(content))
 		sendMsg.Message = bytesPtr
-		status, err := handler.DoSend(sendMsg)
+		status, err := handler.DoTrans(sendMsg)
 		// 发送成功 or 源服务排水中 则直接退出发送
 		if status || err == idl.ErrSrvDraining {
 			break END_SEND

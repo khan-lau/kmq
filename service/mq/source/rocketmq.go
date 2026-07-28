@@ -113,7 +113,7 @@ func (that *RocketMQ) Start() error {
 
 	rocketConfig.SetExitCallback(func(event any) { that.onExit(event) })
 	rocketConfig.SetErrorCallback(func(err error) { that.onError(that.name, err) })
-	rocketConfig.Consumer.SetMainHandler(func(voidObj any, msg *rocketmq.Message) {
+	rocketConfig.Consumer.SetMainHandler(func(voidObj any, msg rocketmq.Message) {
 		that.OnRecved(msg, msg.Topic, 0, int64(msg.StoreTimestamp), msg.GetProperties(), msg.Body)
 	})
 
@@ -135,7 +135,7 @@ func (that *RocketMQ) Start() error {
 }
 
 func (that *RocketMQ) Restart() error {
-	if that.status != idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
+	if that.status == idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
 		err := that.Stop()
 		if err != nil {
 			return err

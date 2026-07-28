@@ -106,7 +106,7 @@ func (that *RabbitMQ) Start() error {
 }
 
 func (that *RabbitMQ) Restart() error {
-	if that.status != idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
+	if that.status == idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
 		err := that.Stop()
 		if err != nil {
 			return err

@@ -115,7 +115,7 @@ func (that *KafkaMQ) Start() error {
 
 	kafkaConfig.SetExitCallback(func(event any) { that.onExit(event) })
 	kafkaConfig.SetErrorCallback(func(err error) { that.onError(that.name, err) })
-	kafkaConfig.Consumer.SetMessageHandler(func(voidObj any, msg *kafkamq.KafkaMessage) {
+	kafkaConfig.Consumer.SetMessageHandler(func(voidObj any, msg kafkamq.KafkaMessage) {
 		keyMap := map[string]string{"key": string(msg.Key)}
 		that.OnRecved(msg, msg.Topic, int(msg.Partition), msg.Offset, keyMap, msg.Value)
 	})
@@ -137,7 +137,7 @@ func (that *KafkaMQ) Start() error {
 }
 
 func (that *KafkaMQ) Restart() error {
-	if that.status != idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
+	if that.status == idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
 		err := that.Stop()
 		if err != nil {
 			return err

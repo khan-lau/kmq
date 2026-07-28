@@ -81,7 +81,7 @@ func (that *RabbitMQ) Start() error {
 
 	rabbitConfig.SetExitCallback(func(event any) { that.onExit(event) })
 	rabbitConfig.SetErrorCallback(func(err error) { that.onError(that.name, err) })
-	rabbitConfig.Consumer.SetMessageHandler(func(voidObj any, msg *rabbitmq.Message) {
+	rabbitConfig.Consumer.SetMessageHandler(func(voidObj any, msg rabbitmq.Message) {
 		that.OnRecved(msg, msg.RoutingKey, 0, msg.Timestamp.UnixMilli(), nil, []byte(msg.Body))
 	})
 
@@ -103,7 +103,7 @@ func (that *RabbitMQ) Start() error {
 }
 
 func (that *RabbitMQ) Restart() error {
-	if that.status != idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
+	if that.status == idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
 		err := that.Stop()
 		if err != nil {
 			return err

@@ -18,6 +18,7 @@ import (
 	"github.com/khan-lau/kmq/service/mq/offset"
 	"github.com/khan-lau/kmq/service/mq/router"
 	"github.com/khan-lau/kutils/container/kcontext"
+	"github.com/khan-lau/kutils/container/kmaps"
 	"github.com/khan-lau/kutils/filesystem"
 	klog "github.com/khan-lau/kutils/klogger"
 	"github.com/khan-lau/kutils/ksync"
@@ -40,7 +41,7 @@ var ( // 全局变量
 	glog             *klog.Logger                    // 日志
 	gMqSourceManager map[string]idl.ServiceInterface // 消息队列来源服务
 	gMqTargetManager map[string]idl.ServiceInterface // 消息队列分发服务
-	gDispatcher      *router.DispatchService         // 消息分发服务
+	gPipeline        *router.Pipeline                // 消息分发管道
 	gOffsetSync      *offset.OffsetSync              // topic offset同步服务, 用于记录topic offset, 以便重启时恢复offset
 
 )
@@ -165,9 +166,10 @@ func main() {
 				return
 			}
 
-			gDispatcher = router.NewDispatchService(ctx, conf.DumpHex, uint(conf.SendInterval), uint(conf.SendQueueSize),
-				1, "dispatch", gMqTargetManager, LogFunc)
-			gDispatcher.StartAsync()
+			processor := router.NewBroadcastProcessor(kmaps.Keys(gMqTargetManager))
+			gPipeline = router.NewPipeline(ctx, conf.DumpHex, uint(conf.SendInterval), uint(conf.SendQueueSize),
+				1, "dispatch", gMqTargetManager, processor, LogFunc)
+			gPipeline.StartAsync()
 
 			maxRetries := 1000 // 10ms * 1000 = 10 秒
 			started := false
@@ -176,7 +178,7 @@ func main() {
 					started = false
 					return
 				}
-				if gDispatcher.Status() == idl.ServiceStatusRunning {
+				if gPipeline.Status() == idl.ServiceStatusRunning {
 					started = true
 					break
 				}
@@ -184,7 +186,7 @@ func main() {
 			}
 
 			if !started {
-				glog.Error("dispatcher not started")
+				glog.Error("pipeline not started")
 				mainCtx.Cancel()
 				return
 			}
@@ -221,7 +223,7 @@ func main() {
 							break EndScanLoop
 						}
 						index++
-						generalMessage(gDispatcher, conf.ResetTimestamp, message)
+						generalMessage(gPipeline, conf.ResetTimestamp, message)
 					} else {
 						glog.Debug("replay data is empty")
 					}
@@ -234,10 +236,10 @@ func main() {
 			}
 			glog.Info("Publisher send goroutine finish")
 
-			if gDispatcher != nil {
-				glog.Info("stop dispatch service")
-				_ = gDispatcher.Stop()
-				glog.Info("dispatch service is finished")
+			if gPipeline != nil {
+				glog.Info("stop pipeline service")
+				_ = gPipeline.Stop()
+				glog.Info("pipeline service is finished")
 			}
 
 			root := ctx.Root()
@@ -298,16 +300,16 @@ func main() {
 	<-mainCtx.Context().Done() // 等待退出通知 (信号或发送完毕)
 	glog.Info("main context done")
 
-	stopMqSourceManager() //先停 Source (断源), 这样做之后，DispatchService 的 queue 里的数据就不会再增加了
+	stopMqSourceManager() //先停 Source (断源), 这样做之后，Pipeline 的 queue 里的数据就不会再增加了
 	glog.Info("stop Source manager")
 
-	if gDispatcher != nil {
-		glog.Info("stop dispatch service")
-		_ = gDispatcher.Stop()
-		glog.Info("dispatch service is finished")
+	if gPipeline != nil {
+		glog.Info("stop pipeline service")
+		_ = gPipeline.Stop()
+		glog.Info("pipeline service is finished")
 	}
 
-	stopMqTargetManager() // 最后关闭 Target (拆管), 只有 Dispatcher 确认数据都送出去了，才能关 Target 客户端
+	stopMqTargetManager() // 最后关闭 Target (拆管), 只有 Pipeline 确认数据都送出去了，才能关 Target 客户端
 	glog.Info("stop Target manager")
 
 	//  销毁资源

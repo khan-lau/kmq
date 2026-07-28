@@ -132,7 +132,7 @@ func (that *NatsCoreMQ) Start() error {
 }
 
 func (that *NatsCoreMQ) Restart() error {
-	if that.status != idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
+	if that.status == idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
 		err := that.Stop()
 		if err != nil {
 			return err
@@ -382,7 +382,7 @@ func (that *NatsJetStreamMQ) Start() error {
 }
 
 func (that *NatsJetStreamMQ) Restart() error {
-	if that.status != idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
+	if that.status == idl.ServiceStatusRunning { //检查服务状态 是否为运行状态
 		err := that.Stop()
 		if err != nil {
 			return err
