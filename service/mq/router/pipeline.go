@@ -41,6 +41,31 @@ func (that *GenericMessage) String() string {
 	return b.String()
 }
 
+func (that *GenericMessage) ToString() string {
+	var sb strings.Builder
+	sb.Grow(65536)
+
+	_, _ = sb.WriteString("tag:")
+	_, _ = sb.WriteString(that.Tag)
+
+	_, _ = sb.WriteString(" topic:")
+	_, _ = sb.WriteString(that.Topic)
+
+	_, _ = sb.WriteString(" message:")
+	_, _ = sb.WriteString(string(that.Message))
+
+	if that.Properties != nil {
+		_, _ = sb.WriteString(" properties:")
+		for k, v := range that.Properties {
+			_, _ = sb.WriteString(k)
+			_, _ = sb.WriteString("=")
+			_, _ = sb.WriteString(v)
+			sb.WriteString("\n")
+		}
+	}
+	return sb.String()
+}
+
 func (that *GenericMessage) ShortString() string {
 	return "Tag: " + that.Tag + ", Topic: " + that.Topic + ", Message.len: " + strconv.Itoa(len(that.Message))
 }
