@@ -167,8 +167,10 @@ func main() {
 			}
 
 			processor := router.NewBroadcastProcessor(kmaps.Keys(gMqTargetManager))
-			gPipeline = router.NewPipeline(ctx, conf.DumpHex, uint(conf.SendInterval), uint(conf.SendQueueSize),
-				1, "dispatch", gMqTargetManager, processor, LogFunc)
+			gPipeline = router.NewPipeline(ctx, conf.DumpHex,
+				uint(conf.SendInterval), uint(conf.SendQueueSize),
+				1, 1, // 每次缓冲1条消息, 最大批量大小忽略, 不限制发送数量
+				"dispatch", gMqTargetManager, processor, LogFunc)
 			gPipeline.StartAsync()
 
 			maxRetries := 1000 // 10ms * 1000 = 10 秒

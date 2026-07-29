@@ -52,9 +52,13 @@ func (that *GenericMessage) ShortString() string {
 // Processor 是用户需要实现的唯一接口
 type Processor interface {
 	// Process 处理一批消息，通过 sender 投递到目标
-	// msgs: 从缓冲区提取的一批原始消息
-	// sender: Pipeline 注入的投递接口，Processor 调用其 SendTo/SendToBatch 发送消息
-	Process(ctx *kcontext.ContextNode, msgs []GenericMessage, sender Sender)
+	//
+	// 参数:
+	//  @param ctx: 上下文节点，用于传递取消信号
+	//  @param maxBatchSize: 批量发送时, 单次消息最大条数, 只是processor按要求处理
+	//  @param msgs: 从缓冲区提取的一批原始消息
+	//  @param sender: Pipeline 注入的投递接口，Processor 调用其 SendTo/SendToBatch 发送消息
+	Process(ctx *kcontext.ContextNode, maxBatchSize uint, msgs []GenericMessage, sender Sender)
 }
 
 ////////////////////////////////////////////////////////////
@@ -83,6 +87,7 @@ type Pipeline struct {
 
 	queue        *ksync.LockedRingBuffer[GenericMessage] // 消息队列
 	queueSize    uint                                    // 消息队列大小
+	maxBatchSize uint                                    // 批量发送时, 单次消息最大条数
 	timer        *time.Timer                             // 定时器
 	sendInterval uint                                    // 发送间隔，毫秒
 	dumpHex      bool                                    // 是否以十六进制形式打印消息内容
@@ -102,26 +107,28 @@ type Pipeline struct {
 //
 // 参数:
 //
-//	ctx: 上下文节点，用于创建子上下文
-//	dumpHex: 是否以十六进制形式打印消息内容
-//	sendInterval: 消息发送间隔，单位毫秒
-//	queueSize: 消息队列大小
-//	maxBatchSize: 批量发送时, 单次消息最大条数, 小于等于1时, 不启用批量发送
-//	name: 服务名称
-//	mqTargets: 目标 MQ 服务列表，用于转发消息到不同的队列或主题
-//	processor: 用户注入的加工处理器，用于处理消息
-//	logf: 日志记录函数，带有标签的 AppLogFuncWithTag 类型
+//	@param ctx: 上下文节点，用于创建子上下文
+//	@param dumpHex: 是否以十六进制形式打印消息内容
+//	@param sendInterval: 消息发送间隔，单位毫秒
+//	@param queueSize: 消息队列大小
+//	@param packBuffSize: 缓冲的数据包数量, 小于等于1时, 不启用批量发送
+//	@param maxBatchSize: 批量发送时, 单次消息最大条数
+//	@param name: 服务名称
+//	@param mqTargets: 目标 MQ 服务列表，用于转发消息到不同的队列或主题
+//	@param processor: 用户注入的加工处理器，用于处理消息
+//	@param logf: 日志记录函数，带有标签的 AppLogFuncWithTag 类型
 //
 // 返回值:
 //
-//	*Pipeline: 指向新创建的 Pipeline 实例的指针
-func NewPipeline(ctx *kcontext.ContextNode, dumpHex bool, sendInterval uint, queueSize uint, maxBatchSize uint, name string,
+//	@returns *Pipeline: 指向新创建的 Pipeline 实例的指针
+func NewPipeline(ctx *kcontext.ContextNode, dumpHex bool, sendInterval uint, queueSize uint, packBuffSize uint, maxBatchSize uint,
+	name string,
 	mqTargets map[string]idl.ServiceInterface,
 	processor Processor,
 	logf klog.AppLogFuncWithTag,
 ) *Pipeline {
 	var timer *time.Timer
-	if maxBatchSize > 1 {
+	if packBuffSize > 1 {
 		timer = time.NewTimer(time.Duration(sendInterval) * time.Millisecond)
 	}
 
@@ -141,13 +148,14 @@ func NewPipeline(ctx *kcontext.ContextNode, dumpHex bool, sendInterval uint, que
 		draining:     atomic.Bool{},                           // 排水状态管理
 		queue:        queue,                                   // 消息队列
 		queueSize:    queueSize,                               // 消息队列大小
+		maxBatchSize: maxBatchSize,                            // 批量发送时, 单次消息最大条数
 		timer:        timer,                                   // 定时器，用于触发消息发送, 毫秒
 		sendInterval: sendInterval,                            // 发送间隔，毫秒
 		dumpHex:      dumpHex,                                 // 是否以十六进制形式打印消息内容
 		mqTargets:    mqTargets,                               // 目标MQ服务列表，用于转发消息到不同的队列或主题
 		processor:    processor,                               // 用户注入的加工处理器，用于处理消息
-		buffer:       make([]GenericMessage, 0, maxBatchSize), // 缓冲区，用于存储待发送的消息
-		bufferSwap:   make([]GenericMessage, 0, maxBatchSize), // 用于交换的备用缓冲区（核心改造）提前分配好容量，用于零拷贝交换
+		buffer:       make([]GenericMessage, 0, packBuffSize), // 缓冲区，用于存储待发送的消息
+		bufferSwap:   make([]GenericMessage, 0, packBuffSize), // 用于交换的备用缓冲区（核心改造）提前分配好容量，用于零拷贝交换
 		logf:         logf,
 		wg:           sync.WaitGroup{},
 	}
@@ -221,7 +229,7 @@ func (that *Pipeline) Start() error {
 				}
 				that.mutex.Unlock()
 				if len(toProcess) > 0 { // 检查缓冲区是否为空
-					that.processor.Process(ctx, toProcess, that)
+					that.processor.Process(ctx, that.maxBatchSize, toProcess, that)
 				}
 				that.timer.Reset(time.Duration(that.sendInterval) * time.Millisecond) // 重置定时器，继续等待下一次触发
 
@@ -236,7 +244,7 @@ func (that *Pipeline) Start() error {
 						that.buffer = that.buffer[:0]
 						that.mutex.Unlock()
 
-						that.processor.Process(ctx, lastBuff, that)
+						that.processor.Process(ctx, that.maxBatchSize, lastBuff, that)
 					} else {
 						that.mutex.Unlock()
 					}
@@ -244,7 +252,7 @@ func (that *Pipeline) Start() error {
 					drainBuffer := make([]GenericMessage, that.queueSize)
 					n := that.queue.DequeueToWait(drainBuffer, 5000*time.Millisecond)
 					if n > 0 {
-						that.processor.Process(ctx, drainBuffer[:n], that)
+						that.processor.Process(ctx, that.maxBatchSize, drainBuffer[:n], that)
 					}
 
 					break END_LOOP
@@ -271,11 +279,11 @@ func (that *Pipeline) Start() error {
 							that.mutex.Unlock()
 
 							if len(buffCopy) > 0 { // 检查缓冲区是否为空
-								that.processor.Process(ctx, buffCopy, that)
+								that.processor.Process(ctx, that.maxBatchSize, buffCopy, that)
 							}
 						} else {
 							// 单条直接发送
-							that.processor.Process(ctx, []GenericMessage{msg}, that)
+							that.processor.Process(ctx, that.maxBatchSize, []GenericMessage{msg}, that)
 						}
 					} else if !isValid {
 						break END_LOOP // 队列已关闭或缓冲区为nil, 则直接返回

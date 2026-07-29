@@ -48,9 +48,10 @@ func NewBroadcastProcessor(toTargets []string) *BroadcastProcessor {
 //
 // 参数:
 //   - ctx: 上下文节点（当前版本未使用，保留接口兼容性）。
+//   - maxBatchSize: Pipeline 配置的最大批量大小，只是建议processor按要求处理, 不限制发送数量
 //   - msgs: Pipeline 缓冲区提取的一批消息。
 //   - sender: Pipeline 注入的投递接口。
-func (that *BroadcastProcessor) Process(_ *kcontext.ContextNode, msgs []GenericMessage, sender Sender) {
+func (that *BroadcastProcessor) Process(_ *kcontext.ContextNode, maxBatchSize uint, msgs []GenericMessage, sender Sender) {
 	// 特殊处理：如果只有一个目标，直接发送消息
 	if len(that.toTargets) == 1 {
 		sender.SendToBatch(that.toTargets[0], msgs)
