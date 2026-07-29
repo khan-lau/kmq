@@ -4,6 +4,7 @@ package router
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/khan-lau/kutils/container/kcontext"
 )
@@ -43,24 +44,29 @@ func NewBroadcastProcessor(toTargets []string) *BroadcastProcessor {
 //
 // 处理逻辑：
 //  1. 遍历 toTargets 列表。
-//  2. 对每个目标名称，直接将整批 msgs 的引用放入返回 map。
-//  3. Pipeline 的 send() 方法遍历返回的 map，将消息投递到对应目标。
+//  2. 对每个目标，调用 sender.SendToBatch 投递整批消息。
 //
 // 参数:
 //   - ctx: 上下文节点（当前版本未使用，保留接口兼容性）。
 //   - msgs: Pipeline 缓冲区提取的一批消息。
-//
-// 返回值:
-//   - map[string][]GenericMessage: 目标名称 → 消息列表 的映射。
-//     所有 value 共享同一个 msgs 底层数组（零拷贝），
-//     Pipeline 在本次发送完成前保证 msgs 不被修改。
-//   - bool: 是否要求pipeline打印调试信息
-func (that *BroadcastProcessor) Process(_ *kcontext.ContextNode, msgs []GenericMessage) (map[string][]GenericMessage, bool) {
-	result := make(map[string][]GenericMessage, len(that.toTargets))
-	for _, name := range that.toTargets {
-		result[name] = msgs
+//   - sender: Pipeline 注入的投递接口。
+func (that *BroadcastProcessor) Process(_ *kcontext.ContextNode, msgs []GenericMessage, sender Sender) {
+	// 特殊处理：如果只有一个目标，直接发送消息
+	if len(that.toTargets) == 1 {
+		sender.SendToBatch(that.toTargets[0], msgs)
+		return
 	}
-	return result, true
+
+	// 如果有多个目标，使用多线程并发发送消息
+	workgroup := sync.WaitGroup{}
+	for _, name := range that.toTargets {
+		workgroup.Add(1)
+		go func(name string, msgs []GenericMessage) {
+			defer workgroup.Done()
+			sender.SendToBatch(name, msgs)
+		}(name, msgs)
+	}
+	workgroup.Wait()
 }
 
 // String 返回 BroadcastProcessor 的字符串表示，用于日志输出和调试。

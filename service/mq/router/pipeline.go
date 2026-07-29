@@ -51,10 +51,23 @@ func (that *GenericMessage) ShortString() string {
 
 // Processor 是用户需要实现的唯一接口
 type Processor interface {
-	// Process 处理一批消息，返回要发送的目标消息列表
+	// Process 处理一批消息，通过 sender 投递到目标
 	// msgs: 从缓冲区提取的一批原始消息
-	// return: (targetName→消息列表) 的映射
-	Process(ctx *kcontext.ContextNode, msgs []GenericMessage) (map[string][]GenericMessage, bool)
+	// sender: Pipeline 注入的投递接口，Processor 调用其 SendTo/SendToBatch 发送消息
+	Process(ctx *kcontext.ContextNode, msgs []GenericMessage, sender Sender)
+}
+
+////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////
+
+// Sender Pipeline 提供的投递接口，Processor 调用它发送消息
+type Sender interface {
+	// SendTo 发送单条消息
+	SendTo(target string, msg GenericMessage)
+
+	// SendToBatch 批量发送消息
+	SendToBatch(target string, msgs []GenericMessage)
 }
 
 ////////////////////////////////////////////////////////////
@@ -208,10 +221,7 @@ func (that *Pipeline) Start() error {
 				}
 				that.mutex.Unlock()
 				if len(toProcess) > 0 { // 检查缓冲区是否为空
-					transMap, debug := that.processor.Process(ctx, toProcess)
-					for to, msgs := range transMap {
-						that.sendArray(debug, to, msgs)
-					}
+					that.processor.Process(ctx, toProcess, that)
 				}
 				that.timer.Reset(time.Duration(that.sendInterval) * time.Millisecond) // 重置定时器，继续等待下一次触发
 
@@ -226,10 +236,7 @@ func (that *Pipeline) Start() error {
 						that.buffer = that.buffer[:0]
 						that.mutex.Unlock()
 
-						transMap, debug := that.processor.Process(ctx, lastBuff)
-						for to, msgs := range transMap {
-							that.sendArray(debug, to, msgs)
-						}
+						that.processor.Process(ctx, lastBuff, that)
 					} else {
 						that.mutex.Unlock()
 					}
@@ -237,10 +244,7 @@ func (that *Pipeline) Start() error {
 					drainBuffer := make([]GenericMessage, that.queueSize)
 					n := that.queue.DequeueToWait(drainBuffer, 5000*time.Millisecond)
 					if n > 0 {
-						transMap, debug := that.processor.Process(ctx, drainBuffer[:n])
-						for to, msgs := range transMap {
-							that.sendArray(debug, to, msgs)
-						}
+						that.processor.Process(ctx, drainBuffer[:n], that)
 					}
 
 					break END_LOOP
@@ -267,17 +271,11 @@ func (that *Pipeline) Start() error {
 							that.mutex.Unlock()
 
 							if len(buffCopy) > 0 { // 检查缓冲区是否为空
-								transMap, debug := that.processor.Process(ctx, buffCopy)
-								for to, msgs := range transMap {
-									that.sendArray(debug, to, msgs)
-								}
+								that.processor.Process(ctx, buffCopy, that)
 							}
 						} else {
 							// 单条直接发送
-							transMap, debug := that.processor.Process(ctx, []GenericMessage{msg})
-							for to, msgs := range transMap {
-								that.sendArray(debug, to, msgs)
-							}
+							that.processor.Process(ctx, []GenericMessage{msg}, that)
 						}
 					} else if !isValid {
 						break END_LOOP // 队列已关闭或缓冲区为nil, 则直接返回
@@ -378,13 +376,13 @@ func (that *Pipeline) DoTransMessages(msgs []GenericMessage) (bool, error) {
 	return false, nil
 }
 
-func (that *Pipeline) sendArray(debug bool, to string, msgs []GenericMessage) {
+func (that *Pipeline) sendArray(to string, msgs []GenericMessage) {
 	for _, msg := range msgs {
-		that.send(debug, to, msg)
+		that.send(to, msg)
 	}
 }
 
-func (that *Pipeline) send(debug bool, to string, msg GenericMessage) {
+func (that *Pipeline) send(to string, msg GenericMessage) {
 	var msgStr string
 	if that.dumpHex {
 		msgStr = hex.EncodeToString(msg.Message)
@@ -394,10 +392,20 @@ func (that *Pipeline) send(debug bool, to string, msg GenericMessage) {
 	if !that.broadcast(to, msg.Message, msg.Properties) {
 		that.log(klog.ErrorLevel, "service %s send fault, topic: %s, message: %s", that.name, msg.Topic, msgStr)
 	} else {
-		if debug {
-			that.log(klog.DebugLevel, "service %s sent topic: %s, message: %s", that.name, msg.Topic, msgStr)
-		}
+		that.log(klog.DebugLevel, "service %s sent topic: %s, message: %s", that.name, msg.Topic, msgStr)
 	}
+}
+
+////////////////////////////////////////////////////////////
+
+// SendTo 发送单条消息到指定目标
+func (that *Pipeline) SendTo(target string, msg GenericMessage) {
+	that.send(target, msg)
+}
+
+// SendToBatch 批量发送消息到指定目标
+func (that *Pipeline) SendToBatch(target string, msgs []GenericMessage) {
+	that.sendArray(target, msgs)
 }
 
 func (that *Pipeline) broadcast(to string, message []byte, properties map[string]string) bool {
