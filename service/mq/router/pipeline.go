@@ -425,7 +425,7 @@ func (that *Pipeline) send(to string, msg GenericMessage) {
 	if !that.broadcast(to, msg.Message, msg.Properties) {
 		that.log(klog.ErrorLevel, "service %s send fault, topic: %s, message: %s", that.name, msg.Topic, msgStr)
 	} else {
-		that.log(klog.DebugLevel, "service %s sent topic: %s, message: %s", that.name, msg.Topic, msgStr)
+		that.log(klog.TraceLevel, "service %s sent topic: %s, message: %s", that.name, msg.Topic, msgStr)
 	}
 }
 
