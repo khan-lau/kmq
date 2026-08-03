@@ -92,11 +92,17 @@ type Processor interface {
 
 // Sender Pipeline 提供的投递接口，Processor 调用它发送消息
 type Sender interface {
-	// SendTo 发送单条消息
+	// SendTo 发送单条消息到指定target, topic为msg.Topic
 	SendTo(target string, msg GenericMessage)
 
-	// SendToBatch 批量发送消息
+	// SendToBatch 批量发送消息到指定target, topic为msgs[n].Topic
 	SendToBatch(target string, msgs []GenericMessage)
+
+	// BroadcastTo 广播单条消息到指定目标, topic为target包含的所有topic
+	BroadcastTo(target string, msg GenericMessage)
+
+	// BroadcastBatch 批量广播消息到指定目标, topic为target包含的所有topic
+	BroadcastBatch(target string, msgs []GenericMessage)
 }
 
 ////////////////////////////////////////////////////////////
