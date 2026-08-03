@@ -409,24 +409,72 @@ func (that *Pipeline) DoTransMessages(msgs []GenericMessage) (bool, error) {
 	return false, nil
 }
 
-func (that *Pipeline) sendArray(to string, msgs []GenericMessage) {
+// sendArray 批量发送消息到指定目标
+//
+// 参数:
+//
+//	@param to: 目标标签, 如果目标标签为空, 则使用msgs元素中指定的topic
+//	@param msgs: 消息数组
+func (that *Pipeline) sendArray(tag string, msgs []GenericMessage) {
 	for _, msg := range msgs {
-		that.send(to, msg)
+		that.send(tag, msg)
 	}
 }
 
-func (that *Pipeline) send(to string, msg GenericMessage) {
+//	send 将消息发送到指定的目标标签, 如果目标标签为空, 则使用消息中指定的topic
+//
+// 参数:
+//
+//	@param to: 目标标签, 如果目标标签为空, 则使用msg中指定的topic
+//	@param msg: 消息
+func (that *Pipeline) send(tag string, msg GenericMessage) {
 	var msgStr string
 	if that.dumpHex {
 		msgStr = hex.EncodeToString(msg.Message)
 	} else {
 		msgStr = string(msg.Message)
 	}
-	if !that.broadcast(to, msg.Message, msg.Properties) {
+
+	if !that.routeTo(tag, msg) {
 		that.log(klog.ErrorLevel, "service %s send fault, topic: %s, message: %s", that.name, msg.Topic, msgStr)
 	} else {
 		that.log(klog.TraceLevel, "service %s sent topic: %s, message: %s", that.name, msg.Topic, msgStr)
 	}
+
+}
+
+// broadcastArray 批量广播消息到指定目标
+//
+// 参数:
+//
+//	@param to: 目标标签
+//	@param msgs: 消息数组
+func (that *Pipeline) broadcastArray(to string, msgs []GenericMessage) {
+	for _, msg := range msgs {
+		that.broadcast(to, msg)
+	}
+}
+
+//	broadcast 将消息广播到指定的目标标签
+//
+// 参数:
+//
+//	@param to: 目标标签, 如果目标标签为空, 则使用msg中指定的topic
+//	@param msg: 消息
+func (that *Pipeline) broadcast(to string, msg GenericMessage) {
+	var msgStr string
+	if that.dumpHex {
+		msgStr = hex.EncodeToString(msg.Message)
+	} else {
+		msgStr = string(msg.Message)
+	}
+
+	if !that.broadcastTo(to, msg.Message, msg.Properties) {
+		that.log(klog.ErrorLevel, "service %s send fault, topic: %s, message: %s", that.name, msg.Topic, msgStr)
+	} else {
+		that.log(klog.TraceLevel, "service %s sent topic: %s, message: %s", that.name, msg.Topic, msgStr)
+	}
+
 }
 
 ////////////////////////////////////////////////////////////
@@ -441,7 +489,58 @@ func (that *Pipeline) SendToBatch(target string, msgs []GenericMessage) {
 	that.sendArray(target, msgs)
 }
 
-func (that *Pipeline) broadcast(to string, message []byte, properties map[string]string) bool {
+// BroadcastTo 广播单条消息到指定目标
+func (that *Pipeline) BroadcastTo(target string, msg GenericMessage) {
+	that.broadcast(target, msg)
+}
+
+// BroadcastBatch 批量广播消息到指定目标
+func (that *Pipeline) BroadcastBatch(target string, msgs []GenericMessage) {
+	that.broadcastArray(target, msgs)
+}
+
+////////////////////////////////////////////////////////////
+
+func (that *Pipeline) routeTo(tag string, message GenericMessage) bool {
+	if that.mqTargets == nil {
+		that.log(klog.WarnLevel, "publish: mqTargets is nil")
+		return false
+	}
+	flag := false
+	mqTarget, ok := that.mqTargets[tag]
+	if !ok {
+		that.log(klog.DebugLevel, "publish: mqTarget not found, tag:%s", tag)
+		return flag
+	}
+
+	switch mtCtl := mqTarget.(type) {
+	case *target.NatsCoreMQ:
+		// 发送数据到NatsCoreMQ
+		flag = mtCtl.Publish(message.Topic, message.Message, nil)
+	case *target.NatsJetStreamMQ:
+		// 发送数据到NatsJetStreamMQ
+		flag = mtCtl.Publish(message.Topic, message.Message, nil)
+	case *target.KafkaMQ:
+		// 发送数据到KafkaMQ
+		flag = mtCtl.Publish(message.Topic, message.Message, message.Properties)
+	case *target.RocketMQ:
+		flag = mtCtl.Publish(message.Topic, message.Message, message.Properties)
+	case *target.MqttMQ:
+		// 发送数据到MQTTMQ
+		flag = mtCtl.Publish(message.Topic, message.Message, message.Properties)
+	case *target.RedisMQ:
+		flag = mtCtl.Publish(message.Topic, message.Message, nil)
+	case *target.RabbitMQ:
+		// 发送数据到RabbitMQ
+		flag = mtCtl.Publish(message.Topic, message.Message, nil)
+	default:
+
+	}
+
+	return flag
+}
+
+func (that *Pipeline) broadcastTo(to string, message []byte, properties map[string]string) bool {
 	if that.mqTargets == nil {
 		that.log(klog.WarnLevel, "publish: mqTargets is nil")
 		return false

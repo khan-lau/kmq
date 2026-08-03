@@ -20,24 +20,24 @@ import (
 //
 // 使用示例：
 //
-//	processor := router.NewBroadcastProcessor([]string{"kafkaTarget", "natsTarget"})
+//	processor := router.NewTransProcessor([]string{"kafkaTarget", "natsTarget"})
 //	pipeline := router.NewPipeline(ctx, dumpHex, sendInterval, queueSize, maxBatchSize,
 //	    "dispatch", mqTargets, processor, logf)
-type BroadcastProcessor struct {
+type TransProcessor struct {
 	// toTargets 需要广播的目标名称列表，与 Pipeline 的 mqTargets 中的 key 对应。
 	toTargets []string
 }
 
-// NewBroadcastProcessor 创建一个 BroadcastProcessor 实例。
+// NewTransProcessor 创建一个 TransProcessor 实例。
 //
 // 参数:
 //   - toTargets: 目标名称列表。列表中的每个名称需与 Pipeline 构造时传入的
 //     mqTargets map 中的 key 一致，否则消息发送时会被丢弃。
 //
 // 返回值:
-//   - *BroadcastProcessor: 新创建的广播处理器指针。
-func NewBroadcastProcessor(toTargets []string) *BroadcastProcessor {
-	return &BroadcastProcessor{toTargets: toTargets}
+//   - *TransProcessor: 新创建的广播处理器指针。
+func NewTransProcessor(toTargets []string) *TransProcessor {
+	return &TransProcessor{toTargets: toTargets}
 }
 
 // Process 实现 Processor 接口，将一批消息广播到所有指定的下游 MQ 目标。
@@ -51,7 +51,7 @@ func NewBroadcastProcessor(toTargets []string) *BroadcastProcessor {
 //   - maxBatchSize: Pipeline 配置的最大批量大小，只是建议processor按要求处理, 不限制发送数量
 //   - msgs: Pipeline 缓冲区提取的一批消息。
 //   - sender: Pipeline 注入的投递接口。
-func (that *BroadcastProcessor) Process(_ *kcontext.ContextNode, maxBatchSize uint, msgs []GenericMessage, sender Sender) {
+func (that *TransProcessor) Process(_ *kcontext.ContextNode, maxBatchSize uint, msgs []GenericMessage, sender Sender) {
 	// 特殊处理：如果只有一个目标，直接发送消息
 	if len(that.toTargets) == 1 {
 		sender.SendToBatch(that.toTargets[0], msgs)
@@ -70,12 +70,12 @@ func (that *BroadcastProcessor) Process(_ *kcontext.ContextNode, maxBatchSize ui
 	workgroup.Wait()
 }
 
-// String 返回 BroadcastProcessor 的字符串表示，用于日志输出和调试。
+// String 返回 TransProcessor 的字符串表示，用于日志输出和调试。
 //
 // 格式示例:
 //
-//	BroadcastProcessor{targets: [kafkaTarget, natsTarget]}
-func (that *BroadcastProcessor) String() string {
+//	TransProcessor{targets: [kafkaTarget, natsTarget]}
+func (that *TransProcessor) String() string {
 	names := make([]string, 0, len(that.toTargets))
 	for _, name := range that.toTargets {
 		names = append(names, name)

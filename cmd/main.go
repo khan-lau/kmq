@@ -166,7 +166,7 @@ func main() {
 				return
 			}
 
-			processor := router.NewBroadcastProcessor(kmaps.Keys(gMqTargetManager))
+			processor := router.NewTransProcessor(kmaps.Keys(gMqTargetManager))
 			gPipeline = router.NewPipeline(ctx, conf.DumpHex,
 				uint(conf.SendInterval), uint(conf.SendQueueSize),
 				1, 1, // 每次缓冲1条消息, 最大批量大小忽略, 不限制发送数量

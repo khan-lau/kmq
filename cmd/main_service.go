@@ -38,12 +38,20 @@ const (
 	DEFAULT_IDLE_COMMIT_TIMER = 5000 * time.Millisecond // 默认空闲提交定时器, 5s
 )
 
-var (
-	gOffset = int64(0)
+type partitionKey struct {
+	topic     string
+	partition int
+}
 
-	gIdleCommitTimer *time.Timer // 空闲定时器, 用于确认偏移量
-	gIdleTimerMu     sync.Mutex  // 空闲定时器互斥锁
-	gLastOrigin      any         // 最后一个消息的origin
+type partitionState struct {
+	origin any   // 该分区最后一条消息
+	offset int64 // 该分区最后一条消息的 offset
+}
+
+var (
+	gPartitionMap    = map[partitionKey]*partitionState{} // topic-partition -> 该分区最后一条消息的状态
+	gIdleCommitTimer *time.Timer                          // 空闲定时器, 用于确认偏移量
+	gIdleTimerMu     sync.Mutex                           // 空闲定时器互斥锁, 保护 gPartitionMap 与定时器
 )
 
 // startMqSource 启动MQ源
@@ -639,13 +647,19 @@ func loadOffsetCache(conf *config.Configure) *offset.OffsetSync {
 // 在 init() 或 main() 开头添加初始化
 func initIdleCommit() {
 	gIdleCommitTimer = time.AfterFunc(DEFAULT_IDLE_COMMIT_TIMER, func() {
+		// 空闲时遍历所有分区, 逐个确认偏移量, 避免低流量分区 offset 一直不被提交
 		gIdleTimerMu.Lock()
-		if gLastOrigin != nil {
-			if err := messageAck(gLastOrigin); err == nil {
-				glog.Info("idle commit: offset=%d", gOffset)
-			}
+		origins := make([]any, 0, len(gPartitionMap))
+		for _, st := range gPartitionMap {
+			origins = append(origins, st.origin)
 		}
 		gIdleTimerMu.Unlock()
+
+		for _, o := range origins {
+			if err := messageAck(o); err == nil {
+				glog.Trace("idle commit: ack partition ok")
+			}
+		}
 	})
 	gIdleCommitTimer.Stop()
 }
@@ -885,8 +899,6 @@ END_SEND:
 //   - isCompress bool: 是否为压缩数据
 //   - message []byte: 消息数据
 func onRecved(origin any, name string, topic string, partition int, offset int64, _ map[string]string, isCompress bool, toHex bool, manualAck bool, message []byte) {
-	gOffset = offset
-
 	// 源数据是否为压缩数据, 压缩数据必须是zip压缩算法
 	var str string
 	if isCompress {
@@ -908,13 +920,21 @@ func onRecved(origin any, name string, topic string, partition int, offset int64
 
 	var err error
 	if manualAck && gIdleCommitTimer != nil {
-		// 重置空闲提交定时器：有新消息进来，推迟到 5s 后触发
+		key := partitionKey{topic: topic, partition: partition}
 		gIdleTimerMu.Lock()
-		gLastOrigin = origin
+		st, ok := gPartitionMap[key]
+		if !ok {
+			st = &partitionState{}
+			gPartitionMap[key] = st
+		}
+		st.origin = origin
+		st.offset = offset
+		// 重置空闲提交定时器：有新消息进来，推迟到 5s 后触发
 		gIdleCommitTimer.Reset(DEFAULT_IDLE_COMMIT_TIMER)
+		needAck := st.offset%500 == 0 // 每个分区独立判断, 每500条消息确认一次偏移量
 		gIdleTimerMu.Unlock()
 
-		if gOffset%500 == 0 { // 每500条消息确认一次偏移量
+		if needAck {
 			err = messageAck(origin)
 		}
 	}
