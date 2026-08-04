@@ -62,6 +62,7 @@ type KafkaConfig struct {
 	ClientID          string    `json:"clientId" toml:"clientId" yaml:"clientId" hcl:"clientId,attr"`
 	GroupID           string    `json:"groupId" toml:"groupId" yaml:"groupId" hcl:"groupId,attr"`
 	BrokerList        []string  `json:"brokerList" toml:"brokerList" yaml:"brokerList" hcl:"brokerList,attr"`
+	SaramaLog         bool      `json:"saramaLog" toml:"saramaLog" yaml:"saramaLog" hcl:"saramaLog,attr"` // 是否开启 sarama 协议级日志, 用于排查连接/心跳/协调类问题, 通过适配器接入 kmq 日志框架
 	ChannelBufferSize int       `json:"channelBufferSize" toml:"channelBufferSize" yaml:"channelBufferSize" hcl:"channelBufferSize,attr"`
 	Net               *Net      `json:"net" toml:"net" yaml:"net" mapstructure:"net" hcl:"net,block"`
 	Consumer          *Consumer `json:"consumer" toml:"consumer" yaml:"consumer" mapstructure:"consumer" hcl:"consumer,block"`

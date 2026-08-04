@@ -108,6 +108,7 @@ func (that *KafkaMQ) Start() error {
 		SetClientID(that.conf.ClientID).
 		SetGroupID(that.conf.GroupID).
 		AddBrokers(that.conf.BrokerList...).
+		SetSaramaLog(that.conf.SaramaLog).
 		AddTopic(topics...).
 		SetChannelBufferSize(that.conf.ChannelBufferSize).
 		SetNet(netConfig).

@@ -46,12 +46,15 @@ type partitionKey struct {
 type partitionState struct {
 	origin any   // 该分区最后一条消息
 	offset int64 // 该分区最后一条消息的 offset
+	dirty  bool  // 自上次提交后是否有新消息, 供周期兜底提交判断
 }
 
 var (
-	gPartitionMap    = map[partitionKey]*partitionState{} // topic-partition -> 该分区最后一条消息的状态
-	gIdleCommitTimer *time.Timer                          // 空闲定时器, 用于确认偏移量
-	gIdleTimerMu     sync.Mutex                           // 空闲定时器互斥锁, 保护 gPartitionMap 与定时器
+	gPartitionMap     = map[partitionKey]*partitionState{} // topic-partition -> 该分区最后一条消息的状态
+	gIdleCommitTicker *time.Ticker                         // 周期兜底提交定时器, 固定间隔触发, 不被消息流打断
+	gIdleCommitStop   chan struct{}                        // 周期兜底提交的停止信号
+	gIdleCommitOnce   sync.Once                            // 保证 gIdleCommitStop 只关闭一次
+	gIdleTimerMu      sync.Mutex                           // 互斥锁, 保护 gPartitionMap 与提交状态
 )
 
 // startMqSource 启动MQ源
@@ -151,6 +154,12 @@ func startMqSource(ctx *kcontext.ContextNode, recvQueueSize uint, toHex bool, so
 			case "kafkamq":
 				{
 					if kafkaConfig, ok := item.Item.(*mqConf.KafkaConfig); ok {
+						// 调试开关: 设置环境变量 SARAMA_DEBUG=1 开启 sarama 协议级日志, 用于排查连接/心跳/协调问题
+						if os.Getenv("SARAMA_DEBUG") == "1" {
+							kafkaConfig.SaramaLog = true
+						} else {
+							kafkaConfig.SaramaLog = false
+						}
 						// 载入topic offset
 						if offsetSync != nil {
 							if kafkaOffset, ok := offsetSync.Records[item.MQType]; ok {
@@ -604,8 +613,10 @@ func stopMqSourceManager() {
 			_ = v.Stop()
 		}
 	}
-	if gIdleCommitTimer != nil {
-		gIdleCommitTimer.Stop()
+	if gIdleCommitTicker != nil {
+		gIdleCommitOnce.Do(func() {
+			close(gIdleCommitStop)
+		})
 	}
 }
 
@@ -646,22 +657,36 @@ func loadOffsetCache(conf *config.Configure) *offset.OffsetSync {
 
 // 在 init() 或 main() 开头添加初始化
 func initIdleCommit() {
-	gIdleCommitTimer = time.AfterFunc(DEFAULT_IDLE_COMMIT_TIMER, func() {
-		// 空闲时遍历所有分区, 逐个确认偏移量, 避免低流量分区 offset 一直不被提交
-		gIdleTimerMu.Lock()
-		origins := make([]any, 0, len(gPartitionMap))
-		for _, st := range gPartitionMap {
-			origins = append(origins, st.origin)
-		}
-		gIdleTimerMu.Unlock()
+	gIdleCommitStop = make(chan struct{})
+	gIdleCommitTicker = time.NewTicker(DEFAULT_IDLE_COMMIT_TIMER)
 
-		for _, o := range origins {
-			if err := messageAck(o); err == nil {
-				glog.Trace("idle commit: ack partition ok")
+	go func() {
+		for {
+			select {
+			case <-gIdleCommitStop:
+				gIdleCommitTicker.Stop()
+				return
+			case <-gIdleCommitTicker.C:
+				// 周期兜底：固定间隔触发, 不受消息流影响; 只提交 dirty 分区
+				gIdleTimerMu.Lock()
+				origins := make([]any, 0, len(gPartitionMap))
+				for _, st := range gPartitionMap {
+					if !st.dirty {
+						continue
+					}
+					st.dirty = false // 先清标记再提交, 防止提交失败导致死循环
+					origins = append(origins, st.origin)
+				}
+				gIdleTimerMu.Unlock()
+
+				for _, o := range origins {
+					if err := messageAck(o); err == nil {
+						glog.Trace("idle commit: ack partition ok")
+					}
+				}
 			}
 		}
-	})
-	gIdleCommitTimer.Stop()
+	}()
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -919,7 +944,7 @@ func onRecved(origin any, name string, topic string, partition int, offset int64
 	// }
 
 	var err error
-	if manualAck && gIdleCommitTimer != nil {
+	if manualAck && gIdleCommitTicker != nil {
 		key := partitionKey{topic: topic, partition: partition}
 		gIdleTimerMu.Lock()
 		st, ok := gPartitionMap[key]
@@ -929,9 +954,12 @@ func onRecved(origin any, name string, topic string, partition int, offset int64
 		}
 		st.origin = origin
 		st.offset = offset
-		// 重置空闲提交定时器：有新消息进来，推迟到 5s 后触发
-		gIdleCommitTimer.Reset(DEFAULT_IDLE_COMMIT_TIMER)
-		needAck := st.offset%500 == 0 // 每个分区独立判断, 每500条消息确认一次偏移量
+		// 数量触发: 每个分区独立判断, 每500条消息立即确认一次偏移量
+		needAck := st.offset%500 == 0
+		if !needAck {
+			// 未到数量阈值, 置脏标记, 交给周期兜底提交(每5s一次, 不受消息流影响)
+			st.dirty = true
+		}
 		gIdleTimerMu.Unlock()
 
 		if needAck {
@@ -979,12 +1007,20 @@ func messageAck(origin any) error {
 	switch t := origin.(type) {
 	case *natsmq.NatsMessage: // 点表更新消息
 		err = t.Ack()
+	case natsmq.NatsMessage: // 点表更新消息
+		err = t.Ack()
 	case *rabbitmq.Message:
 		err = t.Ack(false) // false: 只确认当前这条消息; true: 批量确认 DeliveryTag <= current DeliveryTag 的所有消息
+	case rabbitmq.Message:
+		err = t.Ack(false)
 	case *rocketmq.Message:
 		err = t.Ack() // 批量确认
+	case rocketmq.Message:
+		err = t.Ack()
 	case *kafkamq.KafkaMessage:
 		err = t.Ack() // 确认当前消息seq之前的所有消息
+	case kafkamq.KafkaMessage:
+		err = t.Ack()
 	case nil:
 		// 不支持ack的MQ 直接忽略
 	default:
