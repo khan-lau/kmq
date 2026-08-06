@@ -1023,8 +1023,10 @@ func messageAck(origin any) error {
 		err = t.Ack()
 	case nil:
 		// 不支持ack的MQ 直接忽略
+		glog.Warn("messageAck: ignore nil ack origin")
 	default:
-		// 其他
+		// 其他类型消息, 直接忽略, 并打印类型日志
+		glog.Warn("messageAck: ignore other ack origin type %T", t)
 	}
 	return err
 }
