@@ -169,7 +169,7 @@ func main() {
 
 			processor := router.NewTransProcessor(kmaps.Keys(gMqTargetManager))
 			gPipeline = router.NewPipeline(ctx, conf.DumpHex,
-				uint(time.Duration(conf.SendInterval)/time.Millisecond), uint(conf.SendQueueSize),
+				time.Duration(conf.SendInterval), uint(conf.SendQueueSize),
 				1, 1, // 每次缓冲1条消息, 最大批量大小忽略, 不限制发送数量
 				"dispatch", gMqTargetManager, processor, LogFunc)
 			gPipeline.StartAsync()

@@ -120,7 +120,7 @@ type Pipeline struct {
 	queueSize    uint                                    // 消息队列大小
 	maxBatchSize uint                                    // 批量发送时, 单次消息最大条数
 	timer        *time.Timer                             // 定时器
-	sendInterval uint                                    // 发送间隔，毫秒
+	sendInterval time.Duration                           // 发送间隔
 	dumpHex      bool                                    // 是否以十六进制形式打印消息内容
 
 	mqTargets map[string]idl.ServiceInterface // 目标MQ服务列表
@@ -152,7 +152,7 @@ type Pipeline struct {
 // 返回值:
 //
 //	@returns *Pipeline: 指向新创建的 Pipeline 实例的指针
-func NewPipeline(ctx *kcontext.ContextNode, dumpHex bool, sendInterval uint, queueSize uint, packBuffSize uint, maxBatchSize uint,
+func NewPipeline(ctx *kcontext.ContextNode, dumpHex bool, sendInterval time.Duration, queueSize uint, packBuffSize uint, maxBatchSize uint,
 	name string,
 	mqTargets map[string]idl.ServiceInterface,
 	processor Processor,
@@ -160,7 +160,7 @@ func NewPipeline(ctx *kcontext.ContextNode, dumpHex bool, sendInterval uint, que
 ) *Pipeline {
 	var timer *time.Timer
 	if packBuffSize > 1 {
-		timer = time.NewTimer(time.Duration(sendInterval) * time.Millisecond)
+		timer = time.NewTimer(sendInterval)
 	}
 
 	queue, err := ksync.NewLockedRingBuffer[GenericMessage](uint64(queueSize))
@@ -240,7 +240,7 @@ func (that *Pipeline) Start() error {
 			timerCh = that.timer.C
 		}
 
-		time.Sleep(time.Duration(5000) * time.Millisecond)
+		time.Sleep(5000 * time.Millisecond)
 		idleCount := 0 // 引入空闲计数
 
 	END_LOOP:
@@ -262,7 +262,7 @@ func (that *Pipeline) Start() error {
 				if len(toProcess) > 0 { // 检查缓冲区是否为空
 					that.processor.Process(ctx, that.maxBatchSize, toProcess, that)
 				}
-				that.timer.Reset(time.Duration(that.sendInterval) * time.Millisecond) // 重置定时器，继续等待下一次触发
+				that.timer.Reset(that.sendInterval) // 重置定时器，继续等待下一次触发
 
 			default:
 				// 排水模式
