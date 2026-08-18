@@ -352,6 +352,9 @@ func startMqSource(ctx *kcontext.ContextNode, recvQueueSize uint, toHex bool, so
 	}
 
 	waitGroup.Wait()
+	if logf != nil {
+		logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, 0, "all mq source ready")
+	}
 	initIdleCommit()
 }
 

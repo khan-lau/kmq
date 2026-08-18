@@ -142,7 +142,8 @@ func main() {
 	waitGroup := &sync.WaitGroup{}
 
 	if conf.Type == "send" {
-		countDown := ksync.NewCountDownLatch(len(conf.Target))
+		CountDownCtx := mainCtx.NewChild("countDown")
+		countDown := ksync.NewCountDownLatchWithCtx(CountDownCtx, len(conf.Target))
 
 		//  此处添加一个生产数据的服务
 		waitGroup.Add(1)
@@ -168,7 +169,7 @@ func main() {
 
 			processor := router.NewTransProcessor(kmaps.Keys(gMqTargetManager))
 			gPipeline = router.NewPipeline(ctx, conf.DumpHex,
-				uint(conf.SendInterval), uint(conf.SendQueueSize),
+				uint(time.Duration(conf.SendInterval)/time.Millisecond), uint(conf.SendQueueSize),
 				1, 1, // 每次缓冲1条消息, 最大批量大小忽略, 不限制发送数量
 				"dispatch", gMqTargetManager, processor, LogFunc)
 			gPipeline.StartAsync()
@@ -207,7 +208,8 @@ func main() {
 
 			// 创建一个定时器，每隔`ScanInterval`秒执行一次
 			index := 0
-			timer := time.NewTimer(time.Duration(conf.SendInterval) * time.Millisecond)
+			timer := time.NewTimer(time.Duration(conf.SendInterval))
+			glog.Info("send interval: %d ms", time.Duration(conf.SendInterval).Milliseconds())
 			defer timer.Stop()
 		EndScanLoop:
 			for {
@@ -230,7 +232,7 @@ func main() {
 						glog.Debug("replay data is empty")
 					}
 
-					timer.Reset(time.Duration(conf.SendInterval) * time.Millisecond) // 重置定时器
+					timer.Reset(time.Duration(conf.SendInterval)) // 重置定时器
 				case <-ctx.Context().Done(): // 如果 context 被取消，退出循环
 					glog.Info("Publisher send goroutine done")
 					break EndScanLoop

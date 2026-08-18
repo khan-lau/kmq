@@ -100,37 +100,32 @@ func LogFunc(lvl klog.Level, tag string, skipFix int, f string, args ...any) {
 	case rabbitmq.RabbitLogPrefix:
 		skip = 2
 	}
-
 	skip += skipFix
+
 	switch lvl {
+	case klog.TraceLevel:
+		glog.KTrace(skip, f, args...)
 	case klog.DebugLevel:
 		if tag == kafkamq.KafkaLogTag {
-
+			glog.KTrace(skip, f, args...)
 		} else {
 			glog.KDebug(skip, f, args...)
-			// glog.KD(skip, f, args...)
 		}
 	case klog.InfoLevel:
 		glog.KInfo(skip, f, args...)
-		// glog.KI(skip, f, args...)
 	case klog.WarnLevel:
 		glog.KWarn(skip, f, args...)
-		// glog.KW(skip, f, args...)
 	case klog.ErrorLevel:
 		if tag == "kafkamq_target" {
 
 		} else {
 			glog.KError(skip, f, args...)
-			// glog.KE(skip, f, args...)
 		}
 	case klog.DPanicLevel:
 		glog.KError(skip, f, args...)
-		// glog.KDP(skip, f, args...)
 	case klog.FatalLevel:
 		glog.KFatal(skip, f, args...)
-		// glog.KF(skip, f, args...)
 	default:
 		glog.KInfo(skip, lvl.String()+": "+f, args)
-		// glog.KI(skip, lvl.String()+": "+f, args)
 	}
 }

@@ -540,7 +540,7 @@ func (that *Pipeline) routeTo(tag string, message GenericMessage) bool {
 		// 发送数据到RabbitMQ
 		flag = mtCtl.Publish(message.Topic, message.Message, nil)
 	default:
-
+		that.log(klog.ErrorLevel, "publish: mqTarget type %s not support", tag)
 	}
 
 	return flag
@@ -548,13 +548,13 @@ func (that *Pipeline) routeTo(tag string, message GenericMessage) bool {
 
 func (that *Pipeline) broadcastTo(to string, message []byte, properties map[string]string) bool {
 	if that.mqTargets == nil {
-		that.log(klog.WarnLevel, "publish: mqTargets is nil")
+		that.log(klog.WarnLevel, "broadcastTo: mqTargets is nil")
 		return false
 	}
 	flag := false
 	mqTarget, ok := that.mqTargets[to]
 	if !ok {
-		that.log(klog.DebugLevel, "publish: mqTarget not found, to:%s", to)
+		that.log(klog.DebugLevel, "broadcastTo: mqTarget not found, to:%s", to)
 		return flag
 	}
 
@@ -577,7 +577,7 @@ func (that *Pipeline) broadcastTo(to string, message []byte, properties map[stri
 	case *target.RabbitMQ:
 		flag = mtCtl.Broadcast(message, properties)
 	default:
-
+		that.log(klog.ErrorLevel, "Broadcast: mqTarget type %s not support", to)
 	}
 
 	return flag

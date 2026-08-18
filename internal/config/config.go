@@ -35,7 +35,7 @@ type Configure struct {
 	Type           string       `json:"type" toml:"type" yaml:"type" hcl:"type,attr"`                                         // 配置类型, 支持的类型: send recv
 	SyncTime       uint64       `json:"syncTime" toml:"syncTime" yaml:"syncTime" hcl:"syncTime,attr"`                         // 同步周期, 单位毫秒,不低于1000毫秒
 	SyncFile       string       `json:"syncFile" toml:"syncFile" yaml:"syncFile" hcl:"syncFile,attr"`                         // 同步文件路径, 同步偏移量缓存文件路径配置
-	SendInterval   uint32       `json:"sendInterval" toml:"sendInterval" yaml:"sendInterval" hcl:"sendInterval,attr"`         // 发送间隔, 单位毫秒
+	SendInterval   kconf.Duration `json:"sendInterval" toml:"sendInterval" yaml:"sendInterval" hcl:"sendInterval,attr"` // 发送间隔, 支持 "2s" "500ms" "100us" "50ns" 或纯数字毫秒
 	SendQueueSize  uint32       `json:"sendQueueSize" toml:"sendQueueSize" yaml:"sendQueueSize" hcl:"sendQueueSize,attr"`     // 发送队列大小, 仅发送模式有效, 单位为条数, 默认值1024, 必须为2的次幂
 	SendFile       string       `json:"sendFile" toml:"sendFile" yaml:"sendFile" hcl:"sendFile,attr"`                         // 发送文件路径, 仅发送模式有效
 	DumpHex        bool         `json:"dumpHex" toml:"dumpHex" yaml:"dumpHex" hcl:"dumpHex,attr"`                             // 数据包是否为hexString格式; recv模式时体现在日志中; send模式时,表示 `sendFile` 中的格式是否为hexString格式

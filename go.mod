@@ -4,9 +4,9 @@ go 1.24.0
 
 require (
 	github.com/apache/rocketmq-client-go/v2 v2.1.2
-	github.com/khan-lau/kconfig v0.1.0
-	github.com/khan-lau/kmq-utils v0.2.3
-	github.com/khan-lau/kutils v0.6.5
+	github.com/khan-lau/kconfig v0.1.1
+	github.com/khan-lau/kmq-utils v0.2.4
+	github.com/khan-lau/kutils v0.6.6
 )
 
 require (
@@ -26,7 +26,6 @@ require (
 	github.com/emirpasic/gods v1.12.0 // indirect
 	github.com/golang/mock v1.5.0 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
