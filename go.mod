@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	github.com/apache/rocketmq-client-go/v2 v2.1.2
 	github.com/khan-lau/kconfig v0.1.1
-	github.com/khan-lau/kmq-utils v0.2.4
+	github.com/khan-lau/kmq-utils v0.2.5
 	github.com/khan-lau/kutils v0.6.6
 )
 
