@@ -25,10 +25,10 @@ endif
 # ---- 交叉编译命令模板: 仅按 shell 语法分 2 支 (cmd / sh) ----
 # GO_BUILD 参数: $(1)=CGO_ENABLED $(2)=GOOS $(3)=GOARCH $(4)=产物路径 (均显式传入)
 ifeq ($(uname_S),Windows)
-    GO_BUILD = cmd /C 'set CGO_ENABLED=$(1)&&set GOOS=$(2)&&set GOARCH=$(3)&&go build -v -ldflags '${param}' -o $(4) ${MAIN_PROG}'
+    GO_BUILD = cmd /C 'set CGO_ENABLED=$(1)&&set GOOS=$(2)&&set GOARCH=$(3)&&go build -v -ldflags '${param}' -o $(4) $(5)'
     BUILD_MSG = powershell -Command "Write-Host \"$(1)\" -ForegroundColor green"
 else
-    GO_BUILD = export CGO_ENABLED=$(1); export GOOS=$(2); export GOARCH=$(3); go build -v -ldflags "${param}" -o $(4) ${MAIN_PROG}
+    GO_BUILD = export CGO_ENABLED=$(1); export GOOS=$(2); export GOARCH=$(3); go build -v -ldflags "${param}" -o $(4) $(5)
     BUILD_MSG = printf '\033[0;32m %s\033[0m\n' '$(1)'
 endif
 
@@ -54,34 +54,35 @@ endif
 
 all: build
 
-all-platforms: win win.arm64 linux linux.arm64 darwin darwin.amd64  # 编译所有平台（手动触发）
+# 编译所有平台（手动触发）
+all-platforms: win win.arm64 linux linux.arm64 darwin darwin.amd64
 	@echo All platforms built
 
-build: $(BUILD_TARGET)  # 只编译当前宿主 OS 对应的目标
-	
+# 只编译当前宿主 OS 对应的目标
+build: $(BUILD_TARGET)
 
 win:   # 输出windows amd64平台的编译结果
-	@$(call GO_BUILD,1,windows,amd64,${DST_DIR}/${BIN_FILE}.exe)
+	@$(call GO_BUILD,1,windows,amd64,${DST_DIR}/${BIN_FILE}.exe,${MAIN_PROG})
 	@$(call BUILD_MSG,Build windows 64bit program - ${DST_DIR}/${BIN_FILE}.exe)
 
 win.arm64:  # 输出windows arm64平台的编译结果
-	@$(call GO_BUILD,0,windows,arm64,${DST_DIR}/${BIN_FILE}.arm64.exe)
+	@$(call GO_BUILD,0,windows,arm64,${DST_DIR}/${BIN_FILE}.arm64.exe,${MAIN_PROG})
 	@$(call BUILD_MSG,Build windows arm64bit program - ${DST_DIR}/${BIN_FILE}.arm64.exe)
 
 linux:  # 输出linux amd64平台的编译结果
-	@$(call GO_BUILD,0,linux,amd64,${DST_DIR}/${BIN_FILE})
+	@$(call GO_BUILD,0,linux,amd64,${DST_DIR}/${BIN_FILE},${MAIN_PROG})
 	@$(call BUILD_MSG,Build linux 64bit program - ${DST_DIR}/${BIN_FILE})
 
 linux.arm64:  # 输出linux arm64平台的编译结果
-	@$(call GO_BUILD,0,linux,arm64,${DST_DIR}/${BIN_FILE}.arm64)
+	@$(call GO_BUILD,0,linux,arm64,${DST_DIR}/${BIN_FILE}.arm64,${MAIN_PROG})
 	@$(call BUILD_MSG,Build linux arm64bit program - ${DST_DIR}/${BIN_FILE}.arm64)
 
 darwin:  # 输出darwin arm64平台的编译结果
-	@$(call GO_BUILD,0,darwin,arm64,${DST_DIR}/${BIN_FILE}.darwin)
+	@$(call GO_BUILD,0,darwin,arm64,${DST_DIR}/${BIN_FILE}.darwin,${MAIN_PROG})
 	@$(call BUILD_MSG,Build MacOS arm64bit program - ${DST_DIR}/${BIN_FILE}.darwin)
 
 darwin.amd64:  # 输出darwin amd64平台的编译结果
-	@$(call GO_BUILD,0,darwin,amd64,${DST_DIR}/${BIN_FILE}.darwin.amd64)
+	@$(call GO_BUILD,0,darwin,amd64,${DST_DIR}/${BIN_FILE}.darwin.amd64,${MAIN_PROG})
 	@$(call BUILD_MSG,Build MacOS amd64bit program - ${DST_DIR}/${BIN_FILE}.darwin.amd64)
 
 # make ARGS="-v" run
