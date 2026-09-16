@@ -40,7 +40,7 @@ endif
 
 # ---- 本机平台判定: build 的默认目标 / run 的产物路径 / clean 的清理命令 ----
 HOST_ARCH := $(shell go env GOARCH)
-RM_DIST = rm --force ${DST_DIR}/*
+RM_DIST = rm -f ${DST_DIR}/*
 ifeq ($(uname_S),Windows)
     BUILD_TARGET := $(if $(filter arm64,${HOST_ARCH}),win.arm64,win)
     RUN_BIN = ${DST_DIR}/${BIN_FILE}.exe
