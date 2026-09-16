@@ -91,7 +91,7 @@ run: build
 check:
 	${LINT_GUARD}
 	@go fmt ./...
-	@golangci-lint run
+	@golangci-lint run --fix=false
 
 clean:
 	@go clean
