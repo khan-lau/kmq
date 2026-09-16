@@ -1,4 +1,5 @@
 .PHONY: all build all-platforms win win.arm64 linux linux.arm64 darwin darwin.amd64 run check clean
+.DEFAULT_GOAL := build
 
 DST_DIR=dist
 BIN_FILE=kmq
@@ -23,7 +24,7 @@ else
 endif
 
 # ---- 交叉编译命令模板: 仅按 shell 语法分 2 支 (cmd / sh) ----
-# GO_BUILD 参数: $(1)=CGO_ENABLED $(2)=GOOS $(3)=GOARCH $(4)=产物路径 (均显式传入)
+# GO_BUILD 参数: $(1)=CGO_ENABLED $(2)=GOOS $(3)=GOARCH $(4)=产物路径 $(5)=主程序包路径 (均显式传入)
 ifeq ($(uname_S),Windows)
     GO_BUILD = cmd /C 'set CGO_ENABLED=$(1)&&set GOOS=$(2)&&set GOARCH=$(3)&&go build -v -ldflags '${param}' -o $(4) $(5)'
     BUILD_MSG = powershell -Command "Write-Host \"$(1)\" -ForegroundColor green"
@@ -52,14 +53,12 @@ else
     RUN_BIN = ${DST_DIR}/${BIN_FILE}$(if $(filter arm64,${HOST_ARCH}),.arm64)
 endif
 
-all: build
+all: all-platforms
 
-# 编译所有平台（手动触发）
-all-platforms: win win.arm64 linux linux.arm64 darwin darwin.amd64
+build: $(BUILD_TARGET)   # 只编译当前宿主 OS 对应的目标
+
+all-platforms: win win.arm64 linux linux.arm64 darwin darwin.amd64  # 编译所有平台（手动触发）
 	@echo All platforms built
-
-# 只编译当前宿主 OS 对应的目标
-build: $(BUILD_TARGET)
 
 win:   # 输出windows amd64平台的编译结果
 	@$(call GO_BUILD,1,windows,amd64,${DST_DIR}/${BIN_FILE}.exe,${MAIN_PROG})
