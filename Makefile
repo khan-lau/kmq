@@ -1,194 +1,98 @@
-.PHONY: all build clean run
+.PHONY: all build all-platforms win win.arm64 linux linux.arm64 darwin darwin.amd64 run check clean
 
 DST_DIR=dist
-PWD=
-
 BIN_FILE=kmq
-MAIN_PROG= cmd/main_helper.go \
-		cmd/main_service.go \
-		cmd/main.go
-
-Version=0.6.14
+MAIN_PROG=./cmd    # 必须要带有./前缀, 才能强制忽略标准库和依赖查找机制, 直接从当前目录开始查找, 否则会去标准库或依赖项中寻找, 例如: 直接去 $GOROOT/src/cmd/main 寻找，找不到了便报 not in std
+Version=0.6.15
 Author=Liu Kun
 
-DEBUG=-w -s
-param=-X main.BuildVersion=${Version} -X \"main.BuildTime=${BuildDate}\" -X \"main.BuildPerson=${Author}\" -X \"main.BuildName=${BIN_FILE}\"
+# 链接期注入参数(-w -s 去符号表, -X 注入版本信息)
+param=-w -s -X main.BuildVersion=${Version} -X \"main.BuildTime=${BuildDate}\" -X \"main.BuildPerson=${Author}\" -X \"main.BuildName=${BIN_FILE}\"
 
-
-# 全局设置 SHELL
+# ---- OS 检测(解析期确定): uname_S=平台名, SHELL ----
 ifeq ($(OS),Windows_NT)
     SHELL=cmd.exe
+    uname_S := Windows
+    tmp_lint=$(shell cmd /C "where /Q golangci-lint && echo YES||echo NO")
+    BuildDate=$(shell powershell -Command "Get-Date -Format 'yyyy-MM-dd HH:mm:ss'")
 else
     SHELL=/bin/sh
+    uname_S := $(shell uname -s)
+    tmp_lint=$(shell which golangci-lint > /dev/null 2>&1 && echo YES || echo NO)
+    BuildDate=$(shell date +"%F %T")
 endif
 
-ifeq ($(OS),Windows_NT)
-	uname_S=Windows
-
-    # 判断是否存在uname命令
-	tmp_uname=$(shell cmd /C "where /Q uname && echo YES||echo NO")
-	ifeq ($(tmp_uname),YES)
-		term_S=Windows_Mingw
-	endif
-	tmp_lint=$(shell cmd /C "where /Q golangci-lint && echo YES||echo NO")
-	BuildDate=$(shell powershell -Command "Get-Date -Format 'yyyy-MM-dd HH:mm:ss'")
-	PWD=$(shell cmd /C "chdir")
-else ifeq ($(OS),Darwin)
-	uname_S=$(shell uname -s)
-	BuildDate=$(shell date +"%F %T")
-	PWD=$(shell pwd)
-	tmp_lint=$(shell  which golangci-lint > /dev/null 2>&1 && echo YES || echo NO)
+# ---- 交叉编译命令模板: 仅按 shell 语法分 2 支 (cmd / sh) ----
+# GO_BUILD 参数: $(1)=CGO_ENABLED $(2)=GOOS $(3)=GOARCH $(4)=产物路径 (均显式传入)
+ifeq ($(uname_S),Windows)
+    GO_BUILD = cmd /C 'set CGO_ENABLED=$(1)&&set GOOS=$(2)&&set GOARCH=$(3)&&go build -v -ldflags '${param}' -o $(4) ${MAIN_PROG}'
+    BUILD_MSG = powershell -Command "Write-Host \"$(1)\" -ForegroundColor green"
 else
-	uname_S=$(shell uname -s)
-	BuildDate=$(shell date +"%F %T")
-	PWD=$(shell pwd)
-	tmp_lint=$(shell  which golangci-lint > /dev/null 2>&1 && echo YES || echo NO)
+    GO_BUILD = export CGO_ENABLED=$(1); export GOOS=$(2); export GOARCH=$(3); go build -v -ldflags "${param}" -o $(4) ${MAIN_PROG}
+    BUILD_MSG = printf '\033[0;32m %s\033[0m\n' '$(1)'
 endif
 
-# $(warning OS: $(OS) - ${uname_S} , ${param}, ${PWD})
-# $(warning VAR: $(RM), $(TARGET_OS), tmp_uname: ${tmp_uname},  term_S: ${term_S}, tmp_lint: ${tmp_lint})
+# golangci-lint 未安装时, check 执行到 ${LINT_GUARD} 那一行才触发 $(error)
+ifeq (${tmp_lint}, NO)
+    LINT_GUARD = $(error golangci-lint not found!  try run 'go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest')
+endif
 
-# --- Start of Modification for Native Build ---
-# Determine the native build target based on the detected OS
-BUILD_TARGET :=
-ifeq ($(uname_S), Windows)
-    BUILD_TARGET := win
-else ifeq ($(uname_S), Linux)
-    BUILD_TARGET := linux armlinux
-else ifeq ($(uname_S), Darwin)
-    BUILD_TARGET := darwin
+# ---- 本机平台判定: build 的默认目标 / run 的产物路径 / clean 的清理命令 ----
+HOST_ARCH := $(shell go env GOARCH)
+RM_DIST = rm --force ${DST_DIR}/*
+ifeq ($(uname_S),Windows)
+    BUILD_TARGET := $(if $(filter arm64,${HOST_ARCH}),win.arm64,win)
+    RUN_BIN = ${DST_DIR}/${BIN_FILE}.exe
+    RM_DIST = cmd /C 'del /F /Q ${DST_DIR}\\*'
+else ifeq ($(uname_S),Darwin)
+    BUILD_TARGET := $(if $(filter arm64,${HOST_ARCH}),darwin,darwin.amd64)
+    RUN_BIN = ${DST_DIR}/${BIN_FILE}.darwin$(if $(filter amd64,${HOST_ARCH}),.amd64)
 else
-    # Fallback for unexpected environments
-    $(warning Unknown OS detected: $(uname_S). Falling back to Linux build target.)
-    BUILD_TARGET := linux
+    BUILD_TARGET := $(if $(filter arm64,${HOST_ARCH}),linux.arm64,linux)
+    RUN_BIN = ${DST_DIR}/${BIN_FILE}$(if $(filter arm64,${HOST_ARCH}),.arm64)
 endif
-# --- End of Modification ---
-
 
 all: build
 
-# MODIFIED: 'build' now depends only on the current host OS target.
-build: $(BUILD_TARGET)
+all-platforms: win win.arm64 linux linux.arm64 darwin darwin.amd64  # 编译所有平台（手动触发）
+	@echo All platforms built
+
+build: $(BUILD_TARGET)  # 只编译当前宿主 OS 对应的目标
 	
-win:
-ifeq ($(uname_S), Windows)
-	@cmd /C 'set CGO_ENABLED=1&&set GOOS=windows&&go build -v -ldflags '${DEBUG} ${param}' -o ${DST_DIR}/${BIN_FILE}.exe  ${MAIN_PROG}'
-	@powershell -Command "Write-Host \"Build windows 64bit program - ${DST_DIR}/${BIN_FILE}.exe\" -ForegroundColor green"
-endif
-ifeq ($(uname_S), Linux)
-	@export CGO_ENABLED=1; export GOOS=windows; go build -v -ldflags "${DEBUG} ${param}" -o ${DST_DIR}/${BIN_FILE}.exe  ${MAIN_PROG}
-	@echo -e "\033[0;32m Build windows 64bit program - ${DST_DIR}/${BIN_FILE}.exe\033[0m"
-endif
-ifeq ($(uname_S), Darwin)
-	@export CGO_ENABLED=1; export GOOS=windows; export GOARCH=amd64; go build -v -ldflags "${DEBUG} ${param}" -o ${DST_DIR}/${BIN_FILE}.exe  ${MAIN_PROG}
-	@echo "\033[0;32m Build windows amd64bit program - ${DST_DIR}/${BIN_FILE}.exe\033[0m"
-endif
 
-linux:
-ifeq ($(uname_S), Windows)
-	@cmd /C 'set CGO_ENABLED=0&&set GOOS=linux&&go build -v -ldflags '${DEBUG} ${param}' -o ${DST_DIR}/${BIN_FILE}  ${MAIN_PROG}'
-	@powershell -Command "Write-Host \"Build linux 64bit program - ${DST_DIR}/${BIN_FILE}\" -ForegroundColor green"
-endif
-ifeq ($(uname_S), Linux)
-	@export CGO_ENABLED=0; export GOOS=linux; go build -v -ldflags "${DEBUG} ${param}" -o ${DST_DIR}/${BIN_FILE}  ${MAIN_PROG}
-	@echo -e "\033[0;32m Build linux 64bit program - ${DST_DIR}/${BIN_FILE}\033[0m"
-endif
-ifeq ($(uname_S), Darwin)
-	@export CGO_ENABLED=0; export GOOS=linux; export GOARCH=amd64; go build -v -ldflags "${DEBUG} ${param}" -o ${DST_DIR}/${BIN_FILE}  ${MAIN_PROG}
-	@echo "\033[0;32m Build linux amd64bit program - ${DST_DIR}/${BIN_FILE}\033[0m"
-endif
+win:   # 输出windows amd64平台的编译结果
+	@$(call GO_BUILD,1,windows,amd64,${DST_DIR}/${BIN_FILE}.exe)
+	@$(call BUILD_MSG,Build windows 64bit program - ${DST_DIR}/${BIN_FILE}.exe)
 
-armlinux:
-ifeq ($(uname_S), Windows)
-	@cmd /C 'set CGO_ENABLED=0&&set GOOS=linux&&set GOARCH=arm64&&go build -v -ldflags '${DEBUG} ${param}' -o ${DST_DIR}/${BIN_FILE}.arm64  ${MAIN_PROG}'
-	@powershell -Command "Write-Host \"Build linux 64bit program - ${DST_DIR}/${BIN_FILE}.arm64\" -ForegroundColor green"
-endif
-ifeq ($(uname_S), Linux)
-	@export CGO_ENABLED=0; export GOOS=linux; export GOARCH=arm64; go build -v -ldflags "${DEBUG} ${param}" -o ${DST_DIR}/${BIN_FILE}.arm64  ${MAIN_PROG}
-	@echo -e "\033[0;32m Build linux 64bit program - ${DST_DIR}/${BIN_FILE}.arm64\033[0m"
-endif
-ifeq ($(uname_S), Darwin)
-	@export CGO_ENABLED=0; export GOOS=linux; export GOARCH=arm64; go build -v -ldflags "${DEBUG} ${param}" -o ${DST_DIR}/${BIN_FILE}  ${MAIN_PROG}
-	@echo "\033[0;32m Build linux arm64bit program - ${DST_DIR}/${BIN_FILE}\033[0m"
-endif
+win.arm64:  # 输出windows arm64平台的编译结果
+	@$(call GO_BUILD,0,windows,arm64,${DST_DIR}/${BIN_FILE}.arm64.exe)
+	@$(call BUILD_MSG,Build windows arm64bit program - ${DST_DIR}/${BIN_FILE}.arm64.exe)
 
-darwin:
-ifeq ($(uname_S), Windows)
-	@cmd /C 'set CGO_ENABLED=1&&set GOOS=darwin&&set GOARCH=arm64&&go build -v -ldflags '${DEBUG} ${param}' -o ${DST_DIR}/${BIN_FILE}.darwin  ${MAIN_PROG}'
-	@powershell -Command "Write-Host \"Build MacOS arm64bit program - ${DST_DIR}/${BIN_FILE}.darwin\" -ForegroundColor green"
-endif
-ifeq ($(uname_S), Linux)
-	@export CGO_ENABLED=0; export GOOS=darwin; export GOARCH=arm64; go build -v -ldflags "${DEBUG} ${param}" -o ${DST_DIR}/${BIN_FILE}.darwin  ${MAIN_PROG}
-	@echo -e "\033[0;32m Build MacOS arm64bit program - ${DST_DIR}/${BIN_FILE}.darwin\033[0m"
-endif
-ifeq ($(uname_S), Darwin)
-	@export CGO_ENABLED=0; export GOOS=darwin; export GOARCH=arm64; go build -v -ldflags "${DEBUG} ${param}" -o ${DST_DIR}/${BIN_FILE}.darwin  ${MAIN_PROG}
-	@echo "\033[0;32m Build MacOS arm64bit program - ${DST_DIR}/${BIN_FILE}.darwin\033[0m"
-endif
+linux:  # 输出linux amd64平台的编译结果
+	@$(call GO_BUILD,0,linux,amd64,${DST_DIR}/${BIN_FILE})
+	@$(call BUILD_MSG,Build linux 64bit program - ${DST_DIR}/${BIN_FILE})
+
+linux.arm64:  # 输出linux arm64平台的编译结果
+	@$(call GO_BUILD,0,linux,arm64,${DST_DIR}/${BIN_FILE}.arm64)
+	@$(call BUILD_MSG,Build linux arm64bit program - ${DST_DIR}/${BIN_FILE}.arm64)
+
+darwin:  # 输出darwin arm64平台的编译结果
+	@$(call GO_BUILD,0,darwin,arm64,${DST_DIR}/${BIN_FILE}.darwin)
+	@$(call BUILD_MSG,Build MacOS arm64bit program - ${DST_DIR}/${BIN_FILE}.darwin)
+
+darwin.amd64:  # 输出darwin amd64平台的编译结果
+	@$(call GO_BUILD,0,darwin,amd64,${DST_DIR}/${BIN_FILE}.darwin.amd64)
+	@$(call BUILD_MSG,Build MacOS amd64bit program - ${DST_DIR}/${BIN_FILE}.darwin.amd64)
 
 # make ARGS="-v" run
-run:
-ifeq ($(uname_S), Windows)
-	${DST_DIR}/${BIN_FILE}.exe $(ARGS)
-endif
-ifeq ($(uname_S), Linux)
-	${DST_DIR}/${BIN_FILE} $(ARGS)
-endif
-ifeq ($(uname_S), Darwin)
-	${DST_DIR}/${BIN_FILE}.darwin $(ARGS)
-endif
+run: build
+	${RUN_BIN} $(ARGS)
 
 check:
-# 格式化代码
-ifeq ($(uname_S), Windows)
-
-# 检查是否已安装 golangci-lint
-ifeq ($(term_S), Windows_Mingw)
-ifeq (${tmp_lint}, NO)
-	$(error golangci-lint not found!  try run 'go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest' at mingw .${tmp_lint})
-endif
-else
-ifeq (${tmp_lint}, NO)
-	$(error golangci-lint not found!  try run 'go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest' at cmd .${tmp_lint})
-endif
-endif
-
-ifeq ($(term_S), Windows_Mingw)
-	@rm -f NUL
-	@find ./ -name '*.go' -exec go fmt {} \;
-else
-	@powershell -Command "Get-ChildItem -Path \"${PWD}\" -recurse *.go |ForEach-Object {go fmt $$_.FullName}"
-endif
-
-endif
-
-ifeq ($(uname_S), Linux)
-ifeq (${tmp_lint}, NO)
-	$(error golangci-lint not found!  try run 'go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest' at bash)
-endif
-	@find ./ -name '*.go' -exec go fmt {} \;
-endif
-
-ifeq ($(uname_S), Darwin)
-ifeq (${tmp_lint}, NO)
-	$(error golangci-lint not found!  try run 'go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest' at bash)
-endif
-	@find ./ -name '*.go' -exec go fmt {} \;
-endif
-
-# 语法检查
-# go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	${LINT_GUARD}
+	@go fmt ./...
 	@golangci-lint run
-
 
 clean:
 	@go clean
-ifeq ($(uname_S), Windows)
-	@cmd /C 'del /F /Q ${DST_DIR}\\*'
-endif
-ifeq ($(uname_S), Linux)
-	@rm --force ${DST_DIR}/*
-endif
-ifeq ($(uname_S), Darwin)
-	@rm --force ${DST_DIR}/*
-endif
+	@${RM_DIST}

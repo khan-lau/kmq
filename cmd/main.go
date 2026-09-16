@@ -178,13 +178,16 @@ func main() {
 			started := false
 			for range maxRetries {
 				if ctx.Context().Err() != nil {
-					started = false
+					glog.Error("pipeline start timeout")
+					mainCtx.Cancel()
 					return
+				} else {
+					if gPipeline.Status() == idl.ServiceStatusRunning {
+						started = true
+						break
+					}
 				}
-				if gPipeline.Status() == idl.ServiceStatusRunning {
-					started = true
-					break
-				}
+
 				time.Sleep(10 * time.Millisecond)
 			}
 

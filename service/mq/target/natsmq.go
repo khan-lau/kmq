@@ -127,7 +127,7 @@ func (that *NatsCoreMQ) Start() error {
 		time.Sleep(500 * time.Millisecond)
 		that.status = idl.ServiceStatusRunning //设置服务状态为运行状态
 	}()
-	that.publisher.Start()
+	_ = that.publisher.Start()
 	return nil
 }
 
@@ -377,7 +377,7 @@ func (that *NatsJetStreamMQ) Start() error {
 		time.Sleep(500 * time.Millisecond)
 		that.status = idl.ServiceStatusRunning //设置服务状态为运行状态
 	}()
-	that.publisher.Start()
+	_ = that.publisher.Start()
 	return nil
 }
 

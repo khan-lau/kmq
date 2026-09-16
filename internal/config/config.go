@@ -32,17 +32,17 @@ func (that *MQItemObj) MQConfig() any {
 }
 
 type Configure struct {
-	Type           string       `json:"type" toml:"type" yaml:"type" hcl:"type,attr"`                                         // 配置类型, 支持的类型: send recv
-	SyncTime       uint64       `json:"syncTime" toml:"syncTime" yaml:"syncTime" hcl:"syncTime,attr"`                         // 同步周期, 单位毫秒,不低于1000毫秒
-	SyncFile       string       `json:"syncFile" toml:"syncFile" yaml:"syncFile" hcl:"syncFile,attr"`                         // 同步文件路径, 同步偏移量缓存文件路径配置
-	SendInterval   kconf.Duration `json:"sendInterval" toml:"sendInterval" yaml:"sendInterval" hcl:"sendInterval,attr"` // 发送间隔, 支持 "2s" "500ms" "100us" "50ns" 或纯数字毫秒
-	SendQueueSize  uint32       `json:"sendQueueSize" toml:"sendQueueSize" yaml:"sendQueueSize" hcl:"sendQueueSize,attr"`     // 发送队列大小, 仅发送模式有效, 单位为条数, 默认值1024, 必须为2的次幂
-	SendFile       string       `json:"sendFile" toml:"sendFile" yaml:"sendFile" hcl:"sendFile,attr"`                         // 发送文件路径, 仅发送模式有效
-	DumpHex        bool         `json:"dumpHex" toml:"dumpHex" yaml:"dumpHex" hcl:"dumpHex,attr"`                             // 数据包是否为hexString格式; recv模式时体现在日志中; send模式时,表示 `sendFile` 中的格式是否为hexString格式
-	ResetTimestamp bool         `json:"resetTimestamp" toml:"resetTimestamp" yaml:"resetTimestamp" hcl:"resetTimestamp,attr"` // 是否重置时间戳
-	Log            *Log         `json:"log" toml:"log" yaml:"log" hcl:"log,attr"`                                             // 日志配置
-	Source         []*MQItemObj `json:"source" toml:"source" yaml:"source" hcl:"source,block"`                                // 消息队列配置
-	Target         []*MQItemObj `json:"target" toml:"target" yaml:"target" hcl:"target,block"`                                // 消息队列配置
+	Type           string         `json:"type" toml:"type" yaml:"type" hcl:"type,attr"`                                         // 配置类型, 支持的类型: send recv
+	SyncTime       uint64         `json:"syncTime" toml:"syncTime" yaml:"syncTime" hcl:"syncTime,attr"`                         // 同步周期, 单位毫秒,不低于1000毫秒
+	SyncFile       string         `json:"syncFile" toml:"syncFile" yaml:"syncFile" hcl:"syncFile,attr"`                         // 同步文件路径, 同步偏移量缓存文件路径配置
+	SendInterval   kconf.Duration `json:"sendInterval" toml:"sendInterval" yaml:"sendInterval" hcl:"sendInterval,attr"`         // 发送间隔, 支持 "2s" "500ms" "100us" "50ns" 或纯数字毫秒
+	SendQueueSize  uint32         `json:"sendQueueSize" toml:"sendQueueSize" yaml:"sendQueueSize" hcl:"sendQueueSize,attr"`     // 发送队列大小, 仅发送模式有效, 单位为条数, 默认值1024, 必须为2的次幂
+	SendFile       string         `json:"sendFile" toml:"sendFile" yaml:"sendFile" hcl:"sendFile,attr"`                         // 发送文件路径, 仅发送模式有效
+	DumpHex        bool           `json:"dumpHex" toml:"dumpHex" yaml:"dumpHex" hcl:"dumpHex,attr"`                             // 数据包是否为hexString格式; recv模式时体现在日志中; send模式时,表示 `sendFile` 中的格式是否为hexString格式
+	ResetTimestamp bool           `json:"resetTimestamp" toml:"resetTimestamp" yaml:"resetTimestamp" hcl:"resetTimestamp,attr"` // 是否重置时间戳
+	Log            *Log           `json:"log" toml:"log" yaml:"log" hcl:"log,attr"`                                             // 日志配置
+	Source         []*MQItemObj   `json:"source" toml:"source" yaml:"source" hcl:"source,block"`                                // 消息队列配置
+	Target         []*MQItemObj   `json:"target" toml:"target" yaml:"target" hcl:"target,block"`                                // 消息队列配置
 }
 
 func ConfigInstance(filePath string) (*Configure, error) {

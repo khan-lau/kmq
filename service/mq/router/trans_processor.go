@@ -77,8 +77,6 @@ func (that *TransProcessor) Process(_ *kcontext.ContextNode, maxBatchSize uint, 
 //	TransProcessor{targets: [kafkaTarget, natsTarget]}
 func (that *TransProcessor) String() string {
 	names := make([]string, 0, len(that.toTargets))
-	for _, name := range that.toTargets {
-		names = append(names, name)
-	}
+	names = append(names, that.toTargets...)
 	return fmt.Sprintf("BroadcastProcessor{targets: [%s]}", strings.Join(names, ", "))
 }
