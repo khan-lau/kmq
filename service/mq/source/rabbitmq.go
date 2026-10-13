@@ -82,7 +82,7 @@ func (that *RabbitMQ) Start() error {
 	rabbitConfig.SetExitCallback(func(event any) { that.onExit(event) })
 	rabbitConfig.SetErrorCallback(func(err error) { that.onError(that.name, err) })
 	rabbitConfig.Consumer.SetMessageHandler(func(voidObj any, msg rabbitmq.Message) {
-		that.OnRecved(msg, msg.RoutingKey, 0, msg.Timestamp.UnixMilli(), nil, []byte(msg.Body))
+		that.OnRecved(msg, msg.RoutingKey, 0, msg.Timestamp.UnixMilli(), msg.Timestamp.UnixMilli(), nil, []byte(msg.Body))
 	})
 
 	subscriber, err := rabbitmq.NewConsumer(rabbitConfig, that.logf)
@@ -132,9 +132,9 @@ func (that *RabbitMQ) onError(obj any, err error) {
 func (that *RabbitMQ) onExit(obj any) {
 }
 
-func (that *RabbitMQ) OnRecved(origin any, topic string, partition int, offset int64, properties map[string]string, message []byte) {
+func (that *RabbitMQ) OnRecved(origin any, topic string, partition int, offset int64, recvTime int64, properties map[string]string, message []byte) {
 	if that.OnRecivedCallback != nil {
-		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, properties, message)
+		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, recvTime, properties, message)
 	}
 }
 

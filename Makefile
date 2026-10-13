@@ -4,7 +4,7 @@
 DST_DIR=dist
 BIN_FILE=kmq
 MAIN_PROG=./cmd    # 必须要带有./前缀, 才能强制忽略标准库和依赖查找机制, 直接从当前目录开始查找, 否则会去标准库或依赖项中寻找, 例如: 直接去 $GOROOT/src/cmd/main 寻找，找不到了便报 not in std
-Version=0.6.15
+Version=0.6.16
 Author=Liu Kun
 
 # 链接期注入参数(-w -s 去符号表, -X 注入版本信息)

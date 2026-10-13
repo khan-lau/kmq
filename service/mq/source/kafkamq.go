@@ -118,7 +118,7 @@ func (that *KafkaMQ) Start() error {
 	kafkaConfig.SetErrorCallback(func(err error) { that.onError(that.name, err) })
 	kafkaConfig.Consumer.SetMessageHandler(func(voidObj any, msg kafkamq.KafkaMessage) {
 		keyMap := map[string]string{"key": string(msg.Key)}
-		that.OnRecved(msg, msg.Topic, int(msg.Partition), msg.Offset, keyMap, msg.Value)
+		that.OnRecved(msg, msg.Topic, int(msg.Partition), msg.Offset, msg.RecvTime, keyMap, msg.Value)
 	})
 
 	subscriber, err := kafkamq.NewConsumerGroup(that.ctx, that.kafkaBuffSize, kafkaConfig, that.logf)
@@ -167,9 +167,9 @@ func (that *KafkaMQ) onError(obj any, err error) {
 func (that *KafkaMQ) onExit(obj any) {
 }
 
-func (that *KafkaMQ) OnRecved(origin any, topic string, partition int, offset int64, properties map[string]string, message []byte) {
+func (that *KafkaMQ) OnRecved(origin any, topic string, partition int, offset int64, recvTime int64, properties map[string]string, message []byte) {
 	if that.OnRecivedCallback != nil {
-		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, properties, message)
+		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, recvTime, properties, message)
 	}
 }
 

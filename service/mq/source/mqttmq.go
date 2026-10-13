@@ -79,7 +79,7 @@ func (that *MqttMQ) Start() error {
 		SetTopics(that.conf.Topics...).SetUseTLS(that.conf.UseTLS).SetCaCertPath(that.conf.CaCertPath)
 
 	mqttConf.SetMessageHandler(func(voidObj any, msg mqtt.MqttMessage) {
-		that.OnRecved(nil, msg.Topic, 0, int64(msg.MessageID), nil, msg.Payload)
+		that.OnRecved(nil, msg.Topic, 0, int64(msg.MessageID), msg.RecvTime, nil, msg.Payload)
 	})
 
 	subscriber, err := mqtt.NewMqttClient(that.ctx, that.mqttBuffSize, mqttConf, that.logf)
@@ -138,9 +138,9 @@ func (that *MqttMQ) onError(obj any, err error) {
 // func (that *MqttMQ) onExit(obj any) {
 // }
 
-func (that *MqttMQ) OnRecved(origin any, topic string, partition int, offset int64, properties map[string]string, message []byte) {
+func (that *MqttMQ) OnRecved(origin any, topic string, partition int, offset int64, recvTime int64, properties map[string]string, message []byte) {
 	if that.OnRecivedCallback != nil {
-		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, properties, message)
+		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, recvTime, properties, message)
 	}
 }
 

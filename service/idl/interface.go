@@ -19,7 +19,7 @@ var (
 	ErrSrvDraining = errors.New("service is draining")
 )
 
-type OnRecived func(origin any, name string, topic string, partition int, offset int64, properties map[string]string, message []byte)
+type OnRecived func(origin any, name string, topic string, partition int, offset int64, recvTime int64, properties map[string]string, message []byte)
 
 type ServiceInterface interface {
 	// 服务名称

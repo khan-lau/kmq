@@ -75,7 +75,7 @@ func (that *RedisMQ) Start() error {
 	redisConf.SetExitCallback(func(event any) { that.onExit(event) })
 	redisConf.SetErrorCallback(func(err error) { that.onError(that.name, err) })
 	redisConf.SetMessageHandler(func(voidObj any, msg kredis.RedisMessage) {
-		that.OnRecved(nil, msg.Topic, 0, 0, nil, []byte(msg.Message))
+		that.OnRecved(nil, msg.Topic, 0, 0, msg.RecvTime, nil, []byte(msg.Message))
 	})
 
 	var err error
@@ -124,9 +124,9 @@ func (that *RedisMQ) onError(obj any, err error) {
 func (that *RedisMQ) onExit(obj any) {
 }
 
-func (that *RedisMQ) OnRecved(origin any, topic string, partition int, offset int64, properties map[string]string, message []byte) {
+func (that *RedisMQ) OnRecved(origin any, topic string, partition int, offset int64, recvTime int64, properties map[string]string, message []byte) {
 	if that.OnRecivedCallback != nil {
-		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, properties, message)
+		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, recvTime, properties, message)
 	}
 }
 

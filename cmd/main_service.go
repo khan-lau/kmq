@@ -87,8 +87,8 @@ func startMqSource(ctx *kcontext.ContextNode, recvQueueSize uint, toHex bool, so
 							}
 
 							natsCoreMq.SetOnRecivedCallback(
-								func(origin any, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-									onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, false, message)
+								func(origin any, name string, topic string, partition int, offset int64, recvTime int64, properties map[string]string, message []byte) {
+									onRecved(origin, name, topic, partition, offset, recvTime, properties, item.Compress, toHex, false, message)
 								},
 							)
 							gMqSourceManager[item.MQType] = natsCoreMq
@@ -131,8 +131,8 @@ func startMqSource(ctx *kcontext.ContextNode, recvQueueSize uint, toHex bool, so
 								logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, 0, "start nats jetstream source: [%s], topic: [%s]", strings.Join(natsJsConfig.BrokerList, ", "), strings.Join(natsJsConfig.Topics, ", "))
 							}
 							natsJsMq.SetOnRecivedCallback(
-								func(origin any, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-									onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, natsJsConfig.ConsumerConfig.AutoCommit == natsmq.AUTO_COMMIT_NONE, message)
+								func(origin any, name string, topic string, partition int, offset int64, recvTime int64, properties map[string]string, message []byte) {
+									onRecved(origin, name, topic, partition, offset, recvTime, properties, item.Compress, toHex, natsJsConfig.ConsumerConfig.AutoCommit == natsmq.AUTO_COMMIT_NONE, message)
 								},
 							)
 							gMqSourceManager[item.MQType] = natsJsMq
@@ -185,8 +185,8 @@ func startMqSource(ctx *kcontext.ContextNode, recvQueueSize uint, toHex bool, so
 							}
 
 							kafkaMq.SetOnRecivedCallback(
-								func(origin any, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-									onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, kafkaConfig.Consumer.AutoCommit == kafkamq.AUTO_COMMIT_NONE, message)
+								func(origin any, name string, topic string, partition int, offset int64, recvTime int64, properties map[string]string, message []byte) {
+									onRecved(origin, name, topic, partition, offset, recvTime, properties, item.Compress, toHex, kafkaConfig.Consumer.AutoCommit == kafkamq.AUTO_COMMIT_NONE, message)
 								},
 							)
 							gMqSourceManager[item.MQType] = kafkaMq
@@ -218,8 +218,8 @@ func startMqSource(ctx *kcontext.ContextNode, recvQueueSize uint, toHex bool, so
 							}
 
 							rabbitMq.SetOnRecivedCallback(
-								func(origin any, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-									onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, rabbitConfig.Consumer.AutoCommit == rabbitmq.AUTO_COMMIT_NONE, message)
+								func(origin any, name string, topic string, partition int, offset int64, recvTime int64, properties map[string]string, message []byte) {
+									onRecved(origin, name, topic, partition, offset, recvTime, properties, item.Compress, toHex, rabbitConfig.Consumer.AutoCommit == rabbitmq.AUTO_COMMIT_NONE, message)
 								},
 							)
 							gMqSourceManager[item.MQType] = rabbitMq
@@ -249,8 +249,8 @@ func startMqSource(ctx *kcontext.ContextNode, recvQueueSize uint, toHex bool, so
 								logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, 0, "start redis source, [%s], topic: [%s]", strings.Join(redisConfig.Addrs, ", "), strings.Join(redisConfig.Topics, ", "))
 							}
 							redisMq.SetOnRecivedCallback(
-								func(origin any, name string, topic string, _ int, _ int64, _ map[string]string, message []byte) {
-									onRecved(origin, name, topic, 0, 0, nil, item.Compress, toHex, false, message)
+								func(origin any, name string, topic string, _ int, _ int64, recvTime int64, _ map[string]string, message []byte) {
+									onRecved(origin, name, topic, 0, 0, recvTime, nil, item.Compress, toHex, false, message)
 								},
 							)
 							gMqSourceManager[item.MQType] = redisMq
@@ -293,8 +293,8 @@ func startMqSource(ctx *kcontext.ContextNode, recvQueueSize uint, toHex bool, so
 								logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, 0, "start rocketmq source: [%s], topic: [%s]", strings.Join(rocketConfig.Servers, ", "), strings.Join(rocketConfig.Consumer.Topics, ", "))
 							}
 							rocketMq.SetOnRecivedCallback(
-								func(origin any, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-									onRecved(origin, name, topic, partition, offset, properties, item.Compress, toHex, rocketConfig.Consumer.AutoCommit == rocketmq.AUTO_COMMIT_NONE, message)
+								func(origin any, name string, topic string, partition int, offset int64, recvTime int64, properties map[string]string, message []byte) {
+									onRecved(origin, name, topic, partition, offset, recvTime, properties, item.Compress, toHex, rocketConfig.Consumer.AutoCommit == rocketmq.AUTO_COMMIT_NONE, message)
 								},
 							)
 							gMqSourceManager[item.MQType] = rocketMq
@@ -324,8 +324,8 @@ func startMqSource(ctx *kcontext.ContextNode, recvQueueSize uint, toHex bool, so
 								logf(klog.InfoLevel, DEFAULT_LOGGER_TAG, 0, "start mqtt3 source: %s, topic: [%s]", mqttConfig.Broker, strings.Join(mqttConfig.Topics, ","))
 							}
 							mqttClient.SetOnRecivedCallback(
-								func(origin any, name string, topic string, partition int, offset int64, properties map[string]string, message []byte) {
-									onRecved(origin, name, topic, 0, 0, nil, item.Compress, toHex, false, message)
+								func(origin any, name string, topic string, partition int, offset int64, recvTime int64, properties map[string]string, message []byte) {
+									onRecved(origin, name, topic, 0, 0, recvTime, nil, item.Compress, toHex, false, message)
 								},
 							)
 							gMqSourceManager[item.MQType] = mqttClient
@@ -923,10 +923,11 @@ END_SEND:
 //   - topic string: 主题名称
 //   - partition int: 分区编号
 //   - offset int64: 偏移量
+//   - recvTime int64: 消息接收时间戳
 //   - properties map[string]string: 标签信息
 //   - isCompress bool: 是否为压缩数据
 //   - message []byte: 消息数据
-func onRecved(origin any, name string, topic string, partition int, offset int64, _ map[string]string, isCompress bool, toHex bool, manualAck bool, message []byte) {
+func onRecved(origin any, name string, topic string, partition int, offset int64, _ int64, _ map[string]string, isCompress bool, toHex bool, manualAck bool, message []byte) {
 	// 源数据是否为压缩数据, 压缩数据必须是zip压缩算法
 	var str string
 	if isCompress {

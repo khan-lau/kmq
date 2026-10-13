@@ -114,7 +114,7 @@ func (that *NatsCoreMQ) Start() error {
 	natsConf.SetOnExit(func(event any) { that.onExit(event) })
 	natsConf.SetOnError(func(err error) { that.onError(that.name, err) })
 	natsConf.CoreNats().SetMainHandler(func(voidObj any, msg natsmq.NatsMessage) {
-		that.OnRecved(msg, msg.Topic, 0, msg.Seq, nil, []byte(msg.Payload))
+		that.OnRecved(msg, msg.Topic, 0, msg.Seq, msg.RecvTime, nil, []byte(msg.Payload))
 	})
 
 	subscriber, err := natsmq.NewNatsCoreClient(that.ctx, that.coreBuffSize, natsConf, that.logf)
@@ -164,9 +164,9 @@ func (that *NatsCoreMQ) onError(obj any, err error) {
 func (that *NatsCoreMQ) onExit(obj any) {
 }
 
-func (that *NatsCoreMQ) OnRecved(origin any, topic string, partition int, offset int64, properties map[string]string, message []byte) {
+func (that *NatsCoreMQ) OnRecved(origin any, topic string, partition int, offset int64, recvTime int64, properties map[string]string, message []byte) {
 	if that.OnRecivedCallback != nil {
-		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, properties, message)
+		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, recvTime, properties, message)
 	}
 }
 
@@ -342,7 +342,7 @@ func (that *NatsJetStreamMQ) Start() error {
 	})
 
 	natsConf.JetStream().SetMainHandler(func(voidObj any, msg natsmq.NatsMessage) {
-		that.OnRecved(msg, msg.Topic, 0, msg.Seq, nil, []byte(msg.Payload))
+		that.OnRecved(msg, msg.Topic, 0, msg.Seq, msg.RecvTime, nil, []byte(msg.Payload))
 	})
 
 	go func() {
@@ -385,9 +385,9 @@ func (that *NatsJetStreamMQ) onError(obj any, err error) {
 func (that *NatsJetStreamMQ) onExit(obj any) {
 }
 
-func (that *NatsJetStreamMQ) OnRecved(origin any, topic string, partition int, offset int64, properties map[string]string, message []byte) {
+func (that *NatsJetStreamMQ) OnRecved(origin any, topic string, partition int, offset int64, recvTime int64, properties map[string]string, message []byte) {
 	if that.OnRecivedCallback != nil {
-		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, properties, message)
+		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, recvTime, properties, message)
 	}
 }
 

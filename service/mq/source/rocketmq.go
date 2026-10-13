@@ -114,7 +114,7 @@ func (that *RocketMQ) Start() error {
 	rocketConfig.SetExitCallback(func(event any) { that.onExit(event) })
 	rocketConfig.SetErrorCallback(func(err error) { that.onError(that.name, err) })
 	rocketConfig.Consumer.SetMainHandler(func(voidObj any, msg rocketmq.Message) {
-		that.OnRecved(msg, msg.Topic, 0, int64(msg.StoreTimestamp), msg.GetProperties(), msg.Body)
+		that.OnRecved(msg, msg.Topic, 0, int64(msg.StoreTimestamp), msg.StoreTimestamp, msg.GetProperties(), msg.Body)
 	})
 
 	subscriber, err := rocketmq.NewPushConsumer(that.ctx, that.rocketBuffSize, rocketConfig, that.logf)
@@ -164,9 +164,9 @@ func (that *RocketMQ) onError(obj any, err error) {
 func (that *RocketMQ) onExit(obj any) {
 }
 
-func (that *RocketMQ) OnRecved(origin any, topic string, partition int, offset int64, properties map[string]string, message []byte) {
+func (that *RocketMQ) OnRecved(origin any, topic string, partition int, offset int64, recvTime int64, properties map[string]string, message []byte) {
 	if that.OnRecivedCallback != nil {
-		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, properties, message)
+		that.OnRecivedCallback(origin, that.Name(), topic, partition, offset, recvTime, properties, message)
 	}
 }
 
