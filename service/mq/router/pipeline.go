@@ -25,6 +25,7 @@ const (
 type GenericMessage struct {
 	Tag        string            `json:"tag"`
 	Topic      string            `json:"topic"`
+	RecvTime   int64             `json:"recvTime"` // 从mq sdk的队列接收到的时间戳, 精确到毫秒级
 	Message    []byte            `json:"message"`
 	Properties map[string]string `json:"properties"`
 }
